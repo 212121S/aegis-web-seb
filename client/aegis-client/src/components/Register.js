@@ -22,7 +22,7 @@ function Register() {
   const [error, setError] = useState(null);
 
   const handleChange = (e) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [e.target.name]: e.target.value
     }));
@@ -34,8 +34,15 @@ function Register() {
     setError(null);
 
     try {
-      // Adjust the URL to match your server endpoint (e.g., local or production)
-      const res = await axios.post("http://localhost:4000/api/auth/register", formData);
+      // 1) If your server is DEPLOYED (e.g., Render, Heroku), use that HTTPS URL:
+      // const serverURL = "https://YOUR-DEPLOYED-SERVER.com/api/auth/register";
+
+      // 2) If you’re still working locally, uncomment the line below instead:
+      // const serverURL = "http://localhost:4000/api/auth/register";
+
+      const serverURL = "https://YOUR-DEPLOYED-SERVER.com/api/auth/register"; // Replace with your actual backend URL.
+
+      const res = await axios.post(serverURL, formData);
 
       if (res.status === 201) {
         setMessage("Registration successful! You can now log in.");
@@ -43,7 +50,8 @@ function Register() {
       }
     } catch (err) {
       console.error(err);
-      if (err.response && err.response.data.message) {
+
+      if (err.response && err.response.data && err.response.data.message) {
         setError(err.response.data.message);
       } else {
         setError("Registration failed. Please try again.");
@@ -57,8 +65,16 @@ function Register() {
         Create an Account
       </Typography>
 
-      {message && <Alert severity="success" style={{ marginBottom: "1rem" }}>{message}</Alert>}
-      {error && <Alert severity="error" style={{ marginBottom: "1rem" }}>{error}</Alert>}
+      {message && (
+        <Alert severity="success" style={{ marginBottom: "1rem" }}>
+          {message}
+        </Alert>
+      )}
+      {error && (
+        <Alert severity="error" style={{ marginBottom: "1rem" }}>
+          {error}
+        </Alert>
+      )}
 
       <form onSubmit={handleSubmit}>
         <Stack spacing={3}>
