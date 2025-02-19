@@ -1,0 +1,11 @@
+{
+    "name": "aegis",
+    "version": "1.0.0",
+    "scripts": {
+      "install-all": "cd server && npm install && cd ../client/aegis-client && npm install",
+      "dev": "concurrently \"npm run dev --prefix server\" \"npm start --prefix client/aegis-client\""
+    },
+    "devDependencies": {
+      "concurrently": "^7.0.0"
+    }
+  }
