@@ -27,7 +27,7 @@ const express_1 = require("express");
 const examController = __importStar(require("../controllers/examController"));
 const authMiddleware_1 = require("../middleware/authMiddleware");
 const router = (0, express_1.Router)();
-// Protected routes
+// Example protected routes
 router.get("/questions", authMiddleware_1.requireAuth, examController.getQuestions);
 router.post("/submit", authMiddleware_1.requireAuth, examController.submitExam);
 exports.default = router;

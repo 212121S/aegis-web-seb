@@ -1,29 +1,21 @@
-import { MongoClient, ServerApiVersion } from "mongodb";
+// server/src/database.ts
+import mongoose from "mongoose";
 import dotenv from "dotenv";
 
 dotenv.config(); // loads .env
 
-const uri = process.env.MONGO_URI || "";
-if (!uri) {
+const MONGO_URI = process.env.MONGO_URI || "";
+if (!MONGO_URI) {
   throw new Error("No MONGO_URI found in .env");
 }
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
-export const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
-});
-
+// Connects via Mongoose instead of MongoClient
 export async function connectMongo() {
   try {
-    await client.connect();
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    await mongoose.connect(MONGO_URI);
+    console.log("✅ Connected to MongoDB Atlas via Mongoose!");
   } catch (err) {
-    console.error("Error connecting to MongoDB:", err);
+    console.error("Mongoose connect error:", err);
     throw err;
   }
 }

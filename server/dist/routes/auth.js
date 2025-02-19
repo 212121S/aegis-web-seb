@@ -26,6 +26,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const authController = __importStar(require("../controllers/authController"));
 const router = (0, express_1.Router)();
+// POST /api/auth/register
 router.post("/register", authController.register);
-// router.post("/login", authController.login); // assume existing
+// (Optional) If you have login logic:
+// router.post("/login", authController.login);
 exports.default = router;

@@ -4,7 +4,7 @@ import { requireAuth } from "../middleware/authMiddleware";
 
 const router = Router();
 
-// Protected routes
+// Example protected routes
 router.get("/questions", requireAuth, examController.getQuestions);
 router.post("/submit", requireAuth, examController.submitExam);
 
