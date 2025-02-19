@@ -6,8 +6,13 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const app = express();
+app.use(cors({
+  origin: [
+    "http://localhost:3000",
+    "https://www.aegistestingtech.com"
+  ]
+}));
 app.use(express.json());
-app.use(cors());
 
 // Connect to Mongo
 connectMongo().catch((err) => {
