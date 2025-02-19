@@ -1,3 +1,4 @@
+// src/middleware/authMiddleware.ts
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
@@ -10,7 +11,7 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
   if (!header) {
     return res.status(401).json({ message: "No auth header" });
   }
-  const token = header.split(" ")[1]; 
+  const token = header.split(" ")[1];
   if (!token) {
     return res.status(401).json({ message: "No token" });
   }

@@ -1,0 +1,16 @@
+/* client/aegis-client/src/styles/Main.css */
+
+body {
+    margin: 0;
+    font-family: "Roboto", sans-serif;
+    background-color: #f7f9fc;
+  }
+  
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  
+  button, input, textarea {
+    font-family: inherit;
+  }
