@@ -1,40 +1,26 @@
 import express from "express";
-import mongoose from "mongoose";
+import { connectMongo } from "./database"; // <-- from step 2
 import cors from "cors";
-import morgan from "morgan";
 import dotenv from "dotenv";
-
-import authRoutes from "./routes/auth";
-import examRoutes from "./routes/exam";
 
 dotenv.config();
 
 const app = express();
-
-// ---------- MIDDLEWARE ----------
 app.use(express.json());
-app.use(cors({
-  origin: ["http://localhost:3000"] // Adjust for your React dev or production
-}));
-app.use(morgan("dev"));
+app.use(cors());
 
-// ---------- ROUTES ----------
-app.use("/api/auth", authRoutes);
-app.use("/api/exam", examRoutes);
+// Connect to Mongo
+connectMongo().catch((err) => {
+  console.error("Failed to init Mongo:", err);
+  process.exit(1);
+});
 
-// ---------- DATABASE & SERVER INIT ----------
+// Example route
+app.get("/", (req, res) => {
+  res.send("Hello from Aegis!");
+});
+
 const PORT = process.env.PORT || 4000;
-const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/aegis";
-
-mongoose.connect(MONGO_URI)
-  .then(() => {
-    console.log("✅ Connected to MongoDB");
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-    });
-  })
-  .catch(err => {
-    console.error("❌ MongoDB connection error:", err);
-  });
-
-export default app;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
