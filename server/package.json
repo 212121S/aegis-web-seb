@@ -16,6 +16,9 @@
         "mongoose": "^7.6.0",
         "morgan": "^1.10.0"
     },
+    "overrides":{
+        "mongodb": "6.13.0"
+    },
     "scripts": {
         "dev": "ts-node src/app.ts",
         "build": "tsc",
