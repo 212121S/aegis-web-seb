@@ -1,0 +1,22 @@
+# Node modules
+node_modules
+# Yarn lock file (or NPM lock, whichever you don’t want to commit)
+yarn.lock
+
+# Build output
+dist
+lib
+build
+
+# Environment files with secrets
+.env
+.env.*
+
+# Mac OS or Linux system files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs
+npm-debug.log*
