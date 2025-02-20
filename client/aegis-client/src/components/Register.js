@@ -40,7 +40,7 @@ function Register() {
       // 2) If you’re still working locally, uncomment the line below instead:
       // const serverURL = "http://localhost:4000/api/auth/register";
 
-      const serverURL = "https://YOUR-DEPLOYED-SERVER.com/api/auth/register"; // Replace with your actual backend URL.
+      const serverURL = "https://aegis-web-seb.onrender.com"; // Replace with your actual backend URL.
 
       const res = await axios.post(serverURL, formData);
 
