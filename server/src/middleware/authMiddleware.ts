@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-interface UserPayload {
-  id: string;
+export interface UserPayload {
+  _id: string;
   email: string;
 }
 
@@ -33,7 +33,11 @@ export const authenticateToken = (
       throw new Error('JWT_SECRET is not defined');
     }
 
-    const payload = jwt.verify(token, jwtSecret) as UserPayload;
+    const decoded = jwt.verify(token, jwtSecret) as { _id: string; email: string };
+    const payload: UserPayload = {
+      _id: decoded._id,
+      email: decoded.email
+    };
     req.user = payload;
     next();
   } catch (error) {

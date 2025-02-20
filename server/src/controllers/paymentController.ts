@@ -6,11 +6,10 @@ import { User } from '../models/User';
 dotenv.config();
 
 // Extend Request type to include user
+import { UserPayload } from '../middleware/authMiddleware';
+
 interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-  };
+  user?: UserPayload;
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
@@ -37,7 +36,7 @@ const plans = {
 export const createCheckoutSession = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { planId } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?._id;
 
     if (!userId) {
       return res.status(401).json({ message: 'User not authenticated' });
@@ -116,7 +115,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
 export const getSubscriptionStatus = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?._id;
     
     if (!userId) {
       return res.status(401).json({ message: 'User not authenticated' });
@@ -148,7 +147,7 @@ export const getSubscriptionStatus = async (req: AuthenticatedRequest, res: Resp
 export const verifySession = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { sessionId } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?._id;
 
     if (!userId) {
       return res.status(401).json({ message: 'User not authenticated' });
@@ -190,7 +189,7 @@ export const verifySession = async (req: AuthenticatedRequest, res: Response) =>
 
 export const cancelSubscription = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?._id;
 
     if (!userId) {
       return res.status(401).json({ message: 'User not authenticated' });

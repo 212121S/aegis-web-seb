@@ -1,7 +1,7 @@
 import mongoose, { Document, Model } from 'mongoose';
 import bcrypt from 'bcrypt';
 
-interface ISubscription {
+export interface ISubscription {
   planId: string;
   active: boolean;
   stripeCustomerId?: string;

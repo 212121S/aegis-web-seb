@@ -1,35 +1,25 @@
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { getUserCollection, IUser } from "../models/User";
+import { User, IUser } from "../models/User";
 
 export async function register(req: Request, res: Response) {
   try {
-    const { email, username, password, phone } = req.body;
-    const userCol = getUserCollection();
+    const { email, name, password } = req.body;
 
-    // 1) Check if email or username exist
-    const existingEmail = await userCol.findOne({ email });
-    if (existingEmail) {
+    // 1) Check if email exists
+    const existingUser = await User.findByEmail(email);
+    if (existingUser) {
       return res.status(400).json({ message: "Email already registered." });
     }
-    const existingUsername = await userCol.findOne({ username });
-    if (existingUsername) {
-      return res.status(400).json({ message: "Username already taken." });
-    }
 
-    // 2) Hash password
-    const hashedPass = await bcrypt.hash(password, 10);
-
-    // 3) Insert new user doc
-    const newUser: IUser = {
+    // 2) Create new user
+    const newUser = new User({
       email,
-      username,
-      password: hashedPass,
-      phone,
-      role: "student" // or set default if you want
-    };
-    await userCol.insertOne(newUser);
+      name,
+      password // Password will be hashed by the pre-save hook
+    });
+    await newUser.save();
 
     return res.status(201).json({ message: "User registered successfully!" });
   } catch (err) {

@@ -1,18 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { User } from '../models/User';
-
-interface ISubscription {
-  planId: string;
-  active: boolean;
-  stripeCustomerId?: string;
-  stripeSubscriptionId?: string;
-  currentPeriodEnd?: Date;
-}
+import { User, ISubscription } from '../models/User';
+import { UserPayload } from './authMiddleware';
 
 interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
+  user?: UserPayload & {
     subscription?: ISubscription;
   };
 }
@@ -23,7 +14,7 @@ export const requireActiveSubscription = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?._id;
 
     if (!userId) {
       return res.status(401).json({ message: 'Authentication required' });
@@ -42,9 +33,9 @@ export const requireActiveSubscription = async (
     }
 
     // Add subscription info to request for use in route handlers
-    if (req.user?.id && req.user?.email) {
+    if (req.user?._id && req.user?.email) {
       req.user = {
-        id: req.user.id,
+        _id: req.user._id,
         email: req.user.email,
         subscription: user.subscription
       };
@@ -64,13 +55,13 @@ export const checkSubscription = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?._id;
 
     if (userId) {
       const user = await User.findById(userId);
-      if (user?.subscription && req.user?.id && req.user?.email) {
+      if (user?.subscription && req.user?._id && req.user?.email) {
         req.user = {
-          id: req.user.id,
+          _id: req.user._id,
           email: req.user.email,
           subscription: user.subscription
         };

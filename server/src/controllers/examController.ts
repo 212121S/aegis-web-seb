@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { AuthRequest } from "../middleware/authMiddleware";
 import { Collection, ObjectId } from "mongodb";
 import { client } from "../database";
 import { getQuestionCollection, IQuestion, ITestSession, ITestResult } from "../models/Question";
@@ -39,7 +38,7 @@ function calculateScore(questions: ITestSession['questions']): number {
   return (totalPoints / maxPossiblePoints) * 100;
 }
 
-export async function initializeTest(req: AuthRequest, res: Response) {
+export async function initializeTest(req: Request, res: Response) {
   try {
     const { type } = req.body;
     
@@ -65,7 +64,7 @@ export async function initializeTest(req: AuthRequest, res: Response) {
     }
 
     const testSession: ITestSession = {
-      userId: req.user!._id,
+      userId: new ObjectId(req.user!._id),
       startTime: new Date(),
       questions: [],
       currentScore: 0,
@@ -83,7 +82,7 @@ export async function initializeTest(req: AuthRequest, res: Response) {
   }
 }
 
-export async function getNextQuestion(req: AuthRequest, res: Response) {
+export async function getNextQuestion(req: Request, res: Response) {
   try {
     const { sessionId } = req.params;
     const sessionCol = getTestSessionCollection();
@@ -126,7 +125,7 @@ export async function getNextQuestion(req: AuthRequest, res: Response) {
   }
 }
 
-export async function submitAnswer(req: AuthRequest, res: Response) {
+export async function submitAnswer(req: Request, res: Response) {
   try {
     const { sessionId } = req.params;
     const { questionId, answer, timeSpent } = req.body;
@@ -191,7 +190,7 @@ export async function submitAnswer(req: AuthRequest, res: Response) {
   }
 }
 
-export async function submitRecording(req: AuthRequest, res: Response) {
+export async function submitRecording(req: Request, res: Response) {
   try {
     const { sessionId } = req.params;
     const { recordingUrl } = req.body;
@@ -208,7 +207,7 @@ export async function submitRecording(req: AuthRequest, res: Response) {
   }
 }
 
-export async function finalizeTest(req: AuthRequest, res: Response) {
+export async function finalizeTest(req: Request, res: Response) {
   try {
     const { sessionId } = req.params;
     
