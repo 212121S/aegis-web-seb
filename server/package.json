@@ -6,11 +6,7 @@
         },
     "description": "Aegis backend server",
     "main": "dist/app.js",
-    "scripts": {
-        "dev": "ts-node src/app.ts",
-        "build": "tsc",
-        "start": "node dist/app.js"
-    },
+
     "dependencies": {
         "bcrypt": "^5.1.0",
         "cors": "^2.8.5",
@@ -19,6 +15,11 @@
         "jsonwebtoken": "^9.0.0",
         "mongoose": "^7.6.0",
         "morgan": "^1.10.0"
+    },
+    "scripts": {
+        "dev": "ts-node src/app.ts",
+        "build": "tsc",
+        "start": "node dist/app.js"
     },
     "devDependencies": {
         "@types/bcrypt": "^5.0.0",
