@@ -24,8 +24,7 @@
     "scripts": {
       "dev": "ts-node src/app.ts",
       "build": "tsc",
-      "start": "node dist/app.js",
-      "postinstall": "npm install --build-from-source=bcrypt"
+      "start": "node dist/app.js"
     },
   
     "devDependencies": {
