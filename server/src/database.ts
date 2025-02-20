@@ -1,21 +1,18 @@
 // server/src/database.ts
-import mongoose from "mongoose";
+import { MongoClient } from "mongodb";
 import dotenv from "dotenv";
 
-dotenv.config(); // loads .env
+dotenv.config();
 
-const MONGO_URI = process.env.MONGO_URI || "";
-if (!MONGO_URI) {
-  throw new Error("No MONGO_URI found in .env");
-}
+const uri = process.env.MONGO_URI || "";
+export const client = new MongoClient(uri);
 
-// Connects via Mongoose instead of MongoClient
-export async function connectMongo() {
+export async function connectMongo(): Promise<void> {
   try {
-    await mongoose.connect(MONGO_URI);
-    console.log("✅ Connected to MongoDB Atlas via Mongoose!");
+    await client.connect();
+    console.log("✅ Connected to MongoDB (Native Driver)!");
   } catch (err) {
-    console.error("Mongoose connect error:", err);
+    console.error("MongoDB connection error:", err);
     throw err;
   }
 }

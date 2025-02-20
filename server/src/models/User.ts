@@ -1,19 +1,21 @@
-import mongoose, { Schema, Document } from "mongoose";
+// server/src/models/user.ts
+import { Collection, WithId } from "mongodb";
+import { client } from "../database"; // see below how to define client in database.ts
 
-export interface IUser extends Document {
+// Basic interface (equivalent to Mongoose's IUser)
+export interface IUser {
   email: string;
   username: string;
   password: string;
   phone: string;
-  role: string; // optional
+  role?: string; // "student" or others
 }
 
-const userSchema = new Schema<IUser>({
-  email: { type: String, unique: true, required: true },
-  username: { type: String, unique: true, required: true },
-  password: { type: String, required: true },
-  phone: { type: String, required: true },
-  role: { type: String, default: "student" }
-});
-
-export default mongoose.model<IUser>("User", userSchema);
+/**
+ * Utility function that returns the "users" collection.
+ * Add your DB name below (e.g. "aegis").
+ */
+export function getUserCollection(): Collection<IUser> {
+  const dbName = "aegis"; // Or read from env if needed
+  return client.db(dbName).collection<IUser>("users");
+}
