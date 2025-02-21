@@ -81,11 +81,23 @@ export async function getNextQuestion(req: Request, res: Response) {
       ? session.questions[session.questions.length - 1].difficulty 
       : 1;
 
+    console.log('Getting next question:', {
+      currentDifficulty,
+      questionsAnswered: session.questions.length,
+      answeredIds: session.questions.map(q => q.questionId)
+    });
+
     const question = await Question.findOne({
       difficulty: { $gte: currentDifficulty },
       isActive: true,
       _id: { $nin: session.questions.map(q => q.questionId) }
-    });
+    }).sort({ difficulty: 1 });
+
+    console.log('Found question:', question ? { 
+      id: question._id,
+      difficulty: question.difficulty,
+      category: question.category 
+    } : 'No question found');
 
     if (!question) {
       return res.status(404).json({ error: 'No more questions available' });
