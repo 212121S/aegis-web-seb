@@ -19,7 +19,7 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 // Configure CORS with proper options
 const allowedOrigins = isDevelopment 
   ? ['http://localhost:3000', 'http://localhost:3001']
-  : ['https://aegistestingtech.com', 'https://www.aegistestingtech.com', 'https://aegis-web-seb.onrender.com'];
+  : ['https://aegistestingtech.com', 'https://www.aegistestingtech.com'];
 
 // Function to check if origin matches allowed patterns
 const isOriginAllowed = (origin: string): boolean => {
@@ -59,7 +59,7 @@ const corsOptions: CorsOptions = {
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true,
+  credentials: false,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',

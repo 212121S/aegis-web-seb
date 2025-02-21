@@ -5,8 +5,8 @@ const baseURL = `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api
 
 const instance = axios.create({
   baseURL,
-  timeout: 10000,
-  withCredentials: true,
+  timeout: 30000,
+  withCredentials: false,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
@@ -66,14 +66,6 @@ instance.interceptors.response.use(
 // Exam API endpoints
 export const examAPI = {
   initialize: async (type) => {
-    const browserInfo = {
-      name: navigator.userAgent.includes('Chrome') ? 'Chrome' : 
-            navigator.userAgent.includes('Firefox') ? 'Firefox' : 
-            navigator.userAgent.includes('Safari') ? 'Safari' : 'Unknown',
-      version: navigator.appVersion,
-      os: navigator.platform
-    };
-    
     const response = await instance.post('/exam/initialize', { type });
     return response.data;
   },
@@ -133,12 +125,10 @@ export const authAPI = {
 
   getProfile: async () => {
     try {
-      console.log('Token:', localStorage.getItem('token')); // Debug token
       const response = await instance.get('/auth/user/profile');
-      console.log('Profile Response:', response); // Debug response
-      return response;
+      return response.data;
     } catch (error) {
-      console.error('Profile Error:', error.response || error); // Debug error
+      console.error('Profile Error:', error.response || error);
       throw error;
     }
   },
