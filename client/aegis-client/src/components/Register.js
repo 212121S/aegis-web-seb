@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
+import config from "../config";
 import {
   Container,
   TextField,
@@ -88,8 +89,12 @@ function Register() {
     setError("");
 
     try {
-      const serverURL = "http://localhost:4000/api/auth/register";
-      const res = await axios.post(serverURL, formData);
+      const res = await axios.post(`${config.apiUrl}/api/auth/register`, formData, {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
 
       if (res.status === 201) {
         setSuccess(true);
@@ -99,8 +104,12 @@ function Register() {
         }, 2000);
       }
     } catch (err) {
-      console.error(err);
-      setError(err.response?.data?.message || "Registration failed. Please try again.");
+      console.error("Registration error:", err);
+      if (err.code === "ERR_NETWORK") {
+        setError("Unable to connect to the server. Please check your connection and try again.");
+      } else {
+        setError(err.response?.data?.message || "Registration failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

@@ -12,7 +12,8 @@ export interface ISubscription {
 export interface IUser extends Document {
   email: string;
   password: string;
-  name: string;
+  username: string;
+  phone: string;
   subscription?: ISubscription;
   createdAt: Date;
   updatedAt: Date;
@@ -56,11 +57,23 @@ const userSchema = new mongoose.Schema<IUser>({
     required: [true, 'Password is required'],
     minlength: [6, 'Password must be at least 6 characters long']
   },
-  name: {
+  username: {
     type: String,
-    required: [true, 'Name is required'],
+    required: [true, 'Username is required'],
+    unique: true,
     trim: true,
-    minlength: [2, 'Name must be at least 2 characters long']
+    minlength: [3, 'Username must be at least 3 characters long']
+  },
+  phone: {
+    type: String,
+    required: [true, 'Phone number is required'],
+    trim: true,
+    validate: {
+      validator: function(v: string) {
+        return /^\+?[\d\s-]{10,}$/.test(v.replace(/\s+/g, ''));
+      },
+      message: 'Please enter a valid phone number'
+    }
   },
   subscription: subscriptionSchema
 }, {
