@@ -30,7 +30,8 @@ import {
   Payment,
   AccountCircle,
   School,
-  Assessment
+  Assessment,
+  VerifiedUser
 } from "@mui/icons-material";
 
 // Components
@@ -44,73 +45,10 @@ import AboutPage from "./components/AboutPage";
 import PaymentPage from "./components/PaymentPage";
 import PaymentSuccess from "./components/PaymentSuccess";
 import AccountSettings from "./components/AccountSettings";
+import VerificationPage from "./components/VerificationPage";
 
-// Create theme
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: "#2196f3",
-      light: "#64b5f6",
-      dark: "#1976d2",
-      contrastText: "#fff"
-    },
-    secondary: {
-      main: "#f50057",
-      light: "#ff4081",
-      dark: "#c51162",
-      contrastText: "#fff"
-    },
-    background: {
-      default: "#f5f5f5"
-    }
-  },
-  typography: {
-    fontFamily: "'Roboto', 'Helvetica', 'Arial', sans-serif",
-    h1: {
-      fontWeight: 700
-    },
-    h2: {
-      fontWeight: 600
-    },
-    h3: {
-      fontWeight: 600
-    }
-  },
-  shape: {
-    borderRadius: 8
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: "none",
-          borderRadius: 8,
-          transition: "all 0.2s ease-in-out",
-          "&:hover": {
-            transform: "translateY(-2px)",
-            boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
-          }
-        }
-      }
-    },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          borderRadius: 8
-        }
-      }
-    },
-    MuiAppBar: {
-      styleOverrides: {
-        root: {
-          backdropFilter: "blur(8px)",
-          backgroundColor: "rgba(255, 255, 255, 0.9)",
-          color: "#333"
-        }
-      }
-    }
-  }
-});
+// Import theme from theme file
+import theme from './theme';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -148,7 +86,8 @@ function App() {
     { text: "About", icon: <Info />, path: "/about", auth: false },
     { text: "Practice Tests", icon: <Assessment />, path: "/test", auth: true },
     { text: "Pricing", icon: <Payment />, path: "/pricing", auth: false },
-    { text: "Account", icon: <AccountCircle />, path: "/account", auth: true }
+    { text: "Account", icon: <AccountCircle />, path: "/account", auth: true },
+    { text: "Verify Results", icon: <VerifiedUser />, path: "/verify", auth: false }
   ];
 
   const drawer = (
@@ -411,6 +350,8 @@ function App() {
               <Route path="/register" element={<Register />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/pricing" element={<PaymentPage />} />
+              <Route path="/verify" element={<VerificationPage />} />
+              <Route path="/verify/:token" element={<VerificationPage />} />
               <Route
                 path="/payment/success"
                 element={

@@ -30,6 +30,7 @@ import {
   Extension
 } from "@mui/icons-material";
 import { proctorService } from "../services/ProctorService";
+import VerificationDisplay from "./VerificationDisplay";
 
 function TestSession() {
   const theme = useTheme();
@@ -344,7 +345,16 @@ function TestSession() {
             </Grid>
           </Box>
 
-          <Box sx={{ mt: 4, textAlign: "center" }}>
+          {/* Verification Section */}
+          <Box sx={{ mt: 6 }}>
+            <Divider sx={{ mb: 4 }} />
+            <Typography variant="h5" gutterBottom sx={{ mb: 4, textAlign: 'center' }}>
+              Share Your Results
+            </Typography>
+            <VerificationDisplay testResultId={testResults._id} />
+          </Box>
+
+          <Box sx={{ mt: 6, textAlign: "center" }}>
             <Button
               variant="contained"
               size="large"

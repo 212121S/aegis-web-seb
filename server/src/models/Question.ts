@@ -67,6 +67,16 @@ export interface ITestResult extends Document {
   proctoringEvents?: IProctoringEvent[]; // Summary of significant events
 }
 
+export interface IVerificationLink extends Document {
+  testResultId: mongoose.Types.ObjectId;
+  token: string;
+  code: string;
+  createdAt: Date;
+  expiresAt: Date;
+  isActive: boolean;
+  views: number;
+}
+
 const ProctoringEventSchema = new Schema<IProctoringEvent>({
   type: { type: String, required: true, enum: ['multiple_faces', 'looking_away', 'background_noise', 'face_detected'] },
   timestamp: { type: Date, required: true },
@@ -133,6 +143,17 @@ const TestResultSchema = new Schema<ITestResult>({
   proctoringEvents: [ProctoringEventSchema]
 });
 
+const VerificationLinkSchema = new Schema<IVerificationLink>({
+  testResultId: { type: Schema.Types.ObjectId, required: true, ref: 'TestResult' },
+  token: { type: String, required: true, unique: true },
+  code: { type: String, required: true, unique: true },
+  createdAt: { type: Date, required: true },
+  expiresAt: { type: Date, required: true },
+  isActive: { type: Boolean, required: true, default: true },
+  views: { type: Number, required: true, default: 0 }
+});
+
 export const Question = mongoose.model<IQuestion>('Question', QuestionSchema);
 export const TestSession = mongoose.model<ITestSession>('TestSession', TestSessionSchema);
 export const TestResult = mongoose.model<ITestResult>('TestResult', TestResultSchema);
+export const VerificationLink = mongoose.model<IVerificationLink>('VerificationLink', VerificationLinkSchema);

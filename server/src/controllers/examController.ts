@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
-import { Question, TestSession, TestResult, IProctoringEvent } from "../models/Question";
+import { Question, TestSession, TestResult, IProctoringEvent, VerificationLink } from "../models/Question";
 import Stripe from 'stripe';
+import crypto from 'crypto';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2025-01-27.acacia',
@@ -183,6 +184,128 @@ export async function submitProctoringEvent(req: Request, res: Response) {
   } catch (err) {
     console.error('Failed to submit proctoring event:', err);
     return res.status(500).json({ error: 'Failed to submit proctoring event' });
+  }
+}
+
+// Generate a secure verification token
+function generateVerificationToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+// Generate a verification code
+function generateVerificationCode(): string {
+  return crypto.randomBytes(4)
+    .toString('hex')
+    .toUpperCase()
+    .match(/.{1,4}/g)!
+    .join('-');
+}
+
+export async function generateVerificationLink(req: Request, res: Response) {
+  try {
+    const { testResultId } = req.params;
+    const testResult = await TestResult.findById(testResultId);
+
+    if (!testResult) {
+      return res.status(404).json({ error: 'Test result not found' });
+    }
+
+    // Generate verification token and code
+    const token = generateVerificationToken();
+    const code = generateVerificationCode();
+
+    // Create verification link
+    const verificationLink = new VerificationLink({
+      testResultId: testResult._id,
+      token,
+      code,
+      createdAt: new Date(),
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days expiry
+      isActive: true
+    });
+
+    await verificationLink.save();
+
+    return res.json({
+      verificationCode: code,
+      verificationUrl: `${process.env.CLIENT_URL}/verify/${token}`
+    });
+  } catch (err) {
+    console.error('Failed to generate verification link:', err);
+    return res.status(500).json({ error: 'Failed to generate verification link' });
+  }
+}
+
+export async function verifyResult(req: Request, res: Response) {
+  try {
+    const { token } = req.params;
+    const verificationLink = await VerificationLink.findOne({ token }).populate('testResultId');
+
+    if (!verificationLink) {
+      return res.status(404).json({ error: 'Invalid verification token' });
+    }
+
+    if (!verificationLink.isActive) {
+      return res.status(403).json({ error: 'This verification link has been revoked' });
+    }
+
+    if (verificationLink.expiresAt < new Date()) {
+      return res.status(403).json({ error: 'This verification link has expired' });
+    }
+
+    // Update view count
+    verificationLink.views += 1;
+    await verificationLink.save();
+
+    return res.json(verificationLink.testResultId);
+  } catch (err) {
+    console.error('Failed to verify result:', err);
+    return res.status(500).json({ error: 'Failed to verify result' });
+  }
+}
+
+export async function verifyCode(req: Request, res: Response) {
+  try {
+    const { code } = req.body;
+    const verificationLink = await VerificationLink.findOne({ code }).populate('testResultId');
+
+    if (!verificationLink) {
+      return res.status(404).json({ error: 'Invalid verification code' });
+    }
+
+    if (!verificationLink.isActive) {
+      return res.status(403).json({ error: 'This verification code has been revoked' });
+    }
+
+    if (verificationLink.expiresAt < new Date()) {
+      return res.status(403).json({ error: 'This verification code has expired' });
+    }
+
+    // Update view count
+    verificationLink.views += 1;
+    await verificationLink.save();
+
+    return res.json(verificationLink.testResultId);
+  } catch (err) {
+    console.error('Failed to verify code:', err);
+    return res.status(500).json({ error: 'Failed to verify code' });
+  }
+}
+
+export async function revokeAccess(req: Request, res: Response) {
+  try {
+    const { testResultId } = req.params;
+    
+    // Find and deactivate all verification links for this test result
+    await VerificationLink.updateMany(
+      { testResultId },
+      { isActive: false }
+    );
+
+    return res.json({ message: 'Access revoked successfully' });
+  } catch (err) {
+    console.error('Failed to revoke access:', err);
+    return res.status(500).json({ error: 'Failed to revoke access' });
   }
 }
 

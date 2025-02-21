@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import authRoutes from "./routes/auth";
 import examRoutes from "./routes/exam";
 import paymentRoutes from "./routes/payment";
+import verificationRoutes from "./routes/verification";
 
 dotenv.config();
 
@@ -119,6 +120,7 @@ connectMongo().catch((err) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/exam", examRoutes);
 app.use("/api/payment", paymentRoutes);
+app.use("/api/verify", verificationRoutes);
 
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
