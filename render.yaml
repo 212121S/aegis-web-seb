@@ -10,6 +10,7 @@ services:
     plan: free
     runtime: node
     nodeVersion: 18.x
+    port: 10000
     envVars:
       - key: NODE_ENV
         value: production
