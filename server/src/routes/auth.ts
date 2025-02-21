@@ -12,4 +12,7 @@ router.post("/login", authController.login);
 // GET /api/auth/verify
 router.get("/verify", authController.verify);
 
+// GET /api/user/profile
+router.get("/user/profile", authController.getProfile);
+
 export default router;
