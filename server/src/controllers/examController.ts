@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
-import { Collection, ObjectId } from "mongodb";
-import { client } from "../database";
-import { getQuestionCollection, IQuestion, ITestSession, ITestResult } from "../models/Question";
+import mongoose from "mongoose";
+import { Question, TestSession, TestResult, IProctoringEvent } from "../models/Question";
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
@@ -10,14 +9,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 
 const PRACTICE_TEST_PRICE = 2000; // $20.00 in cents
 
-function getTestSessionCollection(): Collection<ITestSession> {
-  return client.db("aegis").collection<ITestSession>("testSessions");
-}
-
-function getTestResultCollection(): Collection<ITestResult> {
-  return client.db("aegis").collection<ITestResult>("testResults");
-}
-
 // Calculate adaptive difficulty based on performance
 function calculateNextDifficulty(currentDifficulty: number, isCorrect: boolean): number {
   const difficultyChange = isCorrect ? 1 : -0.5;
@@ -25,7 +16,7 @@ function calculateNextDifficulty(currentDifficulty: number, isCorrect: boolean):
 }
 
 // Calculate final score based on difficulty and correctness
-function calculateScore(questions: ITestSession['questions']): number {
+function calculateScore(questions: any[]): number {
   const totalPoints = questions.reduce((sum, q) => {
     const difficultyMultiplier = Math.pow(1.2, q.difficulty - 1);
     return sum + (q.userAnswer ? difficultyMultiplier : 0);
@@ -40,7 +31,7 @@ function calculateScore(questions: ITestSession['questions']): number {
 
 export async function initializeTest(req: Request, res: Response) {
   try {
-    const { type } = req.body;
+    const { type, browserInfo } = req.body;
     
     if (type === 'practice') {
       const session = await stripe.checkout.sessions.create({
@@ -63,30 +54,35 @@ export async function initializeTest(req: Request, res: Response) {
       return res.json({ paymentUrl: session.url });
     }
 
-    const testSession: ITestSession = {
-      userId: new ObjectId(req.user!._id),
+    const testSession = new TestSession({
+      userId: req.user!._id,
       startTime: new Date(),
       questions: [],
       currentScore: 0,
       incorrectAnswers: 0,
       status: 'in-progress',
       type,
-    };
+      proctoring: {
+        browserInfo,
+        events: [],
+        startTime: new Date(),
+        status: 'active'
+      }
+    });
 
-    const sessionCol = getTestSessionCollection();
-    const result = await sessionCol.insertOne(testSession);
+    await testSession.save();
     
-    return res.json({ sessionId: result.insertedId });
+    return res.json({ sessionId: testSession._id });
   } catch (err) {
-    return res.status(500).json({ error: err });
+    console.error('Failed to initialize test:', err);
+    return res.status(500).json({ error: 'Failed to initialize test' });
   }
 }
 
 export async function getNextQuestion(req: Request, res: Response) {
   try {
     const { sessionId } = req.params;
-    const sessionCol = getTestSessionCollection();
-    const session = await sessionCol.findOne({ _id: new ObjectId(sessionId) });
+    const session = await TestSession.findById(sessionId);
 
     if (!session || session.status !== 'in-progress') {
       return res.status(400).json({ error: 'Invalid session' });
@@ -94,7 +90,7 @@ export async function getNextQuestion(req: Request, res: Response) {
 
     if (session.incorrectAnswers >= 5) {
       session.status = 'completed';
-      await sessionCol.updateOne({ _id: new ObjectId(sessionId) }, { $set: { status: 'completed' } });
+      await session.save();
       return res.json({ completed: true });
     }
 
@@ -102,26 +98,20 @@ export async function getNextQuestion(req: Request, res: Response) {
       ? session.questions[session.questions.length - 1].difficulty 
       : 1;
 
-    const questionCol = getQuestionCollection();
-    const pipeline = [
-      { 
-        $match: { 
-          difficulty: { $gte: currentDifficulty },
-          isActive: true,
-          _id: { $nin: session.questions.map(q => q.questionId) }
-        } 
-      },
-      { $sample: { size: 1 } }
-    ];
+    const question = await Question.findOne({
+      difficulty: { $gte: currentDifficulty },
+      isActive: true,
+      _id: { $nin: session.questions.map(q => q.questionId) }
+    });
 
-    const questions = await questionCol.aggregate(pipeline).toArray();
-    if (questions.length === 0) {
+    if (!question) {
       return res.status(404).json({ error: 'No more questions available' });
     }
 
-    return res.json(questions[0]);
+    return res.json(question);
   } catch (err) {
-    return res.status(500).json({ error: err });
+    console.error('Failed to get next question:', err);
+    return res.status(500).json({ error: 'Failed to get next question' });
   }
 }
 
@@ -130,11 +120,8 @@ export async function submitAnswer(req: Request, res: Response) {
     const { sessionId } = req.params;
     const { questionId, answer, timeSpent } = req.body;
 
-    const sessionCol = getTestSessionCollection();
-    const questionCol = getQuestionCollection();
-
-    const session = await sessionCol.findOne({ _id: new ObjectId(sessionId) });
-    const question = await questionCol.findOne({ _id: new ObjectId(questionId) });
+    const session = await TestSession.findById(sessionId);
+    const question = await Question.findById(questionId);
 
     if (!session || !question) {
       return res.status(400).json({ error: 'Invalid session or question' });
@@ -148,7 +135,7 @@ export async function submitAnswer(req: Request, res: Response) {
     }
 
     session.questions.push({
-      questionId: new ObjectId(questionId),
+      questionId: question._id as unknown as mongoose.Types.ObjectId,
       userAnswer: answer,
       timeSpent,
       difficulty: question.difficulty
@@ -156,28 +143,13 @@ export async function submitAnswer(req: Request, res: Response) {
 
     session.currentScore = calculateScore(session.questions);
 
-    await sessionCol.updateOne(
-      { _id: new ObjectId(sessionId) },
-      { 
-        $set: {
-          questions: session.questions,
-          currentScore: session.currentScore,
-          incorrectAnswers: session.incorrectAnswers
-        }
-      }
-    );
+    await session.save();
 
     // Update question statistics
-    await questionCol.updateOne(
-      { _id: new ObjectId(questionId) },
-      {
-        $inc: { timesSeen: 1 },
-        $set: {
-          successRate: (question.successRate * question.timesSeen + (isCorrect ? 1 : 0)) / (question.timesSeen + 1),
-          lastUsed: new Date()
-        }
-      }
-    );
+    question.timesSeen += 1;
+    question.successRate = (question.successRate * (question.timesSeen - 1) + (isCorrect ? 1 : 0)) / question.timesSeen;
+    question.lastUsed = new Date();
+    await question.save();
 
     return res.json({
       isCorrect,
@@ -186,53 +158,59 @@ export async function submitAnswer(req: Request, res: Response) {
       incorrectAnswers: session.incorrectAnswers
     });
   } catch (err) {
-    return res.status(500).json({ error: err });
+    console.error('Failed to submit answer:', err);
+    return res.status(500).json({ error: 'Failed to submit answer' });
   }
 }
 
-export async function submitRecording(req: Request, res: Response) {
+export async function submitProctoringEvent(req: Request, res: Response) {
   try {
     const { sessionId } = req.params;
-    const { recordingUrl } = req.body;
+    const event: IProctoringEvent = req.body;
 
-    const sessionCol = getTestSessionCollection();
-    await sessionCol.updateOne(
-      { _id: new ObjectId(sessionId) },
-      { $set: { recordingUrl } }
-    );
+    const session = await TestSession.findById(sessionId);
+    if (!session) {
+      return res.status(400).json({ error: 'Invalid session' });
+    }
 
-    return res.json({ message: 'Recording submitted successfully' });
+    session.proctoring.events.push({
+      ...event,
+      timestamp: new Date()
+    });
+
+    await session.save();
+    return res.json({ message: 'Event recorded' });
   } catch (err) {
-    return res.status(500).json({ error: err });
+    console.error('Failed to submit proctoring event:', err);
+    return res.status(500).json({ error: 'Failed to submit proctoring event' });
   }
 }
 
 export async function finalizeTest(req: Request, res: Response) {
   try {
     const { sessionId } = req.params;
+    const session = await TestSession.findById(sessionId).populate('questions.questionId');
     
-    const sessionCol = getTestSessionCollection();
-    const resultCol = getTestResultCollection();
-    
-    const session = await sessionCol.findOne({ _id: new ObjectId(sessionId) });
     if (!session) {
       return res.status(400).json({ error: 'Invalid session' });
     }
 
-    // Calculate category breakdown
-    const questionCol = getQuestionCollection();
-    const questions = await questionCol.find({
-      _id: { $in: session.questions.map(q => new ObjectId(q.questionId)) }
-    }).toArray();
+    // Update session status
+    session.status = 'completed';
+    session.endTime = new Date();
+    session.proctoring.status = 'completed';
+    session.proctoring.endTime = new Date();
+    await session.save();
 
-    const categoryBreakdown = questions.reduce((acc: any, q) => {
-      if (!acc[q.category]) {
-        acc[q.category] = { correct: 0, total: 0 };
+    // Calculate category breakdown
+    const categoryBreakdown = session.questions.reduce((acc: any, q: any) => {
+      const question = q.questionId;
+      if (!acc[question.category]) {
+        acc[question.category] = { correct: 0, total: 0 };
       }
-      const userAnswer = session.questions.find(sq => sq.questionId === q._id);
-      acc[q.category].total++;
-      if (userAnswer?.userAnswer === q.correctAnswer) {
-        acc[q.category].correct++;
+      acc[question.category].total++;
+      if (q.userAnswer === question.correctAnswer) {
+        acc[question.category].correct++;
       }
       return acc;
     }, {});
@@ -240,8 +218,9 @@ export async function finalizeTest(req: Request, res: Response) {
     const avgDifficulty = session.questions.reduce((sum, q) => sum + q.difficulty, 0) / session.questions.length;
     const avgTime = session.questions.reduce((sum, q) => sum + q.timeSpent, 0) / session.questions.length;
 
-    const testResult: ITestResult = {
-      sessionId: new ObjectId(sessionId),
+    // Create test result
+    const testResult = new TestResult({
+      sessionId: session._id,
       userId: session.userId,
       finalScore: session.currentScore,
       questionBreakdown: Object.entries(categoryBreakdown).map(([category, stats]: [string, any]) => ({
@@ -252,35 +231,26 @@ export async function finalizeTest(req: Request, res: Response) {
       averageDifficulty: avgDifficulty,
       timePerQuestion: avgTime,
       type: session.type,
-      completedAt: new Date()
-    };
+      completedAt: new Date(),
+      proctoringEvents: session.proctoring.events.filter(e => 
+        e.type === 'multiple_faces' || e.type === 'looking_away'
+      )
+    });
 
-    await resultCol.insertOne(testResult);
-    await sessionCol.updateOne(
-      { _id: new ObjectId(sessionId) },
-      { 
-        $set: { 
-          status: 'completed',
-          endTime: new Date()
-        }
-      }
-    );
+    await testResult.save();
 
-    // Calculate percentile (compare against other completed tests)
-    const lowerScores = await resultCol.countDocuments({
+    // Calculate percentile
+    const lowerScores = await TestResult.countDocuments({
       finalScore: { $lt: testResult.finalScore },
       type: session.type
     });
-    const totalTests = await resultCol.countDocuments({ type: session.type });
+    const totalTests = await TestResult.countDocuments({ type: session.type });
     testResult.percentile = (lowerScores / totalTests) * 100;
-
-    await resultCol.updateOne(
-      { _id: testResult._id! },
-      { $set: { percentile: testResult.percentile } }
-    );
+    await testResult.save();
 
     return res.json(testResult);
   } catch (err) {
-    return res.status(500).json({ error: err });
+    console.error('Failed to finalize test:', err);
+    return res.status(500).json({ error: 'Failed to finalize test' });
   }
 }

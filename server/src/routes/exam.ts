@@ -1,25 +1,28 @@
-import { Router } from "express";
-import * as examController from "../controllers/examController";
-import { authenticateToken } from "../middleware/authMiddleware";
-import { requireActiveSubscription } from "../middleware/subscriptionMiddleware";
-import multer from "multer";
+import { Router } from 'express';
+import { authenticateToken } from '../middleware/authMiddleware';
+import { 
+  initializeTest, 
+  getNextQuestion, 
+  submitAnswer, 
+  submitProctoringEvent,
+  finalizeTest 
+} from '../controllers/examController';
 
 const router = Router();
 
-// Configure multer for recording uploads
-const storage = multer.memoryStorage();
-const upload = multer({ 
-  storage,
-  limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB limit
-  }
-});
+// Initialize a new test session
+router.post('/initialize', authenticateToken, initializeTest);
 
-// Test session management - all routes require active subscription
-router.post("/initialize", authenticateToken, requireActiveSubscription, examController.initializeTest);
-router.get("/:sessionId/next", authenticateToken, requireActiveSubscription, examController.getNextQuestion);
-router.post("/:sessionId/answer", authenticateToken, requireActiveSubscription, examController.submitAnswer);
-router.post("/:sessionId/recording", authenticateToken, requireActiveSubscription, upload.single('recording'), examController.submitRecording);
-router.post("/:sessionId/finalize", authenticateToken, requireActiveSubscription, examController.finalizeTest);
+// Get the next question
+router.get('/:sessionId/next', authenticateToken, getNextQuestion);
+
+// Submit an answer
+router.post('/:sessionId/answer', authenticateToken, submitAnswer);
+
+// Submit a proctoring event
+router.post('/:sessionId/proctoring-event', authenticateToken, submitProctoringEvent);
+
+// Finalize test
+router.post('/:sessionId/finalize', authenticateToken, finalizeTest);
 
 export default router;

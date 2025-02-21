@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Paper,
@@ -9,6 +9,7 @@ import {
   Grid,
   Card,
   CardContent,
+  Button,
   useTheme
 } from "@mui/material";
 import {
@@ -18,74 +19,84 @@ import {
   Warning,
   Person,
   LightMode,
-  Visibility
+  Visibility,
+  Extension,
+  Refresh
 } from "@mui/icons-material";
+import { proctorService } from "../services/ProctorService";
 
 function ProctoringMonitor() {
   const theme = useTheme();
-  const videoRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [stream, setStream] = useState(null);
+  const [requirements, setRequirements] = useState(null);
   const [monitoringStats, setMonitoringStats] = useState({
     faceDetected: false,
-    lightLevel: 0,
-    movement: 0
+    multipleFaces: false,
+    lookingAway: false,
+    backgroundNoise: false
   });
 
   useEffect(() => {
-    startVideo();
+    checkRequirements();
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      proctorService.terminate();
     };
   }, []);
 
-  // Simulated monitoring updates
-  useEffect(() => {
-    if (stream) {
-      const interval = setInterval(() => {
-        // Simulate monitoring stats (replace with actual face-api.js implementation)
-        setMonitoringStats({
-          faceDetected: Math.random() > 0.1, // 90% chance face is detected
-          lightLevel: Math.floor(Math.random() * 100),
-          movement: Math.floor(Math.random() * 100)
-        });
-      }, 1000);
-
-      return () => clearInterval(interval);
-    }
-  }, [stream]);
-
-  const startVideo = async () => {
+  const checkRequirements = async () => {
     try {
       setLoading(true);
       setError(null);
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          width: 640,
-          height: 480,
-          facingMode: "user"
-        } 
-      });
+      const reqs = await proctorService.checkRequirements();
+      setRequirements(reqs);
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
+      if (reqs.browserSupported && reqs.extensionInstalled && reqs.systemRequirementsMet) {
+        await initializeProctoring();
       }
-      setStream(mediaStream);
     } catch (err) {
-      console.error("Error accessing camera:", err);
-      setError("Failed to access camera. Please ensure camera permissions are granted.");
+      console.error("Error checking proctoring requirements:", err);
+      setError("Failed to verify proctoring requirements. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusColor = (value, threshold) => {
-    if (value >= threshold) return "success";
-    if (value >= threshold * 0.6) return "warning";
-    return "error";
+  const initializeProctoring = async () => {
+    try {
+      await proctorService.initialize();
+      
+      // Subscribe to proctoring events
+      proctorService.onEvent('face_detected', () => 
+        setMonitoringStats(prev => ({ ...prev, faceDetected: true }))
+      );
+      
+      proctorService.onEvent('multiple_faces', () =>
+        setMonitoringStats(prev => ({ ...prev, multipleFaces: true }))
+      );
+      
+      proctorService.onEvent('looking_away', () =>
+        setMonitoringStats(prev => ({ ...prev, lookingAway: true }))
+      );
+      
+      proctorService.onEvent('background_noise', () =>
+        setMonitoringStats(prev => ({ ...prev, backgroundNoise: true }))
+      );
+      
+      // Reset flags periodically
+      setInterval(() => {
+        setMonitoringStats(prev => ({
+          ...prev,
+          multipleFaces: false,
+          lookingAway: false,
+          backgroundNoise: false
+        }));
+      }, 5000);
+      
+    } catch (err) {
+      console.error("Error initializing proctoring:", err);
+      setError("Failed to initialize proctoring. Please refresh and try again.");
+    }
   };
 
   return (
@@ -99,9 +110,9 @@ function ProctoringMonitor() {
         }}
       >
         <Box sx={{ mb: 3, display: "flex", alignItems: "center" }}>
-          <Videocam sx={{ fontSize: 28, color: "primary.main", mr: 1 }} />
+          <Extension sx={{ fontSize: 28, color: "primary.main", mr: 1 }} />
           <Typography variant="h5" component="h2">
-            Proctoring Monitor
+            Proctoring Status
           </Typography>
         </Box>
 
@@ -109,103 +120,129 @@ function ProctoringMonitor() {
           <Alert 
             severity="error" 
             sx={{ mb: 3 }}
-            icon={<VideocamOff />}
+            icon={<Warning />}
           >
             {error}
           </Alert>
         )}
 
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={8}>
-            <Box
-              sx={{
-                position: "relative",
-                width: "100%",
-                height: 0,
-                paddingBottom: "75%",
-                bgcolor: "grey.900",
-                borderRadius: 2,
-                overflow: "hidden"
-              }}
+        {loading ? (
+          <Box sx={{ textAlign: "center", py: 4 }}>
+            <CircularProgress size={40} sx={{ mb: 2 }} />
+            <Typography color="text.secondary">
+              Checking proctoring requirements...
+            </Typography>
+          </Box>
+        ) : requirements ? (
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    System Requirements
+                  </Typography>
+                  
+                  <Box sx={{ mt: 2 }}>
+                    <Box sx={{ mb: 2 }}>
+                      <Chip
+                        icon={<CheckCircle />}
+                        label="Browser Supported"
+                        color={requirements.browserSupported ? "success" : "error"}
+                        sx={{ width: "100%" }}
+                      />
+                    </Box>
+
+                    <Box sx={{ mb: 2 }}>
+                      <Chip
+                        icon={<Extension />}
+                        label="Proctoring Extension"
+                        color={requirements.extensionInstalled ? "success" : "error"}
+                        sx={{ width: "100%" }}
+                      />
+                    </Box>
+
+                    <Box>
+                      <Chip
+                        icon={<Videocam />}
+                        label="System Check"
+                        color={requirements.systemRequirementsMet ? "success" : "error"}
+                        sx={{ width: "100%" }}
+                      />
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Monitoring Status
+                  </Typography>
+                  
+                  <Box sx={{ mt: 2 }}>
+                    <Box sx={{ mb: 2 }}>
+                      <Chip
+                        icon={<Person />}
+                        label={monitoringStats.faceDetected ? "Face Detected" : "No Face Detected"}
+                        color={monitoringStats.faceDetected ? "success" : "error"}
+                        sx={{ width: "100%" }}
+                      />
+                    </Box>
+
+                    {monitoringStats.multipleFaces && (
+                      <Box sx={{ mb: 2 }}>
+                        <Chip
+                          icon={<Warning />}
+                          label="Multiple Faces Detected"
+                          color="error"
+                          sx={{ width: "100%" }}
+                        />
+                      </Box>
+                    )}
+
+                    {monitoringStats.lookingAway && (
+                      <Box sx={{ mb: 2 }}>
+                        <Chip
+                          icon={<Visibility />}
+                          label="Looking Away"
+                          color="warning"
+                          sx={{ width: "100%" }}
+                        />
+                      </Box>
+                    )}
+
+                    {monitoringStats.backgroundNoise && (
+                      <Box>
+                        <Chip
+                          icon={<Warning />}
+                          label="Background Noise Detected"
+                          color="warning"
+                          sx={{ width: "100%" }}
+                        />
+                      </Box>
+                    )}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        ) : (
+          <Box sx={{ textAlign: "center", py: 4 }}>
+            <Typography color="error" gutterBottom>
+              Failed to verify proctoring requirements
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={checkRequirements}
+              startIcon={<Refresh />}
+              sx={{ mt: 2 }}
             >
-              {loading ? (
-                <Box
-                  sx={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center"
-                  }}
-                >
-                  <CircularProgress />
-                </Box>
-              ) : (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  muted
-                  style={{
-                    position: "absolute",
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover"
-                  }}
-                />
-              )}
-            </Box>
-          </Grid>
-
-          <Grid item xs={12} md={4}>
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Monitoring Status
-                </Typography>
-                
-                <Box sx={{ mt: 2 }}>
-                  <Box sx={{ mb: 2 }}>
-                    <Chip
-                      icon={<Person />}
-                      label={monitoringStats.faceDetected ? "Face Detected" : "No Face Detected"}
-                      color={monitoringStats.faceDetected ? "success" : "error"}
-                      sx={{ width: "100%" }}
-                    />
-                  </Box>
-
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Light Level
-                    </Typography>
-                    <Chip
-                      icon={<LightMode />}
-                      label={`${monitoringStats.lightLevel}%`}
-                      color={getStatusColor(monitoringStats.lightLevel, 70)}
-                      variant="outlined"
-                      sx={{ width: "100%" }}
-                    />
-                  </Box>
-
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Movement Detection
-                    </Typography>
-                    <Chip
-                      icon={<Visibility />}
-                      label={`${monitoringStats.movement}%`}
-                      color={getStatusColor(monitoringStats.movement, 80)}
-                      variant="outlined"
-                      sx={{ width: "100%" }}
-                    />
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+              Retry
+            </Button>
+          </Box>
+        )}
       </Paper>
     </Box>
   );

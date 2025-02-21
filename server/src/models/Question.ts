@@ -1,9 +1,7 @@
 // server/src/models/question.ts
-import { Collection, ObjectId } from "mongodb";
-import { client } from "../database";
+import mongoose, { Document, Schema } from "mongoose";
 
-export interface IQuestion {
-  _id?: ObjectId;
+export interface IQuestion extends Document {
   prompt: string;
   choices: string[];
   correctAnswer: string;
@@ -16,29 +14,45 @@ export interface IQuestion {
   isActive: boolean; // For question bank management
 }
 
-export interface ITestSession {
-  _id?: ObjectId;
-  userId: ObjectId;
+export interface IProctoringEvent {
+  type: 'multiple_faces' | 'looking_away' | 'background_noise' | 'face_detected';
+  timestamp: Date;
+  details?: string;
+}
+
+export interface IProctoringSession {
+  browserInfo: {
+    name: string;
+    version: string;
+    os: string;
+  };
+  events: IProctoringEvent[];
+  startTime: Date;
+  endTime?: Date;
+  status: 'active' | 'completed' | 'terminated';
+}
+
+export interface ITestSession extends Document {
+  userId: mongoose.Types.ObjectId;
   startTime: Date;
   endTime?: Date;
   questions: {
-    questionId: ObjectId;
+    questionId: mongoose.Types.ObjectId;
     userAnswer?: string;
     timeSpent: number; // in seconds
     difficulty: number;
   }[];
   currentScore: number;
   incorrectAnswers: number;
-  recordingUrl?: string;
   status: 'in-progress' | 'completed' | 'terminated';
   type: 'official' | 'practice';
   paymentId?: string; // For practice tests
+  proctoring: IProctoringSession;
 }
 
-export interface ITestResult {
-  _id?: ObjectId;
-  sessionId: ObjectId;
-  userId: ObjectId;
+export interface ITestResult extends Document {
+  sessionId: mongoose.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
   finalScore: number;
   percentile?: number;
   questionBreakdown: {
@@ -50,12 +64,75 @@ export interface ITestResult {
   timePerQuestion: number;
   type: 'official' | 'practice';
   completedAt: Date;
+  proctoringEvents?: IProctoringEvent[]; // Summary of significant events
 }
 
-/**
- * Returns the "questions" collection from the "aegis" DB.
- */
-export function getQuestionCollection(): Collection<IQuestion> {
-  const dbName = "aegis";
-  return client.db(dbName).collection<IQuestion>("questions");
-}
+const ProctoringEventSchema = new Schema<IProctoringEvent>({
+  type: { type: String, required: true, enum: ['multiple_faces', 'looking_away', 'background_noise', 'face_detected'] },
+  timestamp: { type: Date, required: true },
+  details: String
+});
+
+const ProctoringSessionSchema = new Schema<IProctoringSession>({
+  browserInfo: {
+    name: { type: String, required: true },
+    version: { type: String, required: true },
+    os: { type: String, required: true }
+  },
+  events: [ProctoringEventSchema],
+  startTime: { type: Date, required: true },
+  endTime: Date,
+  status: { type: String, required: true, enum: ['active', 'completed', 'terminated'] }
+});
+
+const QuestionSchema = new Schema<IQuestion>({
+  prompt: { type: String, required: true },
+  choices: { type: [String], required: true },
+  correctAnswer: { type: String, required: true },
+  difficulty: { type: Number, required: true, min: 1, max: 10 },
+  category: { type: String, required: true },
+  subcategory: String,
+  timesSeen: { type: Number, default: 0 },
+  successRate: { type: Number, default: 0 },
+  lastUsed: Date,
+  isActive: { type: Boolean, default: true }
+});
+
+const TestSessionSchema = new Schema<ITestSession>({
+  userId: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
+  startTime: { type: Date, required: true },
+  endTime: Date,
+  questions: [{
+    questionId: { type: Schema.Types.ObjectId, required: true, ref: 'Question' },
+    userAnswer: String,
+    timeSpent: { type: Number, required: true },
+    difficulty: { type: Number, required: true }
+  }],
+  currentScore: { type: Number, required: true, default: 0 },
+  incorrectAnswers: { type: Number, required: true, default: 0 },
+  status: { type: String, required: true, enum: ['in-progress', 'completed', 'terminated'] },
+  type: { type: String, required: true, enum: ['official', 'practice'] },
+  paymentId: String,
+  proctoring: { type: ProctoringSessionSchema, required: true }
+});
+
+const TestResultSchema = new Schema<ITestResult>({
+  sessionId: { type: Schema.Types.ObjectId, required: true, ref: 'TestSession' },
+  userId: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
+  finalScore: { type: Number, required: true },
+  percentile: Number,
+  questionBreakdown: [{
+    category: { type: String, required: true },
+    correct: { type: Number, required: true },
+    total: { type: Number, required: true }
+  }],
+  averageDifficulty: { type: Number, required: true },
+  timePerQuestion: { type: Number, required: true },
+  type: { type: String, required: true, enum: ['official', 'practice'] },
+  completedAt: { type: Date, required: true },
+  proctoringEvents: [ProctoringEventSchema]
+});
+
+export const Question = mongoose.model<IQuestion>('Question', QuestionSchema);
+export const TestSession = mongoose.model<ITestSession>('TestSession', TestSessionSchema);
+export const TestResult = mongoose.model<ITestResult>('TestResult', TestResultSchema);

@@ -26,8 +26,10 @@ import {
   FiberManualRecord,
   Star,
   ArrowBack,
-  Assessment
+  Assessment,
+  Extension
 } from "@mui/icons-material";
+import { proctorService } from "../services/ProctorService";
 
 function TestSession() {
   const theme = useTheme();
@@ -38,32 +40,88 @@ function TestSession() {
   const [incorrectAnswers, setIncorrectAnswers] = useState(0);
   const [loading, setLoading] = useState(true);
   const [timeSpent, setTimeSpent] = useState(0);
-  const [recording, setRecording] = useState(false);
   const [testComplete, setTestComplete] = useState(false);
   const [testResults, setTestResults] = useState(null);
+  const [proctoringReady, setProctoringReady] = useState(false);
+  const [proctoringStatus, setProctoringStatus] = useState({
+    faceDetected: false,
+    multipleFaces: false,
+    lookingAway: false,
+    backgroundNoise: false
+  });
   
-  const mediaRecorder = useRef(null);
-  const recordedChunks = useRef([]);
   const startTime = useRef(null);
   const timerRef = useRef(null);
+  const proctoringInterval = useRef(null);
   
   const location = useLocation();
   const navigate = useNavigate();
   const { isSubscriptionActive, handleSubscriptionRequired } = useSubscription();
+
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!isSubscriptionActive()) {
       handleSubscriptionRequired();
       return;
     }
-    initializeTest();
+
+    const setupProctoring = async () => {
+      try {
+        const requirements = await proctorService.checkRequirements();
+        if (!requirements.browserSupported || !requirements.extensionInstalled || !requirements.systemRequirementsMet) {
+          setError('Please ensure your browser is supported and the proctoring extension is installed.');
+          return;
+        }
+
+        await proctorService.initialize();
+        setProctoringReady(true);
+        
+        // Set up proctoring event listeners
+        proctorService.onEvent('face_detected', () => 
+          setProctoringStatus(prev => ({ ...prev, faceDetected: true }))
+        );
+        
+        proctorService.onEvent('multiple_faces', () => {
+          setProctoringStatus(prev => ({ ...prev, multipleFaces: true }));
+          setError('Multiple faces detected. This incident will be reported.');
+        });
+        
+        proctorService.onEvent('looking_away', () => {
+          setProctoringStatus(prev => ({ ...prev, lookingAway: true }));
+          setError('Please keep your eyes on the screen.');
+        });
+        
+        proctorService.onEvent('background_noise', () => {
+          setProctoringStatus(prev => ({ ...prev, backgroundNoise: true }));
+        });
+
+        // Reset warning flags periodically
+        proctoringInterval.current = setInterval(() => {
+          setProctoringStatus(prev => ({
+            ...prev,
+            multipleFaces: false,
+            lookingAway: false,
+            backgroundNoise: false
+          }));
+        }, 5000);
+
+        // Initialize test after proctoring is ready
+        initializeTest();
+      } catch (err) {
+        console.error('Failed to initialize proctoring:', err);
+        setError('Failed to initialize proctoring. Please refresh and try again.');
+      }
+    };
+
+    setupProctoring();
+    
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      stopRecording();
+      if (proctoringInterval.current) clearInterval(proctoringInterval.current);
+      proctorService.terminate();
     };
   }, [isSubscriptionActive]);
-
-  const [error, setError] = useState('');
 
   const initializeTest = async () => {
     try {
@@ -86,7 +144,6 @@ function TestSession() {
       }
 
       setSessionId(res.data.sessionId);
-      startRecording();
       fetchNextQuestion(res.data.sessionId);
       startTimer();
     } catch (err) {
@@ -107,52 +164,6 @@ function TestSession() {
     }, 1000);
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: true,
-        audio: true 
-      });
-      
-      mediaRecorder.current = new MediaRecorder(stream);
-      mediaRecorder.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          recordedChunks.current.push(event.data);
-        }
-      };
-      
-      mediaRecorder.current.onstop = async () => {
-        const blob = new Blob(recordedChunks.current, { type: "video/webm" });
-        const formData = new FormData();
-        formData.append("recording", blob);
-        
-        try {
-          const token = localStorage.getItem("token");
-          await axios.post(
-            `http://localhost:4000/api/exam/${sessionId}/recording`,
-            formData,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-        } catch (err) {
-          console.error("Failed to upload recording:", err);
-        }
-      };
-      
-      mediaRecorder.current.start();
-      setRecording(true);
-    } catch (err) {
-      console.error("Failed to start recording:", err);
-      alert("Please enable camera and microphone access");
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorder.current && mediaRecorder.current.state !== "inactive") {
-      mediaRecorder.current.stop();
-      setRecording(false);
-    }
-  };
-
   const fetchNextQuestion = async (sid) => {
     try {
       const token = localStorage.getItem("token");
@@ -171,7 +182,7 @@ function TestSession() {
       setLoading(false);
     } catch (err) {
       console.error(err);
-      alert("Failed to fetch next question");
+      setError("Failed to fetch next question");
     }
   };
 
@@ -203,7 +214,7 @@ function TestSession() {
       }
     } catch (err) {
       console.error(err);
-      alert("Failed to submit answer");
+      setError("Failed to submit answer");
     }
   };
 
@@ -216,14 +227,15 @@ function TestSession() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      stopRecording();
       if (timerRef.current) clearInterval(timerRef.current);
+      if (proctoringInterval.current) clearInterval(proctoringInterval.current);
+      proctorService.terminate();
       
       setTestComplete(true);
       setTestResults(res.data);
     } catch (err) {
       console.error(err);
-      alert("Failed to finalize test");
+      setError("Failed to finalize test");
     }
   };
 
@@ -233,7 +245,7 @@ function TestSession() {
         <Box sx={{ textAlign: "center", py: 8 }}>
           <CircularProgress size={60} sx={{ mb: 3 }} />
           <Typography variant="h5" color="text.secondary">
-            Initializing Test Session...
+            {proctoringReady ? "Loading Test..." : "Initializing Proctoring..."}
           </Typography>
         </Box>
       </Container>
@@ -364,17 +376,17 @@ function TestSession() {
           }}
         >
           <Chip
-            icon={<FiberManualRecord sx={{ 
-              color: recording ? "error.main" : "grey.500",
-              animation: recording ? "pulse 2s infinite" : "none",
+            icon={<Extension sx={{ 
+              color: proctoringStatus.faceDetected ? "success.main" : "error.main",
+              animation: proctoringStatus.faceDetected ? "none" : "pulse 2s infinite",
               "@keyframes pulse": {
                 "0%": { opacity: 1 },
                 "50%": { opacity: 0.5 },
                 "100%": { opacity: 1 }
               }
             }} />}
-            label={recording ? "Recording" : "Not Recording"}
-            color={recording ? "error" : "default"}
+            label={proctoringStatus.faceDetected ? "Proctoring Active" : "Face Not Detected"}
+            color={proctoringStatus.faceDetected ? "success" : "error"}
             variant="outlined"
           />
           
@@ -453,7 +465,7 @@ function TestSession() {
             variant="contained"
             size="large"
             onClick={handleSubmitAnswer}
-            disabled={!selected}
+            disabled={!selected || !proctoringStatus.faceDetected}
             startIcon={<RadioButtonChecked />}
             sx={{ px: 6, py: 1.5 }}
           >
