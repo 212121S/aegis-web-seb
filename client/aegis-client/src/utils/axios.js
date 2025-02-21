@@ -79,22 +79,37 @@ export const examAPI = {
   },
 
   getNextQuestion: async (sessionId) => {
-    const response = await instance.get(`/exam/${sessionId}/next`);
+    const response = await instance.get(`/exam/${sessionId}/next-question`);
     return response.data;
   },
 
   submitAnswer: async (sessionId, data) => {
-    const response = await instance.post(`/exam/${sessionId}/answer`, data);
+    const response = await instance.post(`/exam/${sessionId}/submit`, data);
     return response.data;
   },
 
   submitProctoringEvent: async (sessionId, event) => {
-    const response = await instance.post(`/exam/${sessionId}/proctoring-event`, event);
+    const response = await instance.post(`/exam/${sessionId}/proctoring`, event);
     return response.data;
   },
 
   finalizeTest: async (sessionId) => {
     const response = await instance.post(`/exam/${sessionId}/finalize`);
+    return response.data;
+  },
+
+  getHistory: async () => {
+    const response = await instance.get('/exam/history');
+    return response.data;
+  },
+
+  getAnalytics: async () => {
+    const response = await instance.get('/exam/analytics');
+    return response.data;
+  },
+
+  getResults: async (testId) => {
+    const response = await instance.get(`/exam/results/${testId}`);
     return response.data;
   }
 };
@@ -114,18 +129,38 @@ export const authAPI = {
   verifyToken: async () => {
     const response = await instance.get('/auth/verify');
     return response.data;
+  },
+
+  getProfile: async () => {
+    const response = await instance.get('/auth/user/profile');
+    return response.data;
   }
 };
 
 // Payment API endpoints
 export const paymentAPI = {
-  createSession: async (productId) => {
-    const response = await instance.post('/payment/create-session', { productId });
+  createCheckoutSession: async (planId, couponCode) => {
+    const response = await instance.post('/payment/create-checkout-session', { planId, couponCode });
     return response.data;
   },
 
-  verifyPayment: async (sessionId) => {
-    const response = await instance.post('/payment/verify', { sessionId });
+  verifySession: async (sessionId) => {
+    const response = await instance.post('/payment/verify-session', { sessionId });
+    return response.data;
+  },
+
+  getSubscriptionStatus: async () => {
+    const response = await instance.get('/payment/subscription-status');
+    return response.data;
+  },
+
+  validateCoupon: async (code) => {
+    const response = await instance.post('/payment/validate-coupon', { code });
+    return response.data;
+  },
+
+  cancelSubscription: async () => {
+    const response = await instance.post('/payment/cancel-subscription');
     return response.data;
   }
 };
