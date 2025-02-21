@@ -18,7 +18,8 @@ import {
   ListItemText,
   useMediaQuery,
   Divider,
-  Badge
+  Badge,
+  CircularProgress
 } from "@mui/material";
 import {
   Menu as MenuIcon,
@@ -50,13 +51,50 @@ import VerificationPage from "./components/VerificationPage";
 // Import theme from theme file
 import theme from './theme';
 
+// Import hooks and services
+import { useSubscription } from './hooks/useSubscription';
+import { authAPI } from './utils/axios';
+
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const token = localStorage.getItem("token");
   const location = useLocation();
+  const { loading, error, isSubscriptionActive } = useSubscription();
+  const [isValidToken, setIsValidToken] = useState(true);
+  
+  useEffect(() => {
+    const verifyToken = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) {
+          setIsValidToken(false);
+          return;
+        }
+        await authAPI.verifyToken();
+        setIsValidToken(true);
+      } catch (err) {
+        console.error('Token verification failed:', err);
+        setIsValidToken(false);
+        localStorage.removeItem("token");
+      }
+    };
+    verifyToken();
+  }, []);
 
-  if (!token) {
+  if (loading) {
+    return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <CircularProgress />
+    </Box>;
+  }
+
+  if (!isValidToken) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (error || !isSubscriptionActive()) {
+    return <Navigate to="/pricing" state={{ 
+      from: location,
+      message: 'An active subscription is required to access this feature'
+    }} replace />;
   }
 
   return children;
