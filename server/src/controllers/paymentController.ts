@@ -185,22 +185,28 @@ export const getSubscriptionStatus = async (req: AuthenticatedRequest, res: Resp
       return res.status(401).json({ message: 'User not authenticated' });
     }
 
-    const subscriptions = await stripe.subscriptions.list({
-      customer: userId,
-      status: 'active',
-    });
+    // Get user from database to check subscription
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
-    if (subscriptions.data.length === 0) {
+    // If no subscription data exists
+    if (!user.subscription) {
       return res.json({ active: false });
     }
 
-    const subscription = subscriptions.data[0];
-    const price = subscription.items.data[0].price;
+    // Check if subscription is active and not expired
+    const isActive = user.subscription.active && 
+                    user.subscription.currentPeriodEnd && 
+                    new Date(user.subscription.currentPeriodEnd) > new Date();
 
     res.json({
-      active: true,
-      plan: price.nickname || price.id,
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+      active: isActive,
+      plan: user.subscription.planId,
+      currentPeriodEnd: user.subscription.currentPeriodEnd?.toISOString(),
+      stripeCustomerId: user.subscription.stripeCustomerId,
+      stripeSubscriptionId: user.subscription.stripeSubscriptionId
     });
   } catch (error) {
     console.error('Subscription status error:', error);
