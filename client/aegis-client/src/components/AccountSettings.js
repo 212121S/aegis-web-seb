@@ -66,8 +66,17 @@ function AccountSettings() {
 
   const fetchUserData = async () => {
     try {
-      const response = await authAPI.getProfile();
-      setUserData(response.data.user);
+      const { data } = await authAPI.getProfile();
+      if (data && data.user) {
+        setUserData({
+          ...userData,
+          name: data.user.username,
+          email: data.user.email,
+          subscription: data.user.subscription
+        });
+      } else {
+        throw new Error('Invalid response format');
+      }
     } catch (err) {
       setError('Failed to load user data');
       console.error(err);
