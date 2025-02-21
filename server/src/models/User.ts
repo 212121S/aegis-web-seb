@@ -101,7 +101,6 @@ userSchema.statics.findByEmail = async function(email: string): Promise<IUser | 
 };
 
 // Add indexes
-userSchema.index({ email: 1 });
 userSchema.index({ 'subscription.stripeCustomerId': 1 });
 userSchema.index({ 'subscription.active': 1 });
 
