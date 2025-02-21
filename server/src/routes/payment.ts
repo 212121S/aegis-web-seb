@@ -5,7 +5,8 @@ import {
   handleWebhook,
   getSubscriptionStatus,
   cancelSubscription,
-  verifySession
+  verifySession,
+  validateCoupon
 } from '../controllers/paymentController';
 import { validateRequest } from '../middleware/validateRequest';
 import { authenticateToken } from '../middleware/authMiddleware';
@@ -22,8 +23,13 @@ router.post(
   [
     body('planId')
       .isString()
-      .isIn(['basic', 'pro', 'premium'])
+      .isIn(['practice-basic', 'practice-pro', 'test-standard', 'test-premium'])
       .withMessage('Invalid plan selected'),
+    body('couponCode')
+      .optional()
+      .isString()
+      .isLength({ min: 4, max: 20 })
+      .withMessage('Invalid coupon code format'),
   ],
   validateRequest,
   createCheckoutSession
@@ -48,6 +54,19 @@ router.post('/webhook', rawBodyMiddleware, handleWebhook);
 
 // Get subscription status
 router.get('/subscription-status', authenticateToken, getSubscriptionStatus);
+
+// Validate coupon code
+router.post(
+  '/validate-coupon',
+  [
+    body('code')
+      .isString()
+      .isLength({ min: 4, max: 20 })
+      .withMessage('Invalid coupon code format'),
+  ],
+  validateRequest,
+  validateCoupon
+);
 
 // Cancel subscription
 router.post('/cancel-subscription', authenticateToken, cancelSubscription);

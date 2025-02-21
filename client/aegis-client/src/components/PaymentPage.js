@@ -14,7 +14,8 @@ import {
   Alert,
   useTheme,
   Fade,
-  Divider
+  Divider,
+  TextField
 } from '@mui/material';
 import { loadStripe } from '@stripe/stripe-js';
 import { useSubscription } from '../hooks/useSubscription';
@@ -30,49 +31,70 @@ import axios from '../utils/axios';
 // Initialize Stripe (replace with your publishable key)
 const stripePromise = loadStripe('your_publishable_key');
 
-const plans = [
+const practiceTestPlans = [
   {
-    id: 'basic',
-    name: 'Basic Prep',
-    price: 49.99,
+    id: 'practice-basic',
+    name: 'Basic Practice',
+    price: 29.99,
     interval: 'month',
     features: [
-      'Access to practice tests',
+      'Access to all practice tests',
       'Basic performance analytics',
       'Email support'
     ],
     recommended: false,
-    color: 'primary'
+    color: 'primary',
+    type: 'practice'
   },
   {
-    id: 'pro',
-    name: 'Pro Prep',
-    price: 99.99,
+    id: 'practice-pro',
+    name: 'Pro Practice',
+    price: 49.99,
     interval: 'month',
     features: [
-      'Everything in Basic',
+      'Everything in Basic Practice',
       'Advanced analytics',
       'Personalized study plan',
       'Priority support',
       'Live chat assistance'
     ],
     recommended: true,
-    color: 'secondary'
-  },
+    color: 'secondary',
+    type: 'practice'
+  }
+];
+
+const realTestPlans = [
   {
-    id: 'premium',
-    name: 'Premium Prep',
-    price: 199.99,
-    interval: 'month',
+    id: 'test-standard',
+    name: 'Standard Test',
+    price: 99.99,
+    interval: 'one-time',
     features: [
-      'Everything in Pro',
-      '1-on-1 tutoring sessions',
-      'Custom practice materials',
-      'Guaranteed score improvement',
-      'Direct instructor access'
+      'One official test attempt',
+      'Basic proctoring',
+      'Score report',
+      'Email support'
     ],
     recommended: false,
-    color: 'primary'
+    color: 'primary',
+    type: 'real'
+  },
+  {
+    id: 'test-premium',
+    name: 'Premium Test',
+    price: 149.99,
+    interval: 'one-time',
+    features: [
+      'One official test attempt',
+      'Advanced proctoring',
+      'Detailed score analysis',
+      'Priority support',
+      'Score improvement guarantee'
+    ],
+    recommended: true,
+    color: 'secondary',
+    type: 'real'
   }
 ];
 
@@ -80,6 +102,7 @@ function PaymentPage() {
   const theme = useTheme();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [selectedPlan, setSelectedPlan] = useState(null);
   const location = useLocation();
   const { subscription, isSubscriptionActive } = useSubscription();
@@ -91,6 +114,29 @@ function PaymentPage() {
     }
   }, [location.state]);
 
+  const [couponCode, setCouponCode] = useState('');
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+
+  const validateCoupon = async () => {
+    if (!couponCode) return;
+    
+    setValidatingCoupon(true);
+    setCouponError('');
+    
+    try {
+      const response = await axios.post('/payment/validate-coupon', { code: couponCode });
+      setAppliedCoupon(response.data);
+      setSuccess('Coupon applied successfully!');
+    } catch (err) {
+      setCouponError(err.response?.data?.message || 'Invalid coupon code');
+      setAppliedCoupon(null);
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
   const handleSubscribe = async (planId) => {
     setLoading(true);
     setError('');
@@ -101,8 +147,11 @@ function PaymentPage() {
 
       if (!localStorage.getItem('token')) throw new Error('Please log in to subscribe');
 
-      // Create a checkout session
-      const response = await axios.post('/api/payment/create-checkout-session', { planId });
+      // Create a checkout session with coupon if applied
+      const response = await axios.post('/payment/create-checkout-session', { 
+        planId,
+        couponCode: appliedCoupon?.code
+      });
 
       // Redirect to Stripe Checkout
       const result = await stripe.redirectToCheckout({
@@ -120,24 +169,98 @@ function PaymentPage() {
     }
   };
 
-  const renderFeatures = (features) => {
-    return features.map((feature, index) => (
-      <Box
-        key={index}
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          mb: 1,
-          color: 'text.secondary'
-        }}
-      >
-        <CheckCircle
-          sx={{ mr: 1, fontSize: 20, color: theme.palette.success.main }}
+  const renderPlanCard = (plan) => (
+    <Card
+      elevation={plan.recommended ? 8 : 2}
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        transition: 'transform 0.2s ease-in-out',
+        '&:hover': {
+          transform: 'translateY(-8px)'
+        },
+        border: plan.recommended
+          ? `2px solid ${theme.palette.secondary.main}`
+          : 'none'
+      }}
+    >
+      {plan.recommended && (
+        <Chip
+          label="Recommended"
+          color="secondary"
+          icon={<Star />}
+          sx={{
+            position: 'absolute',
+            top: -12,
+            right: 20,
+            zIndex: 1
+          }}
         />
-        <Typography variant="body2">{feature}</Typography>
-      </Box>
-    ));
-  };
+      )}
+      <CardContent sx={{ flexGrow: 1, p: 3 }}>
+        <Typography
+          variant="h4"
+          component="h2"
+          gutterBottom
+          sx={{ color: theme.palette[plan.color].main }}
+        >
+          {plan.name}
+        </Typography>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h3" component="span">
+            ${plan.price}
+          </Typography>
+          <Typography
+            variant="subtitle1"
+            component="span"
+            color="text.secondary"
+          >
+            /{plan.interval}
+          </Typography>
+        </Box>
+        <Divider sx={{ my: 2 }} />
+        {plan.features.map((feature, index) => (
+          <Box
+            key={index}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              mb: 1,
+              color: 'text.secondary'
+            }}
+          >
+            <CheckCircle
+              sx={{ mr: 1, fontSize: 20, color: theme.palette.success.main }}
+            />
+            <Typography variant="body2">{feature}</Typography>
+          </Box>
+        ))}
+      </CardContent>
+      <CardActions sx={{ p: 3, pt: 0 }}>
+        <Button
+          fullWidth
+          variant={plan.recommended ? 'contained' : 'outlined'}
+          color={plan.color}
+          size="large"
+          onClick={() => handleSubscribe(plan.id)}
+          disabled={loading || (plan.type === 'practice' && isSubscriptionActive())}
+          sx={{
+            py: 1.5,
+            textTransform: 'none',
+            fontSize: '1.1rem'
+          }}
+        >
+          {loading ? (
+            <CircularProgress size={24} />
+          ) : (
+            plan.type === 'practice' ? 'Subscribe Now' : 'Purchase Test'
+          )}
+        </Button>
+      </CardActions>
+    </Card>
+  );
 
   return (
     <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', py: 8 }}>
@@ -176,87 +299,73 @@ function PaymentPage() {
               </Alert>
             )}
 
-            <Grid container spacing={4} justifyContent="center">
-              {plans.map((plan) => (
-                <Grid item xs={12} md={4} key={plan.id}>
-                  <Card
-                    elevation={plan.recommended ? 8 : 2}
-                    sx={{
-                      height: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      position: 'relative',
-                      transition: 'transform 0.2s ease-in-out',
-                      '&:hover': {
-                        transform: 'translateY(-8px)'
-                      },
-                      border: plan.recommended
-                        ? `2px solid ${theme.palette.secondary.main}`
-                        : 'none'
-                    }}
-                  >
-                    {plan.recommended && (
-                      <Chip
-                        label="Recommended"
-                        color="secondary"
-                        icon={<Star />}
-                        sx={{
-                          position: 'absolute',
-                          top: -12,
-                          right: 20,
-                          zIndex: 1
-                        }}
-                      />
-                    )}
-                    <CardContent sx={{ flexGrow: 1, p: 3 }}>
-                      <Typography
-                        variant="h4"
-                        component="h2"
-                        gutterBottom
-                        sx={{ color: theme.palette[plan.color].main }}
-                      >
-                        {plan.name}
-                      </Typography>
-                      <Box sx={{ mb: 3 }}>
-                        <Typography variant="h3" component="span">
-                          ${plan.price}
-                        </Typography>
-                        <Typography
-                          variant="subtitle1"
-                          component="span"
-                          color="text.secondary"
-                        >
-                          /{plan.interval}
-                        </Typography>
-                      </Box>
-                      <Divider sx={{ my: 2 }} />
-                      {renderFeatures(plan.features)}
-                    </CardContent>
-                    <CardActions sx={{ p: 3, pt: 0 }}>
-                      <Button
-                        fullWidth
-                        variant={plan.recommended ? 'contained' : 'outlined'}
-                        color={plan.color}
-                        size="large"
-                        onClick={() => handleSubscribe(plan.id)}
-                        disabled={loading || isSubscriptionActive()}
-                        sx={{
-                          py: 1.5,
-                          textTransform: 'none',
-                          fontSize: '1.1rem'
-                        }}
-                      >
-                        {loading ? (
-                          <CircularProgress size={24} />
-                        ) : (
-                          'Get Started'
-                        )}
-                      </Button>
-                    </CardActions>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
+            <Box sx={{ mb: 6 }}>
+              <Typography variant="h4" gutterBottom align="center">
+                Practice Tests
+              </Typography>
+              <Typography variant="subtitle1" align="center" color="text.secondary" sx={{ mb: 4 }}>
+                Prepare for success with our comprehensive practice test packages
+              </Typography>
+              <Grid container spacing={4} justifyContent="center">
+                {practiceTestPlans.map((plan) => (
+                  <Grid item xs={12} md={6} key={plan.id}>
+                    {renderPlanCard(plan)}
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+
+            <Divider sx={{ my: 8 }} />
+
+            <Box sx={{ mb: 6 }}>
+              <Typography variant="h4" gutterBottom align="center">
+                Official Tests
+              </Typography>
+              <Typography variant="subtitle1" align="center" color="text.secondary" sx={{ mb: 4 }}>
+                Take the official test with our secure proctoring system
+              </Typography>
+              <Grid container spacing={4} justifyContent="center">
+                {realTestPlans.map((plan) => (
+                  <Grid item xs={12} md={6} key={plan.id}>
+                    {renderPlanCard(plan)}
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+
+            <Box sx={{ mt: 4, mb: 8, maxWidth: 400, mx: 'auto' }}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Have a Coupon?
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Coupon Code"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      error={!!couponError}
+                      helperText={couponError}
+                      disabled={loading || validatingCoupon}
+                    />
+                    <Button
+                      variant="outlined"
+                      onClick={validateCoupon}
+                      disabled={!couponCode || loading || validatingCoupon}
+                    >
+                      {validatingCoupon ? <CircularProgress size={24} /> : 'Apply'}
+                    </Button>
+                  </Box>
+                  {appliedCoupon && (
+                    <Alert severity="success" sx={{ mt: 1 }}>
+                      Coupon applied: {appliedCoupon.description}
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+            </Box>
 
             <Box sx={{ mt: 8, textAlign: 'center' }}>
               <Typography variant="h4" gutterBottom>

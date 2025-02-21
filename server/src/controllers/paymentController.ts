@@ -19,17 +19,70 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
 const DOMAIN = process.env.DOMAIN || 'http://localhost:3000';
 
 const plans = {
-  basic: {
+  'practice-basic': {
+    price: 2999, // $29.99
+    name: 'Basic Practice',
+    type: 'subscription'
+  },
+  'practice-pro': {
     price: 4999, // $49.99
-    name: 'Basic Prep'
+    name: 'Pro Practice',
+    type: 'subscription'
   },
-  pro: {
+  'test-standard': {
     price: 9999, // $99.99
-    name: 'Pro Prep'
+    name: 'Standard Test',
+    type: 'one-time'
   },
-  premium: {
-    price: 19999, // $199.99
-    name: 'Premium Prep'
+  'test-premium': {
+    price: 14999, // $149.99
+    name: 'Premium Test',
+    type: 'one-time'
+  }
+};
+
+// Valid coupon codes and their effects
+const coupons = {
+  'FREETEST': {
+    code: 'FREETEST',
+    description: '100% off your first test',
+    type: 'percentage',
+    amount: 100,
+    validForTypes: ['one-time']
+  },
+  'PRACTICE50': {
+    code: 'PRACTICE50',
+    description: '50% off practice test subscription',
+    type: 'percentage',
+    amount: 50,
+    validForTypes: ['subscription']
+  }
+};
+
+export const validateCoupon = async (req: Request, res: Response) => {
+  try {
+    const { code } = req.body;
+
+    if (!code) {
+      return res.status(400).json({ message: 'Coupon code is required' });
+    }
+
+    const coupon = coupons[code.toUpperCase() as keyof typeof coupons];
+
+    if (!coupon) {
+      return res.status(404).json({ message: 'Invalid coupon code' });
+    }
+
+    res.json({
+      code: coupon.code,
+      description: coupon.description,
+      type: coupon.type,
+      amount: coupon.amount,
+      validForTypes: coupon.validForTypes
+    });
+  } catch (error) {
+    console.error('Coupon validation error:', error);
+    res.status(500).json({ message: 'Failed to validate coupon' });
   }
 };
 
@@ -48,6 +101,17 @@ export const createCheckoutSession = async (req: AuthenticatedRequest, res: Resp
 
     const plan = plans[planId as keyof typeof plans];
 
+    // Apply coupon if provided
+    const { couponCode } = req.body;
+    let finalPrice = plan.price;
+    
+    if (couponCode) {
+      const coupon = coupons[couponCode.toUpperCase() as keyof typeof coupons];
+      if (coupon && coupon.validForTypes.includes(plan.type)) {
+        finalPrice = Math.max(0, plan.price - (plan.price * coupon.amount / 100));
+      }
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -58,12 +122,12 @@ export const createCheckoutSession = async (req: AuthenticatedRequest, res: Resp
               name: plan.name,
               description: `Access to ${plan.name} features`,
             },
-            unit_amount: plan.price,
+            unit_amount: finalPrice,
           },
           quantity: 1,
         },
       ],
-      mode: 'subscription',
+      mode: plan.type === 'subscription' ? 'subscription' : 'payment',
       success_url: `${DOMAIN}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${DOMAIN}/pricing`,
       customer_email: req.user?.email,

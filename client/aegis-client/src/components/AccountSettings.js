@@ -66,7 +66,7 @@ function AccountSettings() {
 
   const fetchUserData = async () => {
     try {
-      const response = await axios.get('/api/user/profile');
+      const response = await axios.get('/user/profile');
       setUserData(response.data);
     } catch (err) {
       setError('Failed to load user data');
@@ -87,7 +87,7 @@ function AccountSettings() {
     setSuccess('');
 
     try {
-      await axios.put('/api/user/profile', {
+      await axios.put('/user/profile', {
         name: userData.name,
         email: userData.email
       });
@@ -126,7 +126,7 @@ function AccountSettings() {
       setLoading(true);
       setError('');
       
-      await axios.post('/api/payment/cancel-subscription');
+      await axios.post('/payment/cancel-subscription');
 
       // Refresh user data to show updated subscription status
       await fetchUserData();

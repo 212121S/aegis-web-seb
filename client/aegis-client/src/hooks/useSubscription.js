@@ -19,7 +19,7 @@ export const useSubscription = () => {
         return;
       }
 
-      const response = await axios.get('/api/payment/subscription-status');
+      const response = await axios.get('/payment/subscription-status');
 
       setSubscription(response.data);
       setLoading(false);
