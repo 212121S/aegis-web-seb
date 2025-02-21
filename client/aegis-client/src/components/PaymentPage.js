@@ -153,14 +153,8 @@ function PaymentPage() {
         couponCode: appliedCoupon?.code
       });
 
-      // Redirect to Stripe Checkout
-      const result = await stripe.redirectToCheckout({
-        sessionId: response.data.sessionId
-      });
-
-      if (result.error) {
-        throw new Error(result.error.message);
-      }
+      // Redirect to Stripe Checkout URL
+      window.location.href = response.data.url;
     } catch (err) {
       setError(err.message || 'Failed to process payment');
       console.error('Payment error:', err);
