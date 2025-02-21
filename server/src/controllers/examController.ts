@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
-import { Question, TestSession, TestResult, IProctoringEvent, VerificationLink } from "../models/Question";
+import { Question, TestSession, TestResult, IProctoringEvent, VerificationLink, IQuestion } from "../models/Question";
 import Stripe from 'stripe';
 import crypto from 'crypto';
 
@@ -306,6 +306,102 @@ export async function revokeAccess(req: Request, res: Response) {
   } catch (err) {
     console.error('Failed to revoke access:', err);
     return res.status(500).json({ error: 'Failed to revoke access' });
+  }
+}
+
+// Question Management Functions
+
+export async function addQuestion(req: Request, res: Response) {
+  try {
+    const questionData: IQuestion = req.body;
+    const question = new Question(questionData);
+    await question.save();
+    return res.status(201).json(question);
+  } catch (err) {
+    console.error('Failed to add question:', err);
+    return res.status(500).json({ error: 'Failed to add question' });
+  }
+}
+
+export async function uploadQuestions(req: Request, res: Response) {
+  try {
+    const questions: IQuestion[] = req.body;
+    const savedQuestions = await Question.insertMany(questions);
+    return res.status(201).json(savedQuestions);
+  } catch (err) {
+    console.error('Failed to upload questions:', err);
+    return res.status(500).json({ error: 'Failed to upload questions' });
+  }
+}
+
+export async function getQuestions(req: Request, res: Response) {
+  try {
+    const { category, difficulty, page = 1, limit = 10 } = req.query;
+    const query: any = { isActive: true };
+
+    if (category) query.category = category;
+    if (difficulty) query.difficulty = difficulty;
+
+    const skip = (Number(page) - 1) * Number(limit);
+    
+    const questions = await Question.find(query)
+      .skip(skip)
+      .limit(Number(limit))
+      .sort({ lastUsed: -1 });
+
+    const total = await Question.countDocuments(query);
+
+    return res.json({
+      questions,
+      total,
+      pages: Math.ceil(total / Number(limit)),
+      currentPage: Number(page)
+    });
+  } catch (err) {
+    console.error('Failed to get questions:', err);
+    return res.status(500).json({ error: 'Failed to get questions' });
+  }
+}
+
+export async function updateQuestion(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+
+    const question = await Question.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true }
+    );
+
+    if (!question) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+
+    return res.json(question);
+  } catch (err) {
+    console.error('Failed to update question:', err);
+    return res.status(500).json({ error: 'Failed to update question' });
+  }
+}
+
+export async function deleteQuestion(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const question = await Question.findByIdAndUpdate(
+      id,
+      { isActive: false },
+      { new: true }
+    );
+
+    if (!question) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+
+    return res.json({ message: 'Question deactivated successfully' });
+  } catch (err) {
+    console.error('Failed to delete question:', err);
+    return res.status(500).json({ error: 'Failed to delete question' });
   }
 }
 

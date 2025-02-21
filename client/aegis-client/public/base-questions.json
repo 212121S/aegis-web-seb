@@ -1,0 +1,263 @@
+[
+  {
+    "prompt": "What is the difference between LIFO and FIFO inventory methods?",
+    "choices": [
+      "FIFO assumes oldest inventory is sold first, LIFO assumes newest inventory is sold first, affecting COGS and profit",
+      "FIFO is for manufacturing companies, LIFO is for retail companies",
+      "LIFO is only used in US GAAP, FIFO is international",
+      "They are the same method with different names"
+    ],
+    "correctAnswer": "FIFO assumes oldest inventory is sold first, LIFO assumes newest inventory is sold first, affecting COGS and profit",
+    "difficulty": 4,
+    "category": "Accounting",
+    "subcategory": "Inventory"
+  },
+  {
+    "prompt": "What are the 3 major valuation methodologies?",
+    "choices": [
+      "DCF Analysis, Comparable Companies Analysis, Precedent Transactions Analysis",
+      "NPV Analysis, IRR Analysis, Payback Period Analysis",
+      "Asset-based, Market-based, Income-based Approaches",
+      "Book Value, Market Value, Enterprise Value Analysis"
+    ],
+    "correctAnswer": "DCF Analysis, Comparable Companies Analysis, Precedent Transactions Analysis",
+    "difficulty": 3,
+    "category": "Valuation",
+    "subcategory": "Methodologies"
+  },
+  {
+    "prompt": "Walk me through a basic LBO model.",
+    "choices": [
+      "Purchase company with debt/equity mix, project financials, pay down debt, exit at higher multiple for return",
+      "Buy company with all equity, improve operations, sell for higher price",
+      "Purchase company with debt only, refinance annually, exit through IPO",
+      "Acquire company with minimal debt, focus on dividend payments, hold indefinitely"
+    ],
+    "correctAnswer": "Purchase company with debt/equity mix, project financials, pay down debt, exit at higher multiple for return",
+    "difficulty": 5,
+    "category": "LBO",
+    "subcategory": "Basics"
+  },
+  {
+    "prompt": "What is the formula for Enterprise Value?",
+    "choices": [
+      "Equity Value + Total Debt - Cash + Preferred Stock + Minority Interest",
+      "Market Cap + Total Assets - Total Liabilities",
+      "Equity Value + EBITDA - Net Debt",
+      "Market Cap + Revenue - Operating Expenses"
+    ],
+    "correctAnswer": "Equity Value + Total Debt - Cash + Preferred Stock + Minority Interest",
+    "difficulty": 3,
+    "category": "Valuation",
+    "subcategory": "Enterprise Value"
+  },
+  {
+    "prompt": "How do you calculate WACC?",
+    "choices": [
+      "Weight of Debt × Cost of Debt × (1 - Tax Rate) + Weight of Equity × Cost of Equity",
+      "Total Debt / Total Assets × Interest Rate",
+      "Cost of Equity + Cost of Debt",
+      "Risk-Free Rate + Market Risk Premium"
+    ],
+    "correctAnswer": "Weight of Debt × Cost of Debt × (1 - Tax Rate) + Weight of Equity × Cost of Equity",
+    "difficulty": 4,
+    "category": "Valuation",
+    "subcategory": "WACC"
+  },
+  {
+    "prompt": "What are synergies in M&A?",
+    "choices": [
+      "Cost savings and revenue enhancements from combining two companies",
+      "The premium paid above market value in an acquisition",
+      "Tax benefits from an acquisition",
+      "The fees paid to investment banks for the deal"
+    ],
+    "correctAnswer": "Cost savings and revenue enhancements from combining two companies",
+    "difficulty": 3,
+    "category": "M&A",
+    "subcategory": "Synergies"
+  },
+  {
+    "prompt": "Why do most mergers and acquisitions fail?",
+    "choices": [
+      "Integration issues, overvaluation, cultural differences, and unrealized synergies",
+      "Lack of financing options",
+      "Regulatory restrictions",
+      "Poor timing in the market"
+    ],
+    "correctAnswer": "Integration issues, overvaluation, cultural differences, and unrealized synergies",
+    "difficulty": 4,
+    "category": "M&A",
+    "subcategory": "Deal Success"
+  },
+  {
+    "prompt": "What is an 'ideal' candidate for an LBO?",
+    "choices": [
+      "Stable cash flows, low capex needs, strong market position, and potential for operational improvements",
+      "High growth company with negative cash flow",
+      "Start-up with innovative technology",
+      "Company with high debt and volatile earnings"
+    ],
+    "correctAnswer": "Stable cash flows, low capex needs, strong market position, and potential for operational improvements",
+    "difficulty": 4,
+    "category": "LBO",
+    "subcategory": "Target Selection"
+  },
+  {
+    "prompt": "Walk me through the 3 financial statements.",
+    "choices": [
+      "Income Statement (P&L), Balance Sheet, and Cash Flow Statement - showing profitability, financial position, and cash movements respectively",
+      "Balance Sheet, Income Statement, and Statement of Shareholders' Equity - showing assets, profits, and equity only",
+      "Cash Flow Statement, Income Statement, and Notes to Financial Statements - showing cash, profits, and details",
+      "Balance Sheet, Statement of Comprehensive Income, and Statement of Changes in Equity - showing position and equity changes"
+    ],
+    "correctAnswer": "Income Statement (P&L), Balance Sheet, and Cash Flow Statement - showing profitability, financial position, and cash movements respectively",
+    "difficulty": 1,
+    "category": "Financial Statements",
+    "subcategory": "Fundamentals"
+  },
+  {
+    "prompt": "How do the 3 statements link together?",
+    "choices": [
+      "Net Income flows from Income Statement to Balance Sheet via Retained Earnings and to Cash Flow Statement, while Balance Sheet changes flow to Cash Flow Statement",
+      "Only the Balance Sheet and Income Statement are linked through Net Income",
+      "The statements are completely independent and don't connect",
+      "Only the Cash Flow Statement and Balance Sheet are connected through cash balance changes"
+    ],
+    "correctAnswer": "Net Income flows from Income Statement to Balance Sheet via Retained Earnings and to Cash Flow Statement, while Balance Sheet changes flow to Cash Flow Statement",
+    "difficulty": 2,
+    "category": "Financial Statements",
+    "subcategory": "Integration"
+  },
+  {
+    "prompt": "If Depreciation is a non-cash expense, why does it affect the cash balance?",
+    "choices": [
+      "It reduces taxable income, which leads to lower cash tax payments",
+      "It directly reduces the cash balance through regular payments",
+      "It has no effect on cash balance at all",
+      "It increases the cash balance through tax benefits"
+    ],
+    "correctAnswer": "It reduces taxable income, which leads to lower cash tax payments",
+    "difficulty": 3,
+    "category": "Financial Statements",
+    "subcategory": "Depreciation"
+  },
+  {
+    "prompt": "What happens when Inventory goes up by $10, assuming you pay for it with cash?",
+    "choices": [
+      "Assets remain unchanged (Inventory +$10, Cash -$10), Operating Cash Flow decreases by $10",
+      "Total Assets increase by $10, Operating Cash Flow increases by $10",
+      "Assets decrease by $10, Operating Cash Flow remains unchanged",
+      "Total Assets increase by $10, no effect on Operating Cash Flow"
+    ],
+    "correctAnswer": "Assets remain unchanged (Inventory +$10, Cash -$10), Operating Cash Flow decreases by $10",
+    "difficulty": 3,
+    "category": "Financial Statements",
+    "subcategory": "Working Capital"
+  },
+  {
+    "prompt": "What is Working Capital?",
+    "choices": [
+      "Current Assets minus Current Liabilities, representing short-term operational liquidity",
+      "Total Assets minus Total Liabilities",
+      "Cash plus Inventory",
+      "Current Assets plus Current Liabilities"
+    ],
+    "correctAnswer": "Current Assets minus Current Liabilities, representing short-term operational liquidity",
+    "difficulty": 2,
+    "category": "Financial Statements",
+    "subcategory": "Working Capital"
+  }
+,
+  {
+    "prompt": "Walk me through a DCF.",
+    "choices": [
+      "Project cash flows, discount to present value using WACC, add terminal value, subtract net debt, divide by shares outstanding",
+      "Calculate EBITDA, multiply by industry multiple, subtract debt",
+      "Project revenue growth, calculate profit margins, multiply by P/E ratio",
+      "Add up all historical cash flows and divide by number of years"
+    ],
+    "correctAnswer": "Project cash flows, discount to present value using WACC, add terminal value, subtract net debt, divide by shares outstanding",
+    "difficulty": 5,
+    "category": "Valuation",
+    "subcategory": "DCF"
+  },
+  {
+    "prompt": "How do you calculate Terminal Value in a DCF?",
+    "choices": [
+      "Either Gordon Growth Method (perpetual growth) or Exit Multiple Method (EBITDA multiple)",
+      "Only using the company's current market value",
+      "Adding up all future cash flows indefinitely",
+      "Using the company's book value"
+    ],
+    "correctAnswer": "Either Gordon Growth Method (perpetual growth) or Exit Multiple Method (EBITDA multiple)",
+    "difficulty": 4,
+    "category": "Valuation",
+    "subcategory": "DCF"
+  },
+  {
+    "prompt": "A car drives 60 miles at 30 mph. How fast should it drive to average 60 mph over the same distance?",
+    "choices": [
+      "It's impossible - you cannot achieve a 60 mph average if half the journey was at 30 mph",
+      "90 mph",
+      "120 mph",
+      "180 mph"
+    ],
+    "correctAnswer": "It's impossible - you cannot achieve a 60 mph average if half the journey was at 30 mph",
+    "difficulty": 7,
+    "category": "Brain Teasers",
+    "subcategory": "Speed Problems"
+  },
+  {
+    "prompt": "How do you value banks differently from other companies?",
+    "choices": [
+      "Use P/B ratios and ROE analysis instead of EV/EBITDA, focus on spread analysis and loan book quality",
+      "Use the same DCF methodology as other companies",
+      "Only look at dividend yield and payout ratio",
+      "Focus solely on asset size and market share"
+    ],
+    "correctAnswer": "Use P/B ratios and ROE analysis instead of EV/EBITDA, focus on spread analysis and loan book quality",
+    "difficulty": 6,
+    "category": "Valuation",
+    "subcategory": "Financial Institutions"
+  },
+  {
+    "prompt": "What is a Section 338(h)(10) election in M&A?",
+    "choices": [
+      "Tax election to treat stock purchase as asset purchase, allowing step-up in basis of assets",
+      "Regulation requiring disclosure of merger terms",
+      "Rule about treatment of employee stock options in M&A",
+      "Provision about treatment of minority shareholders"
+    ],
+    "correctAnswer": "Tax election to treat stock purchase as asset purchase, allowing step-up in basis of assets",
+    "difficulty": 8,
+    "category": "M&A",
+    "subcategory": "Tax Considerations"
+  },
+  {
+    "prompt": "What is PIK (Payment In Kind) debt?",
+    "choices": [
+      "Debt where interest is paid with additional debt rather than cash",
+      "Debt that can be converted to equity",
+      "Debt with variable interest rates",
+      "Short-term debt used for working capital"
+    ],
+    "correctAnswer": "Debt where interest is paid with additional debt rather than cash",
+    "difficulty": 6,
+    "category": "LBO",
+    "subcategory": "Debt Types"
+  },
+  {
+    "prompt": "How do deferred tax liabilities (DTLs) affect an M&A deal?",
+    "choices": [
+      "They reduce purchase price as they represent future cash tax payments, affecting the balance sheet adjustment",
+      "They have no effect on the purchase price",
+      "They always increase the purchase price",
+      "They only affect the income statement"
+    ],
+    "correctAnswer": "They reduce purchase price as they represent future cash tax payments, affecting the balance sheet adjustment",
+    "difficulty": 7,
+    "category": "M&A",
+    "subcategory": "Tax Implications"
+  }
+]

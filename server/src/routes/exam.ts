@@ -1,28 +1,43 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/authMiddleware';
 import { 
   initializeTest, 
   getNextQuestion, 
   submitAnswer, 
-  submitProctoringEvent,
-  finalizeTest 
+  submitProctoringEvent, 
+  finalizeTest,
+  generateVerificationLink,
+  verifyResult,
+  verifyCode,
+  revokeAccess,
+  addQuestion,
+  uploadQuestions,
+  getQuestions,
+  updateQuestion,
+  deleteQuestion
 } from '../controllers/examController';
+import { authenticateToken } from '../middleware/authMiddleware';
+import { validateSubscription } from '../middleware/subscriptionMiddleware';
 
 const router = Router();
 
-// Initialize a new test session
-router.post('/initialize', authenticateToken, initializeTest);
-
-// Get the next question
-router.get('/:sessionId/next', authenticateToken, getNextQuestion);
-
-// Submit an answer
-router.post('/:sessionId/answer', authenticateToken, submitAnswer);
-
-// Submit a proctoring event
-router.post('/:sessionId/proctoring-event', authenticateToken, submitProctoringEvent);
-
-// Finalize test
+// Test session routes
+router.post('/initialize', authenticateToken, validateSubscription, initializeTest);
+router.get('/:sessionId/next-question', authenticateToken, getNextQuestion);
+router.post('/:sessionId/submit', authenticateToken, submitAnswer);
+router.post('/:sessionId/proctoring', authenticateToken, submitProctoringEvent);
 router.post('/:sessionId/finalize', authenticateToken, finalizeTest);
+
+// Verification routes
+router.post('/verify/:testResultId/generate', authenticateToken, generateVerificationLink);
+router.get('/verify/:token', verifyResult);
+router.post('/verify/code', verifyCode);
+router.post('/verify/:testResultId/revoke', authenticateToken, revokeAccess);
+
+// Question management routes
+router.post('/questions', authenticateToken, validateSubscription, addQuestion);
+router.post('/questions/bulk', authenticateToken, validateSubscription, uploadQuestions);
+router.get('/questions', authenticateToken, validateSubscription, getQuestions);
+router.put('/questions/:id', authenticateToken, validateSubscription, updateQuestion);
+router.delete('/questions/:id', authenticateToken, validateSubscription, deleteQuestion);
 
 export default router;

@@ -47,6 +47,8 @@ import PaymentPage from "./components/PaymentPage";
 import PaymentSuccess from "./components/PaymentSuccess";
 import AccountSettings from "./components/AccountSettings";
 import VerificationPage from "./components/VerificationPage";
+import AdminQuestionManager from "./components/AdminQuestionManager";
+import TestEnvironment from "./components/TestEnvironment";
 
 // Import theme from theme file
 import theme from './theme';
@@ -123,6 +125,7 @@ function App() {
     { text: "Home", icon: <Home />, path: "/", auth: false },
     { text: "About", icon: <Info />, path: "/about", auth: false },
     { text: "Practice Tests", icon: <Assessment />, path: "/test", auth: true },
+    { text: "Question Manager", icon: <School />, path: "/admin/questions", auth: true },
     { text: "Pricing", icon: <Payment />, path: "/pricing", auth: false },
     { text: "Account", icon: <AccountCircle />, path: "/account", auth: true },
     { text: "Verify Results", icon: <VerifiedUser />, path: "/verify", auth: false }
@@ -419,6 +422,22 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <ProctoringMonitor />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/questions"
+                element={
+                  <ProtectedRoute>
+                    <AdminQuestionManager />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/test/practice"
+                element={
+                  <ProtectedRoute>
+                    <TestEnvironment />
                   </ProtectedRoute>
                 }
               />

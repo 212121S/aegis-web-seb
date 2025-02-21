@@ -1,0 +1,67 @@
+[
+  {
+    "prompt": "What is the primary purpose of a Discounted Cash Flow (DCF) analysis?",
+    "choices": [
+      "To determine the present value of expected future cash flows",
+      "To calculate historical stock performance",
+      "To analyze competitor market share",
+      "To predict short-term market trends"
+    ],
+    "correctAnswer": "To determine the present value of expected future cash flows",
+    "difficulty": 3,
+    "category": "Financial Modeling",
+    "subcategory": "DCF Analysis"
+  },
+  {
+    "prompt": "Which financial metric represents a company's ability to pay short-term obligations?",
+    "choices": [
+      "Current Ratio",
+      "Debt-to-Equity Ratio",
+      "Return on Assets",
+      "Price-to-Earnings Ratio"
+    ],
+    "correctAnswer": "Current Ratio",
+    "difficulty": 2,
+    "category": "Financial Analysis",
+    "subcategory": "Liquidity Ratios"
+  },
+  {
+    "prompt": "In the context of option pricing, what does 'theta' measure?",
+    "choices": [
+      "Time decay of option value",
+      "Price sensitivity to underlying asset",
+      "Volatility sensitivity",
+      "Interest rate sensitivity"
+    ],
+    "correctAnswer": "Time decay of option value",
+    "difficulty": 7,
+    "category": "Derivatives",
+    "subcategory": "Options Greeks"
+  },
+  {
+    "prompt": "What is the main difference between FIFO and LIFO inventory methods?",
+    "choices": [
+      "Order of cost allocation to sold items",
+      "Physical movement of inventory",
+      "Inventory storage location",
+      "Supplier payment terms"
+    ],
+    "correctAnswer": "Order of cost allocation to sold items",
+    "difficulty": 4,
+    "category": "Accounting",
+    "subcategory": "Inventory Management"
+  },
+  {
+    "prompt": "Which valuation multiple is most appropriate for comparing companies with different capital structures?",
+    "choices": [
+      "Enterprise Value/EBITDA",
+      "Price/Earnings",
+      "Price/Book Value",
+      "Price/Sales"
+    ],
+    "correctAnswer": "Enterprise Value/EBITDA",
+    "difficulty": 6,
+    "category": "Valuation",
+    "subcategory": "Multiples Analysis"
+  }
+]
