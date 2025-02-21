@@ -171,7 +171,29 @@ export const createCheckoutSession = async (req: AuthenticatedRequest, res: Resp
     res.json({ sessionId: session.id });
   } catch (error) {
     console.error('Stripe session creation error:', error);
-    res.status(500).json({ message: 'Failed to create checkout session' });
+    // Log detailed error information
+    if (error instanceof Stripe.errors.StripeError) {
+      console.error('Stripe error details:', {
+        type: error.type,
+        code: error.code,
+        message: error.message
+      });
+      return res.status(error.statusCode || 500).json({ 
+        message: error.message,
+        code: error.code,
+        type: error.type
+      });
+    }
+    // Log raw error for non-Stripe errors
+    console.error('Raw error:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    res.status(500).json({ 
+      message: 'Failed to create checkout session',
+      details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+    });
   }
 };
 
