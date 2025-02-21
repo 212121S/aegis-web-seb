@@ -11,7 +11,8 @@ import {
   useTheme
 } from '@mui/material';
 import { CheckCircle } from '@mui/icons-material';
-import axios from 'axios';
+import { paymentAPI } from '../utils/axios';
+import { useSubscription } from '../hooks/useSubscription';
 
 function PaymentSuccess() {
   const [searchParams] = useSearchParams();
@@ -19,6 +20,7 @@ function PaymentSuccess() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const theme = useTheme();
+  const { refreshSubscription } = useSubscription();
 
   useEffect(() => {
     const verifyPayment = async () => {
@@ -28,15 +30,8 @@ function PaymentSuccess() {
           throw new Error('No session ID found');
         }
 
-        const token = localStorage.getItem('token');
-        await axios.post(
-          'http://localhost:4000/api/payment/verify-session',
-          { sessionId },
-          {
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
-
+        await paymentAPI.verifySession(sessionId);
+        await refreshSubscription();
         setLoading(false);
       } catch (err) {
         console.error('Payment verification error:', err);

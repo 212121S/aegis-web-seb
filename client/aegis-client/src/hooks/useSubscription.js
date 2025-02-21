@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from '../utils/axios';
+import { paymentAPI } from '../utils/axios';
 import { useNavigate } from 'react-router-dom';
 
 export const useSubscription = () => {
@@ -9,8 +9,14 @@ export const useSubscription = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    checkSubscription();
-  }, []);
+    const token = localStorage.getItem('token');
+    if (token) {
+      checkSubscription();
+    } else {
+      setSubscription(null);
+      setLoading(false);
+    }
+  }, [localStorage.getItem('token')]);
 
   const checkSubscription = async () => {
     try {
@@ -19,7 +25,7 @@ export const useSubscription = () => {
         return;
       }
 
-      const response = await axios.get('/payment/subscription-status');
+      const response = await paymentAPI.getSubscriptionStatus();
 
       setSubscription(response.data);
       setLoading(false);

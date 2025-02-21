@@ -101,7 +101,6 @@ function AppContent() {
     { text: "Home", icon: <Home />, path: "/", auth: false },
     { text: "About", icon: <Info />, path: "/about", auth: false },
     { text: "Dashboard", icon: <Assessment />, path: "/dashboard", auth: true },
-    { text: "Question Manager", icon: <School />, path: "/admin/questions", auth: true },
     { text: "Pricing", icon: <Payment />, path: "/pricing", auth: false },
     { text: "Account", icon: <AccountCircle />, path: "/account", auth: true },
     { text: "Verify Results", icon: <VerifiedUser />, path: "/verify", auth: false }
@@ -404,7 +403,7 @@ function AppContent() {
               <Route
                 path="/test/official"
                 element={
-                  <ProtectedRoute requireSubscription={true}>
+                  <ProtectedRoute requireSubscription={false}>
                     <OfficialTest />
                   </ProtectedRoute>
                 }
