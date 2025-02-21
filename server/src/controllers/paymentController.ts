@@ -181,27 +181,31 @@ export const handleWebhook = async (req: Request, res: Response) => {
         if (userId && planId) {
           const plan = plans[planId as keyof typeof plans];
           if (plan) {
-            const subscriptionData: Record<string, any> = {
-              'subscription.planId': planId,
-              'subscription.active': true,
-              'subscription.currentPeriodEnd': plan.type === 'subscription' 
-                ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
-                : null
-            };
-
-            if (plan.type === 'subscription') {
-              const customer = await stripe.customers.create({
-                email: session.customer_email || undefined,
-                metadata: { userId }
-              });
+            // For subscription plans, fetch subscription details
+            if (plan.type === 'subscription' && session.subscription) {
+              const subscription = await stripe.subscriptions.retrieve(session.subscription.toString());
               
-              subscriptionData['subscription.stripeCustomerId'] = customer.id;
-              if (session.subscription) {
-                subscriptionData['subscription.stripeSubscriptionId'] = session.subscription.toString();
-              }
-            }
+              const subscriptionData = {
+                'subscription.planId': planId,
+                'subscription.active': true,
+                'subscription.stripeCustomerId': session.customer,
+                'subscription.stripeSubscriptionId': subscription.id,
+                'subscription.currentPeriodEnd': new Date(subscription.current_period_end * 1000)
+              };
 
-            await User.findByIdAndUpdate(userId, subscriptionData as any);
+              await User.findByIdAndUpdate(userId, subscriptionData);
+              console.log('Updated user subscription:', subscriptionData);
+            } else {
+              // For one-time payments
+              const subscriptionData = {
+                'subscription.planId': planId,
+                'subscription.active': true,
+                'subscription.currentPeriodEnd': null
+              };
+
+              await User.findByIdAndUpdate(userId, subscriptionData);
+              console.log('Updated user one-time purchase:', subscriptionData);
+            }
           }
         }
         break;
