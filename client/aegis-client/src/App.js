@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from "react-router-dom";
 import {
   AppBar,
@@ -56,40 +56,21 @@ import theme from './theme';
 
 // Import hooks and services
 import { useSubscription } from './hooks/useSubscription';
-import { authAPI } from './utils/axios';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireSubscription = false }) => {
   const location = useLocation();
-  const { loading, error, isSubscriptionActive } = useSubscription();
-  const [isValidToken, setIsValidToken] = useState(true);
-  
-  useEffect(() => {
-    const verifyToken = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          setIsValidToken(false);
-          return;
-        }
-        await authAPI.verifyToken();
-        setIsValidToken(true);
-      } catch (err) {
-        console.error('Token verification failed:', err);
-        setIsValidToken(false);
-        localStorage.removeItem("token");
-      }
-    };
-    verifyToken();
-  }, []);
+  const { isAuthenticated, loading } = useAuth();
+  const { loading: subLoading, error, isSubscriptionActive } = useSubscription();
 
-  if (loading) {
+  if (loading || subLoading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
       <CircularProgress />
     </Box>;
   }
 
-  if (!isValidToken) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
@@ -103,23 +84,17 @@ const ProtectedRoute = ({ children, requireSubscription = false }) => {
   return children;
 };
 
-function App() {
+function AppContent() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { isAuthenticated, logout } = useAuth();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    setIsAuthenticated(!!token);
-  }, []);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    setIsAuthenticated(false);
+    logout();
   };
 
   const navItems = [
@@ -455,6 +430,14 @@ function App() {
         </Box>
       </BrowserRouter>
     </ThemeProvider>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

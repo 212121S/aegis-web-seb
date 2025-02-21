@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { authAPI } from "../utils/axios";
+import { useAuth } from "../context/AuthContext";
 import {
   Container,
   Box,
@@ -49,6 +50,8 @@ function LoginPage() {
     return true;
   };
 
+  const { login } = useAuth();
+
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -58,7 +61,7 @@ function LoginPage() {
 
     try {
       const res = await authAPI.login({ email, password });
-      localStorage.setItem("token", res.token);
+      login(res.token);
       navigate("/dashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Login failed. Please try again.");
