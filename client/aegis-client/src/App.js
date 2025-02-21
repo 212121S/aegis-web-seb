@@ -59,7 +59,7 @@ import { useSubscription } from './hooks/useSubscription';
 import { authAPI } from './utils/axios';
 
 // Protected Route Component
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, requireSubscription = false }) => {
   const location = useLocation();
   const { loading, error, isSubscriptionActive } = useSubscription();
   const [isValidToken, setIsValidToken] = useState(true);
@@ -93,7 +93,7 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (error || !isSubscriptionActive()) {
+  if (requireSubscription && (error || !isSubscriptionActive())) {
     return <Navigate to="/pricing" state={{ 
       from: location,
       message: 'An active subscription is required to access this feature'
@@ -397,7 +397,7 @@ function App() {
               <Route
                 path="/payment/success"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireSubscription={false}>
                     <PaymentSuccess />
                   </ProtectedRoute>
                 }
@@ -405,7 +405,7 @@ function App() {
               <Route
                 path="/account"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireSubscription={false}>
                     <AccountSettings />
                   </ProtectedRoute>
                 }
@@ -413,7 +413,7 @@ function App() {
               <Route
                 path="/dashboard"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireSubscription={false}>
                     <UserDashboard />
                   </ProtectedRoute>
                 }
@@ -421,7 +421,7 @@ function App() {
               <Route
                 path="/test/practice"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireSubscription={true}>
                     <PracticeTest />
                   </ProtectedRoute>
                 }
@@ -429,7 +429,7 @@ function App() {
               <Route
                 path="/test/official"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireSubscription={true}>
                     <OfficialTest />
                   </ProtectedRoute>
                 }
@@ -437,7 +437,7 @@ function App() {
               <Route
                 path="/test/results/:testId"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireSubscription={false}>
                     <TestResults />
                   </ProtectedRoute>
                 }
@@ -445,7 +445,7 @@ function App() {
               <Route
                 path="/admin/questions"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute requireSubscription={false}>
                     <AdminQuestionManager />
                   </ProtectedRoute>
                 }
