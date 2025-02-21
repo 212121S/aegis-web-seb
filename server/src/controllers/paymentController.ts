@@ -187,6 +187,87 @@ export const handleWebhook = async (req: Request, res: Response) => {
   }
 };
 
+export const validateCoupon = async (req: Request, res: Response) => {
+  try {
+    const { code } = req.body;
+    const coupon = coupons[code as keyof typeof coupons];
+
+    if (!coupon) {
+      return res.status(400).json({ 
+        valid: false,
+        error: 'Invalid coupon code' 
+      });
+    }
+
+    res.json({
+      valid: true,
+      discount: coupon.amount,
+      type: coupon.type,
+      description: coupon.description,
+      validForTypes: coupon.validForTypes
+    });
+  } catch (error) {
+    console.error('Error validating coupon:', error);
+    res.status(500).json({ error: 'Failed to validate coupon' });
+  }
+};
+
+export const verifySession = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { sessionId } = req.body;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    
+    if (session.metadata?.userId !== userId.toString()) {
+      return res.status(403).json({ error: 'Session does not belong to this user' });
+    }
+
+    res.json({
+      status: session.status,
+      paymentStatus: session.payment_status,
+      planId: session.metadata?.planId
+    });
+  } catch (error) {
+    console.error('Error verifying session:', error);
+    res.status(500).json({ error: 'Failed to verify session' });
+  }
+};
+
+export const cancelSubscription = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const user = await User.findById(userId).select('subscription');
+    if (!user?.subscription?.stripeSubscriptionId) {
+      return res.status(400).json({ error: 'No active subscription found' });
+    }
+
+    // Cancel the subscription in Stripe
+    await stripe.subscriptions.cancel(user.subscription.stripeSubscriptionId);
+
+    // Update user subscription status
+    await User.findByIdAndUpdate(userId, {
+      'subscription.active': false,
+      'subscription.planId': null,
+      'subscription.currentPeriodEnd': null,
+      'subscription.stripeSubscriptionId': null
+    });
+
+    res.json({ message: 'Subscription cancelled successfully' });
+  } catch (error) {
+    console.error('Error cancelling subscription:', error);
+    res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+};
+
 export const getSubscriptionStatus = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?._id;
