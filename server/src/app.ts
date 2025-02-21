@@ -19,16 +19,11 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 // Configure CORS with proper options
 const allowedOrigins = isDevelopment 
   ? ['http://localhost:3000', 'http://localhost:3001']
-  : ['https://aegistestingtech.com'];
+  : ['https://aegistestingtech.com', 'https://www.aegistestingtech.com'];
 
 // Function to check if origin matches allowed patterns
 const isOriginAllowed = (origin: string): boolean => {
-  if (isDevelopment) {
-    return allowedOrigins.includes(origin);
-  }
-  // In production, allow both www and non-www versions
-  return origin === 'https://aegistestingtech.com' || 
-         origin === 'https://www.aegistestingtech.com';
+  return allowedOrigins.includes(origin);
 };
 
 // Request logging middleware

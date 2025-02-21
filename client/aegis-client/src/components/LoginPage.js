@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import axios from "axios";
+import { authAPI } from "../utils/axios";
 import {
   Container,
   Box,
@@ -57,11 +57,8 @@ function LoginPage() {
     setError("");
 
     try {
-      const res = await axios.post("http://localhost:4000/api/auth/login", {
-        email,
-        password
-      });
-      localStorage.setItem("token", res.data.token);
+      const res = await authAPI.login({ email, password });
+      localStorage.setItem("token", res.token);
       navigate("/test");
     } catch (err) {
       setError(err.response?.data?.message || "Login failed. Please try again.");
