@@ -25,7 +25,7 @@ import {
   School,
   TrendingUp
 } from '@mui/icons-material';
-import axios from 'axios';
+import axios from '../utils/axios';
 
 // Initialize Stripe (replace with your publishable key)
 const stripePromise = loadStripe('your_publishable_key');
@@ -99,17 +99,10 @@ function PaymentPage() {
       const stripe = await stripePromise;
       if (!stripe) throw new Error('Stripe failed to load');
 
-      const token = localStorage.getItem('token');
-      if (!token) throw new Error('Please log in to subscribe');
+      if (!localStorage.getItem('token')) throw new Error('Please log in to subscribe');
 
       // Create a checkout session
-      const response = await axios.post(
-        'http://localhost:4000/api/payment/create-checkout-session',
-        { planId },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      const response = await axios.post('/api/payment/create-checkout-session', { planId });
 
       // Redirect to Stripe Checkout
       const result = await stripe.redirectToCheckout({

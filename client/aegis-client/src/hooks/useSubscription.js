@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../utils/axios';
 import { useNavigate } from 'react-router-dom';
 
 export const useSubscription = () => {
@@ -14,18 +14,12 @@ export const useSubscription = () => {
 
   const checkSubscription = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      if (!localStorage.getItem('token')) {
         setLoading(false);
         return;
       }
 
-      const response = await axios.get(
-        'http://localhost:4000/api/payment/subscription-status',
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      const response = await axios.get('/api/payment/subscription-status');
 
       setSubscription(response.data);
       setLoading(false);

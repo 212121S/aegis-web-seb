@@ -28,7 +28,7 @@ import {
   Payment,
   PhotoCamera
 } from '@mui/icons-material';
-import axios from 'axios';
+import axios from '../utils/axios';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -66,10 +66,7 @@ function AccountSettings() {
 
   const fetchUserData = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:4000/api/user/profile', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await axios.get('/api/user/profile');
       setUserData(response.data);
     } catch (err) {
       setError('Failed to load user data');
@@ -90,17 +87,10 @@ function AccountSettings() {
     setSuccess('');
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.put(
-        'http://localhost:4000/api/user/profile',
-        {
-          name: userData.name,
-          email: userData.email
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      await axios.put('/api/user/profile', {
+        name: userData.name,
+        email: userData.email
+      });
       setSuccess('Profile updated successfully');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update profile');
@@ -136,14 +126,7 @@ function AccountSettings() {
       setLoading(true);
       setError('');
       
-      const token = localStorage.getItem('token');
-      await axios.post(
-        'http://localhost:4000/api/payment/cancel-subscription',
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      await axios.post('/api/payment/cancel-subscription');
 
       // Refresh user data to show updated subscription status
       await fetchUserData();
