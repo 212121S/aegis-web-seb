@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+// Get the base URL from environment or default
+const baseURL = `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api`;
+
 const instance = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:4000',
+  baseURL,
   timeout: 10000,
   withCredentials: true,
   headers: {
@@ -10,17 +13,34 @@ const instance = axios.create({
   }
 });
 
-// Add auth token and handle CORS
+// Log configuration in development
+if (process.env.NODE_ENV === 'development') {
+  console.log('API Base URL:', baseURL);
+}
+
+// Add auth token and handle requests
 instance.interceptors.request.use(
   (config) => {
+    // Add auth token if available
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // Log request in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Request:', {
+        url: config.url,
+        method: config.method,
+        headers: config.headers,
+        data: config.data
+      });
     }
     
     return config;
   },
   (error) => {
+    console.error('Request Error:', error);
     return Promise.reject(error);
   }
 );
