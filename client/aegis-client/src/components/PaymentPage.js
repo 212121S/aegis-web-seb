@@ -28,8 +28,8 @@ import {
 } from '@mui/icons-material';
 import axios from '../utils/axios';
 
-// Initialize Stripe (replace with your publishable key)
-const stripePromise = loadStripe('your_publishable_key');
+// Initialize Stripe
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
 
 const practiceTestPlans = [
   {

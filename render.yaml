@@ -1,0 +1,39 @@
+services:
+  # Backend API Service
+  - type: web
+    name: aegis-api
+    env: node
+    region: ohio
+    buildCommand: cd server && npm install && npm run build
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false # Sensitive - must be set manually in Render dashboard
+      - key: JWT_SECRET
+        sync: false # Sensitive - must be set manually
+      - key: STRIPE_SECRET_KEY
+        sync: false # Sensitive - must be set manually
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false # Sensitive - must be set manually
+    autoDeploy: true # Enable auto-deployment on push
+
+  # Frontend Service
+  - type: web
+    name: aegis-web
+    env: static
+    buildCommand: cd client/aegis-client && npm install && npm run build
+    staticPublishPath: ./client/aegis-client/build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://api.aegistestingtech.com
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    autoDeploy: true # Enable auto-deployment on push
