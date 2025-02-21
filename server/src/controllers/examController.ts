@@ -32,29 +32,8 @@ function calculateScore(questions: any[]): number {
 
 export async function initializeTest(req: Request, res: Response) {
   try {
-    const { type, browserInfo } = req.body;
+    const { type } = req.body;
     
-    if (type === 'practice') {
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: [{
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: 'Practice Test',
-            },
-            unit_amount: PRACTICE_TEST_PRICE,
-          },
-          quantity: 1,
-        }],
-        mode: 'payment',
-        success_url: `${process.env.CLIENT_URL}/test/start?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.CLIENT_URL}/dashboard`,
-      });
-      
-      return res.json({ paymentUrl: session.url });
-    }
-
     const testSession = new TestSession({
       userId: req.user!._id,
       startTime: new Date(),
@@ -64,10 +43,10 @@ export async function initializeTest(req: Request, res: Response) {
       status: 'in-progress',
       type,
       proctoring: {
-        browserInfo,
+        browserInfo: { name: 'N/A', version: 'N/A', os: 'N/A' },
         events: [],
         startTime: new Date(),
-        status: 'active'
+        status: 'completed'
       }
     });
 
@@ -506,8 +485,6 @@ export async function finalizeTest(req: Request, res: Response) {
     // Update session status
     session.status = 'completed';
     session.endTime = new Date();
-    session.proctoring.status = 'completed';
-    session.proctoring.endTime = new Date();
     await session.save();
 
     // Calculate category breakdown
@@ -540,9 +517,7 @@ export async function finalizeTest(req: Request, res: Response) {
       timePerQuestion: avgTime,
       type: session.type,
       completedAt: new Date(),
-      proctoringEvents: session.proctoring.events.filter(e => 
-        e.type === 'multiple_faces' || e.type === 'looking_away'
-      )
+      proctoringEvents: []
     });
 
     await testResult.save();
