@@ -34,11 +34,13 @@ export const authenticateToken = (
     }
 
     const decoded = jwt.verify(token, jwtSecret) as { _id: string; email: string };
+    console.log('Auth Middleware - Decoded Token:', decoded);
     const payload: UserPayload = {
       _id: decoded._id,
       email: decoded.email
     };
     req.user = payload;
+    console.log('Auth Middleware - Set User:', req.user);
     next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
@@ -47,7 +49,7 @@ export const authenticateToken = (
     if (error instanceof jwt.JsonWebTokenError) {
       return res.status(401).json({ message: 'Invalid token' });
     }
-    console.error('Auth error:', error);
+    console.error('Auth error:', error, 'Token:', token);
     return res.status(500).json({ message: 'Authentication failed' });
   }
 };

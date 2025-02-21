@@ -74,7 +74,7 @@ export const examAPI = {
       os: navigator.platform
     };
     
-    const response = await instance.post('/exam/initialize', { type, browserInfo });
+    const response = await instance.post('/exam/initialize', { type });
     return response.data;
   },
 

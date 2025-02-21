@@ -24,7 +24,7 @@ import { validateSubscription } from '../middleware/subscriptionMiddleware';
 const router = Router();
 
 // Test session routes
-router.post('/initialize', authenticateToken, validateSubscription, initializeTest);
+router.post('/initialize', authenticateToken, initializeTest);
 router.get('/:sessionId/next-question', authenticateToken, getNextQuestion);
 router.post('/:sessionId/submit', authenticateToken, submitAnswer);
 router.post('/:sessionId/proctoring', authenticateToken, submitProctoringEvent);

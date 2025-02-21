@@ -32,6 +32,7 @@ function calculateScore(questions: any[]): number {
 
 export async function initializeTest(req: Request, res: Response) {
   try {
+    console.log('Initialize Test - Request:', { body: req.body, user: req.user });
     const { type } = req.body;
     
     const testSession = new TestSession({
@@ -52,7 +53,9 @@ export async function initializeTest(req: Request, res: Response) {
 
     await testSession.save();
     
-    return res.json({ sessionId: testSession._id });
+    console.log('Initialize Test - Created Session:', testSession);
+    const sessionId = testSession._id as mongoose.Types.ObjectId;
+    return res.json({ sessionId: sessionId.toString() });
   } catch (err) {
     console.error('Failed to initialize test:', err);
     return res.status(500).json({ error: 'Failed to initialize test' });

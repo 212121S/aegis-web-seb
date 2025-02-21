@@ -1,5 +1,6 @@
 import { Router } from "express";
 import * as authController from "../controllers/authController";
+import { authenticateToken } from "../middleware/authMiddleware";
 
 const router = Router();
 
@@ -9,10 +10,8 @@ router.post("/register", authController.register);
 // POST /api/auth/login
 router.post("/login", authController.login);
 
-// GET /api/auth/verify
-router.get("/verify", authController.verify);
-
-// GET /api/user/profile
-router.get("/user/profile", authController.getProfile);
+// Protected routes
+router.get("/verify", authenticateToken, authController.verify);
+router.get("/user/profile", authenticateToken, authController.getProfile);
 
 export default router;

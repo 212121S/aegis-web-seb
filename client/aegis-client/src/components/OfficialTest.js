@@ -40,9 +40,12 @@ const OfficialTest = () => {
   const initializeTest = async () => {
     try {
       const response = await examAPI.initialize('official');
-      setSession(response.data.sessionId);
+      if (!response.sessionId) {
+        throw new Error('Invalid server response');
+      }
+      setSession(response.sessionId);
       setStartTime(Date.now());
-      await fetchNextQuestion(response.data.sessionId);
+      await fetchNextQuestion(response.sessionId);
     } catch (err) {
       setError('Failed to initialize test');
       console.error(err);
@@ -54,12 +57,12 @@ const OfficialTest = () => {
       setLoading(true);
       const response = await examAPI.getNextQuestion(sessionId || session);
       
-      if (response.data.completed) {
+      if (response.completed) {
         await finalizeTest();
         return;
       }
 
-      setQuestion(response.data);
+      setQuestion(response);
       setSelectedAnswer('');
     } catch (err) {
       setError('Failed to fetch question');
@@ -82,11 +85,11 @@ const OfficialTest = () => {
         timeSpent
       });
 
-      setScore(response.data.currentScore);
-      setIncorrectAnswers(response.data.incorrectAnswers);
+      setScore(response.currentScore);
+      setIncorrectAnswers(response.incorrectAnswers);
       setStartTime(Date.now());
       
-      if (response.data.incorrectAnswers >= 5) {
+      if (response.incorrectAnswers >= 5) {
         await finalizeTest();
       } else {
         await fetchNextQuestion();
@@ -101,7 +104,7 @@ const OfficialTest = () => {
     try {
       const response = await examAPI.finalizeTest(session);
       
-      navigate(`/test/results/${response.data._id}`);
+      navigate(`/test/results/${response._id}`);
     } catch (err) {
       setError('Failed to finalize test');
       console.error(err);
