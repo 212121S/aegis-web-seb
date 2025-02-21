@@ -158,14 +158,19 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start the server
-const port = parseInt(process.env.PORT || '3000', 10);
+if (!process.env.PORT) {
+  console.error('PORT environment variable is required');
+  process.exit(1);
+}
+
+const port = parseInt(process.env.PORT, 10);
 const host = '0.0.0.0';
 
+console.log('Starting server with PORT:', process.env.PORT);
 const server = app.listen(port, host, () => {
   const address = server.address();
   console.log(`Server running at http://${host}:${port}`);
   console.log('Server address:', address);
-  console.log('Environment PORT:', process.env.PORT);
 });
 
 server.on('error', (error: any) => {
