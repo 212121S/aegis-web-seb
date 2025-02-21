@@ -28,7 +28,7 @@ import {
   Payment,
   PhotoCamera
 } from '@mui/icons-material';
-import axios from '../utils/axios';
+import { authAPI, paymentAPI } from '../utils/axios';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -66,8 +66,8 @@ function AccountSettings() {
 
   const fetchUserData = async () => {
     try {
-      const response = await axios.get('/user/profile');
-      setUserData(response.data);
+      const response = await authAPI.getProfile();
+      setUserData(response.data.user);
     } catch (err) {
       setError('Failed to load user data');
       console.error(err);
@@ -87,7 +87,7 @@ function AccountSettings() {
     setSuccess('');
 
     try {
-      await axios.put('/user/profile', {
+      await authAPI.updateProfile({
         name: userData.name,
         email: userData.email
       });
@@ -126,7 +126,7 @@ function AccountSettings() {
       setLoading(true);
       setError('');
       
-      await axios.post('/payment/cancel-subscription');
+      await paymentAPI.cancelSubscription();
 
       // Refresh user data to show updated subscription status
       await fetchUserData();

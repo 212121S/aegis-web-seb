@@ -134,6 +134,11 @@ export const authAPI = {
   getProfile: async () => {
     const response = await instance.get('/auth/user/profile');
     return response.data;
+  },
+
+  updateProfile: async (data) => {
+    const response = await instance.put('/auth/user/profile', data);
+    return response.data;
   }
 };
 
