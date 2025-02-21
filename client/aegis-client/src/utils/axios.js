@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Get the base URL from environment or default
-const baseURL = `${process.env.REACT_APP_API_URL || 'http://localhost:4000'}/api`;
+const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:4000';
 
 const instance = axios.create({
   baseURL,
@@ -66,42 +66,42 @@ instance.interceptors.response.use(
 // Exam API endpoints
 export const examAPI = {
   initialize: async (type) => {
-    const response = await instance.post('/exam/initialize', { type });
+    const response = await instance.post('/api/exam/initialize', { type });
     return response.data;
   },
 
   getNextQuestion: async (sessionId) => {
-    const response = await instance.get(`/exam/${sessionId}/next-question`);
+    const response = await instance.get(`/api/exam/${sessionId}/next-question`);
     return response.data;
   },
 
   submitAnswer: async (sessionId, data) => {
-    const response = await instance.post(`/exam/${sessionId}/submit`, data);
+    const response = await instance.post(`/api/exam/${sessionId}/submit`, data);
     return response.data;
   },
 
   submitProctoringEvent: async (sessionId, event) => {
-    const response = await instance.post(`/exam/${sessionId}/proctoring`, event);
+    const response = await instance.post(`/api/exam/${sessionId}/proctoring`, event);
     return response.data;
   },
 
   finalizeTest: async (sessionId) => {
-    const response = await instance.post(`/exam/${sessionId}/finalize`);
+    const response = await instance.post(`/api/exam/${sessionId}/finalize`);
     return response.data;
   },
 
   getHistory: async () => {
-    const response = await instance.get('/exam/history');
+    const response = await instance.get('/api/exam/history');
     return response.data;
   },
 
   getAnalytics: async () => {
-    const response = await instance.get('/exam/analytics');
+    const response = await instance.get('/api/exam/analytics');
     return response.data;
   },
 
   getResults: async (testId) => {
-    const response = await instance.get(`/exam/results/${testId}`);
+    const response = await instance.get(`/api/exam/results/${testId}`);
     return response.data;
   }
 };
@@ -109,23 +109,23 @@ export const examAPI = {
 // Auth API endpoints
 export const authAPI = {
   login: async (credentials) => {
-    const response = await instance.post('/auth/login', credentials);
+    const response = await instance.post('/api/auth/login', credentials);
     return response.data;
   },
 
   register: async (userData) => {
-    const response = await instance.post('/auth/register', userData);
+    const response = await instance.post('/api/auth/register', userData);
     return response.data;
   },
 
   verifyToken: async () => {
-    const response = await instance.get('/auth/verify');
+    const response = await instance.get('/api/auth/verify');
     return response.data;
   },
 
   getProfile: async () => {
     try {
-      const response = await instance.get('/auth/user/profile');
+      const response = await instance.get('/api/auth/user/profile');
       return response.data;
     } catch (error) {
       console.error('Profile Error:', error.response || error);
@@ -134,7 +134,7 @@ export const authAPI = {
   },
 
   updateProfile: async (data) => {
-    const response = await instance.put('/auth/user/profile', data);
+    const response = await instance.put('/api/auth/user/profile', data);
     return response.data;
   }
 };
@@ -142,27 +142,27 @@ export const authAPI = {
 // Payment API endpoints
 export const paymentAPI = {
   createCheckoutSession: async (planId, couponCode) => {
-    const response = await instance.post('/payment/create-checkout-session', { planId, couponCode });
+    const response = await instance.post('/api/payment/create-checkout-session', { planId, couponCode });
     return response.data;
   },
 
   verifySession: async (sessionId) => {
-    const response = await instance.post('/payment/verify-session', { sessionId });
+    const response = await instance.post('/api/payment/verify-session', { sessionId });
     return response.data;
   },
 
   getSubscriptionStatus: async () => {
-    const response = await instance.get('/payment/subscription-status');
+    const response = await instance.get('/api/payment/subscription-status');
     return response.data;
   },
 
   validateCoupon: async (code) => {
-    const response = await instance.post('/payment/validate-coupon', { code });
+    const response = await instance.post('/api/payment/validate-coupon', { code });
     return response.data;
   },
 
   cancelSubscription: async () => {
-    const response = await instance.post('/payment/cancel-subscription');
+    const response = await instance.post('/api/payment/cancel-subscription');
     return response.data;
   }
 };

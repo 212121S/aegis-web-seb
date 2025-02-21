@@ -87,11 +87,30 @@ export async function getNextQuestion(req: Request, res: Response) {
       answeredIds: session.questions.map(q => q.questionId)
     });
 
-    const question = await Question.findOne({
-      difficulty: { $gte: currentDifficulty },
+    // First try to find a question with matching difficulty
+    let question = await Question.findOne({
+      difficulty: currentDifficulty,
       isActive: true,
       _id: { $nin: session.questions.map(q => q.questionId) }
-    }).sort({ difficulty: 1 });
+    });
+
+    // If no question found, try with higher difficulty
+    if (!question) {
+      question = await Question.findOne({
+        difficulty: { $gt: currentDifficulty },
+        isActive: true,
+        _id: { $nin: session.questions.map(q => q.questionId) }
+      }).sort({ difficulty: 1 });
+    }
+
+    // If still no question, try with lower difficulty
+    if (!question) {
+      question = await Question.findOne({
+        difficulty: { $lt: currentDifficulty },
+        isActive: true,
+        _id: { $nin: session.questions.map(q => q.questionId) }
+      }).sort({ difficulty: -1 });
+    }
 
     console.log('Found question:', question ? { 
       id: question._id,
