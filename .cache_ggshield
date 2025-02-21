@@ -1,1 +1,1 @@
-{"last_found_secrets": [{"match": "ba05deae878e4c686c87c57fb2b7f4b6df763dec560041855edcde2a29d97bfa", "name": "MongoDB URI - commit://eea2e54ada72ad81ec1ab239221c47c788bec931/server/.env"}]}
+{"last_found_secrets": [{"name": "MongoDB URI - /Users/matthewhansen/aegis-web-seb/server/src/scripts/addSampleQuestions.ts", "match": "56d1664ba4441f07af3bfaa2c81b3ffafc720b8d3be16e83e5f667992a7eeb05"}]}
