@@ -18,8 +18,8 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 
 // Configure CORS with proper options
 const allowedOrigins = isDevelopment 
-  ? ['http://localhost:3000', 'http://localhost:4000', 'https://www.aegistestingtech.com']
-  : ['https://www.aegistestingtech.com'];
+  ? ['http://localhost:3000']
+  : ['https://www.aegistestingtech.com', 'https://aegistestingtech.com'];
 
 // Request logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -39,18 +39,13 @@ const corsOptions: CorsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     console.log(`[CORS] Request from origin: ${origin || 'No Origin'}`);
     
-    // Allow all origins in development mode
-    if (isDevelopment) {
-      console.log('[CORS] Development mode - allowing request');
-      return callback(null, true);
-    }
-    
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
       console.log('[CORS] No origin - allowing request');
       return callback(null, true);
     }
 
+    // Check if origin is allowed
     if (allowedOrigins.includes(origin)) {
       console.log(`[CORS] Origin ${origin} is allowed`);
       callback(null, true);
@@ -60,7 +55,7 @@ const corsOptions: CorsOptions = {
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',
     'Authorization',
