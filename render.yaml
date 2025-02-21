@@ -21,6 +21,7 @@ services:
         sync: false # Sensitive - must be set manually
       - key: STRIPE_WEBHOOK_SECRET
         sync: false # Sensitive - must be set manually
+    startCommand: npm start
     autoDeploy: true # Enable auto-deployment on push
 
   # Frontend Service

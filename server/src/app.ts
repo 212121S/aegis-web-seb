@@ -158,19 +158,29 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start the server
-if (!process.env.PORT) {
-  console.error('PORT environment variable is required');
+console.log('Environment variables:', {
+  PORT: process.env.PORT,
+  NODE_ENV: process.env.NODE_ENV
+});
+
+// Render expects web services to listen on port 3000 by default
+const port = process.env.PORT || '3000';
+const numericPort = parseInt(port, 10);
+
+if (isNaN(numericPort)) {
+  console.error('PORT must be a valid number');
   process.exit(1);
 }
 
-const port = parseInt(process.env.PORT, 10);
 const host = '0.0.0.0';
+console.log(`Attempting to start server on port ${numericPort}`);
 
-console.log('Starting server with PORT:', process.env.PORT);
-const server = app.listen(port, host, () => {
+const server = app.listen(numericPort, host, () => {
   const address = server.address();
-  console.log(`Server running at http://${host}:${port}`);
-  console.log('Server address:', address);
+  console.log('Server started successfully');
+  console.log(`Server running at http://${host}:${numericPort}`);
+  console.log('Server address details:', address);
+  console.log('Process ID:', process.pid);
 });
 
 server.on('error', (error: any) => {
