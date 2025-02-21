@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import axios from "axios";
-import config from "../config";
+import axiosInstance from "../utils/axios";
 import {
   Container,
   TextField,
@@ -89,12 +88,7 @@ function Register() {
     setError("");
 
     try {
-      const res = await axios.post(`${config.apiUrl}/api/auth/register`, formData, {
-        withCredentials: true,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const res = await axiosInstance.post('/api/auth/register', formData);
 
       if (res.status === 201) {
         setSuccess(true);
