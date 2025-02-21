@@ -3,6 +3,11 @@ import { User } from '../models/User';
 
 export const validateSubscription = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // Skip subscription check for official tests
+    if (req.path === '/initialize' && req.body.type === 'official') {
+      return next();
+    }
+
     const user = await User.findById(req.user!._id);
     
     if (!user) {
