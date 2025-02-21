@@ -153,9 +153,11 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start the server
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
+const PORT = parseInt(process.env.PORT || '10000', 10);
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
+  // Log the port for debugging
+  console.log('Environment PORT:', process.env.PORT);
 });
 
 // Export the app for testing
