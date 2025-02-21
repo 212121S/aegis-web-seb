@@ -260,4 +260,334 @@
     "category": "M&A",
     "subcategory": "Tax Implications"
   }
+,
+  {
+    "prompt": "If you were stranded on a desert island and could only look at one financial statement to review a company's health, which would you choose and why?",
+    "choices": [
+      "Cash Flow Statement - it shows actual cash generation ability and operational sustainability",
+      "Income Statement - it shows profitability and revenue growth",
+      "Balance Sheet - it shows assets and liabilities at a point in time",
+      "Statement of Shareholders' Equity - it shows changes in ownership value"
+    ],
+    "correctAnswer": "Cash Flow Statement - it shows actual cash generation ability and operational sustainability",
+    "difficulty": 4,
+    "category": "Financial Statements",
+    "subcategory": "Analysis"
+  },
+  {
+    "prompt": "What happens when Accrued Compensation goes up by $10?",
+    "choices": [
+      "Liabilities increase by $10, Net Income decreases by $10, Operating Cash Flow is unchanged",
+      "Liabilities decrease by $10, Net Income increases by $10",
+      "Assets increase by $10, no effect on Net Income",
+      "Only affects the Cash Flow Statement"
+    ],
+    "correctAnswer": "Liabilities increase by $10, Net Income decreases by $10, Operating Cash Flow is unchanged",
+    "difficulty": 3,
+    "category": "Financial Statements",
+    "subcategory": "Accruals"
+  },
+  {
+    "prompt": "What's the difference between cash-based and accrual accounting?",
+    "choices": [
+      "Cash-based records transactions when cash changes hands, accrual records when earned/incurred regardless of cash timing",
+      "Cash-based only tracks cash accounts, accrual tracks all accounts",
+      "Cash-based is for small businesses, accrual is for large corporations",
+      "They are the same but with different names"
+    ],
+    "correctAnswer": "Cash-based records transactions when cash changes hands, accrual records when earned/incurred regardless of cash timing",
+    "difficulty": 3,
+    "category": "Accounting",
+    "subcategory": "Methods"
+  },
+  {
+    "prompt": "How do you decide when to capitalize rather than expense a purchase?",
+    "choices": [
+      "Capitalize if the asset provides value beyond one year and meets minimum cost threshold, expense if benefits are immediate",
+      "Always capitalize purchases over $1,000",
+      "Expense everything for tax benefits",
+      "Capitalize only technology purchases"
+    ],
+    "correctAnswer": "Capitalize if the asset provides value beyond one year and meets minimum cost threshold, expense if benefits are immediate",
+    "difficulty": 4,
+    "category": "Accounting",
+    "subcategory": "Capitalization"
+  },
+  {
+    "prompt": "A company has had positive EBITDA for 10 years but recently went bankrupt. How could this happen?",
+    "choices": [
+      "High debt service costs, significant capital expenditures, and working capital needs consumed all cash despite positive EBITDA",
+      "EBITDA was calculated incorrectly",
+      "The company was profitable but chose bankruptcy",
+      "This scenario is impossible"
+    ],
+    "correctAnswer": "High debt service costs, significant capital expenditures, and working capital needs consumed all cash despite positive EBITDA",
+    "difficulty": 5,
+    "category": "Financial Analysis",
+    "subcategory": "Bankruptcy"
+  }
+,
+  {
+    "prompt": "What's the difference between capital leases and operating leases?",
+    "choices": [
+      "Capital leases are treated as asset purchases with debt financing, operating leases are treated as rental expenses",
+      "Capital leases are short-term, operating leases are long-term",
+      "Capital leases are only for equipment, operating leases are for real estate",
+      "There is no difference in accounting treatment"
+    ],
+    "correctAnswer": "Capital leases are treated as asset purchases with debt financing, operating leases are treated as rental expenses",
+    "difficulty": 5,
+    "category": "Accounting",
+    "subcategory": "Leases"
+  },
+  {
+    "prompt": "How do Net Operating Losses (NOLs) affect a company's 3 statements?",
+    "choices": [
+      "Create deferred tax asset on Balance Sheet, reduce future tax payments on Cash Flow Statement, no immediate Income Statement impact",
+      "Only affect the Income Statement through reduced taxes",
+      "Only impact the Balance Sheet",
+      "Have no effect on financial statements"
+    ],
+    "correctAnswer": "Create deferred tax asset on Balance Sheet, reduce future tax payments on Cash Flow Statement, no immediate Income Statement impact",
+    "difficulty": 6,
+    "category": "Accounting",
+    "subcategory": "Tax"
+  },
+  {
+    "prompt": "What's the difference between bank debt and high-yield debt in an LBO?",
+    "choices": [
+      "Bank debt is senior secured with maintenance covenants and lower rates, high-yield is unsecured with incurrence covenants and higher rates",
+      "Bank debt is always cheaper than high-yield debt",
+      "High-yield debt always has shorter maturities",
+      "Bank debt requires more collateral but has higher interest rates"
+    ],
+    "correctAnswer": "Bank debt is senior secured with maintenance covenants and lower rates, high-yield is unsecured with incurrence covenants and higher rates",
+    "difficulty": 6,
+    "category": "LBO",
+    "subcategory": "Debt Types"
+  },
+  {
+    "prompt": "How do you handle a partial-year stub period in an LBO model if the transaction closes mid-year?",
+    "choices": [
+      "Pro-rate financial projections, adjust debt payments and interest calculations, use partial period for IRR calculation",
+      "Round to the nearest full year",
+      "Ignore the stub period entirely",
+      "Use full-year numbers divided by two"
+    ],
+    "correctAnswer": "Pro-rate financial projections, adjust debt payments and interest calculations, use partial period for IRR calculation",
+    "difficulty": 7,
+    "category": "LBO",
+    "subcategory": "Modeling"
+  },
+  {
+    "prompt": "Why might two companies with the same financial profile have different EV/EBITDA multiples?",
+    "choices": [
+      "Different growth prospects, market position, industry dynamics, capital intensity, or management quality",
+      "Only because of different debt levels",
+      "Stock market inefficiency",
+      "Accounting differences only"
+    ],
+    "correctAnswer": "Different growth prospects, market position, industry dynamics, capital intensity, or management quality",
+    "difficulty": 5,
+    "category": "Valuation",
+    "subcategory": "Multiples"
+  }
+,
+  {
+    "prompt": "What is the angle formed by the hands of the clock when it is 1:45?",
+    "choices": [
+      "157.5 degrees",
+      "165 degrees",
+      "142.5 degrees",
+      "172.5 degrees"
+    ],
+    "correctAnswer": "157.5 degrees",
+    "difficulty": 7,
+    "category": "Brain Teasers",
+    "subcategory": "Math"
+  },
+  {
+    "prompt": "How do you value Net Operating Losses (NOLs) in a valuation?",
+    "choices": [
+      "Calculate PV of tax savings from NOLs, considering usage limitations, expiration, and probability of generating taxable income",
+      "Add NOL amount directly to Enterprise Value",
+      "Multiply NOLs by statutory tax rate",
+      "NOLs have no value in a valuation"
+    ],
+    "correctAnswer": "Calculate PV of tax savings from NOLs, considering usage limitations, expiration, and probability of generating taxable income",
+    "difficulty": 7,
+    "category": "Valuation",
+    "subcategory": "Tax"
+  },
+  {
+    "prompt": "Walk me through an IPO valuation for a company that's about to go public.",
+    "choices": [
+      "Analyze comparable public companies, consider growth and margins, apply IPO discount, factor in float and lock-up provisions",
+      "Use only DCF analysis",
+      "Multiply revenue by standard IPO multiple",
+      "Use book value plus premium"
+    ],
+    "correctAnswer": "Analyze comparable public companies, consider growth and margins, apply IPO discount, factor in float and lock-up provisions",
+    "difficulty": 6,
+    "category": "Valuation",
+    "subcategory": "IPO"
+  },
+  {
+    "prompt": "What's the relationship between debt and Cost of Equity?",
+    "choices": [
+      "Increasing debt increases Cost of Equity due to higher financial risk to equity holders",
+      "Debt has no effect on Cost of Equity",
+      "More debt always decreases Cost of Equity",
+      "The relationship depends only on interest rates"
+    ],
+    "correctAnswer": "Increasing debt increases Cost of Equity due to higher financial risk to equity holders",
+    "difficulty": 5,
+    "category": "Valuation",
+    "subcategory": "Cost of Capital"
+  },
+  {
+    "prompt": "You have a hose and a 3L and 5L bucket. How do you get exactly 4L of water?",
+    "choices": [
+      "Fill 5L bucket, pour into 3L until full, leaving 2L in 5L bucket. Empty 3L, pour 2L into 3L, fill 5L and add 2L to 3L bucket",
+      "Fill 3L bucket twice and pour into 5L bucket",
+      "Fill 5L bucket and pour out 1L",
+      "It's impossible to measure exactly 4L"
+    ],
+    "correctAnswer": "Fill 5L bucket, pour into 3L until full, leaving 2L in 5L bucket. Empty 3L, pour 2L into 3L, fill 5L and add 2L to 3L bucket",
+    "difficulty": 8,
+    "category": "Brain Teasers",
+    "subcategory": "Logic"
+  }
+,
+  {
+    "prompt": "Can you give examples of major line items on each of the financial statements?",
+    "choices": [
+      "Income Statement: Revenue, COGS, Operating Expenses, Net Income; Balance Sheet: Cash, AR, Inventory, PP&E, AP, Debt; Cash Flow: Operating/Investing/Financing Activities",
+      "Only Revenue and Expenses on all statements",
+      "Balance Sheet: Revenue and Expenses; Income Statement: Assets and Liabilities",
+      "Cash Flow Statement: Only cash transactions"
+    ],
+    "correctAnswer": "Income Statement: Revenue, COGS, Operating Expenses, Net Income; Balance Sheet: Cash, AR, Inventory, PP&E, AP, Debt; Cash Flow: Operating/Investing/Financing Activities",
+    "difficulty": 2,
+    "category": "Financial Statements",
+    "subcategory": "Components"
+  },
+  {
+    "prompt": "Where does Depreciation usually show up on the Income Statement?",
+    "choices": [
+      "As part of Operating Expenses or Cost of Goods Sold",
+      "As a separate line item after Net Income",
+      "Only in the footnotes",
+      "As part of financing expenses"
+    ],
+    "correctAnswer": "As part of Operating Expenses or Cost of Goods Sold",
+    "difficulty": 2,
+    "category": "Financial Statements",
+    "subcategory": "Depreciation"
+  },
+  {
+    "prompt": "Could you ever end up with negative shareholders' equity? What does it mean?",
+    "choices": [
+      "Yes - when accumulated losses exceed contributed capital, indicating severe financial distress",
+      "No - shareholders' equity must always be positive",
+      "Yes - but only during bankruptcy proceedings",
+      "No - negative equity would trigger immediate bankruptcy"
+    ],
+    "correctAnswer": "Yes - when accumulated losses exceed contributed capital, indicating severe financial distress",
+    "difficulty": 4,
+    "category": "Financial Statements",
+    "subcategory": "Equity"
+  },
+  {
+    "prompt": "What's the difference between accounts receivable and deferred revenue?",
+    "choices": [
+      "AR is money owed to company for delivered goods/services; deferred revenue is cash received for goods/services not yet delivered",
+      "They are the same thing with different names",
+      "AR is cash received; deferred revenue is cash owed",
+      "AR is for services; deferred revenue is for products"
+    ],
+    "correctAnswer": "AR is money owed to company for delivered goods/services; deferred revenue is cash received for goods/services not yet delivered",
+    "difficulty": 3,
+    "category": "Accounting",
+    "subcategory": "Working Capital"
+  },
+  {
+    "prompt": "How is GAAP accounting different from tax accounting?",
+    "choices": [
+      "GAAP focuses on economic substance and matching principle, tax accounting follows IRS rules for tax optimization",
+      "They are exactly the same",
+      "GAAP is only for public companies, tax accounting for private",
+      "Tax accounting is more conservative than GAAP"
+    ],
+    "correctAnswer": "GAAP focuses on economic substance and matching principle, tax accounting follows IRS rules for tax optimization",
+    "difficulty": 5,
+    "category": "Accounting",
+    "subcategory": "Standards"
+  }
+,
+  {
+    "prompt": "What kind of company would have the same EBITDA and Net Income?",
+    "choices": [
+      "A company with no depreciation/amortization, interest, or taxes - like a pure service business with no debt or assets",
+      "Any profitable company",
+      "Only technology companies",
+      "Companies with high debt loads"
+    ],
+    "correctAnswer": "A company with no depreciation/amortization, interest, or taxes - like a pure service business with no debt or assets",
+    "difficulty": 6,
+    "category": "Financial Analysis",
+    "subcategory": "Profitability Metrics"
+  },
+  {
+    "prompt": "How does an increase in the tax rate affect the value of a company?",
+    "choices": [
+      "Decreases value by reducing after-tax cash flows and increasing WACC through tax shield effects",
+      "Has no effect on company value",
+      "Always increases company value",
+      "Only affects book value, not market value"
+    ],
+    "correctAnswer": "Decreases value by reducing after-tax cash flows and increasing WACC through tax shield effects",
+    "difficulty": 7,
+    "category": "Valuation",
+    "subcategory": "Tax Effects"
+  },
+  {
+    "prompt": "What's the relationship between the D/E ratio and WACC?",
+    "choices": [
+      "Initially decreases WACC due to tax shield, then increases due to financial risk, creating an optimal capital structure",
+      "Always decreases WACC as debt is cheaper than equity",
+      "Always increases WACC linearly with more debt",
+      "Has no effect on WACC"
+    ],
+    "correctAnswer": "Initially decreases WACC due to tax shield, then increases due to financial risk, creating an optimal capital structure",
+    "difficulty": 6,
+    "category": "Valuation",
+    "subcategory": "Capital Structure"
+  },
+  {
+    "prompt": "Why would you not use a DCF for a bank or other financial institution?",
+    "choices": [
+      "Capital structure is fundamentally different, working capital doesn't apply, and debt is part of operations rather than financing",
+      "Banks are too complex to value",
+      "DCF always works for any company",
+      "Only because regulatory requirements prevent it"
+    ],
+    "correctAnswer": "Capital structure is fundamentally different, working capital doesn't apply, and debt is part of operations rather than financing",
+    "difficulty": 7,
+    "category": "Valuation",
+    "subcategory": "Financial Institutions"
+  },
+  {
+    "prompt": "What's an Earnout and why would a buyer offer it to a seller in an M&A deal?",
+    "choices": [
+      "Additional payments based on achieving future performance targets, bridges valuation gap and aligns incentives",
+      "Upfront bonus payment to management",
+      "Early repayment of acquisition debt",
+      "Special dividend to selling shareholders"
+    ],
+    "correctAnswer": "Additional payments based on achieving future performance targets, bridges valuation gap and aligns incentives",
+    "difficulty": 5,
+    "category": "M&A",
+    "subcategory": "Deal Structure"
+  }
 ]

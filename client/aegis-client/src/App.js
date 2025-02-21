@@ -40,15 +40,16 @@ import Logo from "./components/Logo";
 import HomePage from "./components/HomePage";
 import Register from "./components/Register";
 import LoginPage from "./components/LoginPage";
-import TestSession from "./components/TestSession";
-import ProctoringMonitor from "./components/ProctoringMonitor";
 import AboutPage from "./components/AboutPage";
 import PaymentPage from "./components/PaymentPage";
 import PaymentSuccess from "./components/PaymentSuccess";
 import AccountSettings from "./components/AccountSettings";
 import VerificationPage from "./components/VerificationPage";
 import AdminQuestionManager from "./components/AdminQuestionManager";
-import TestEnvironment from "./components/TestEnvironment";
+import UserDashboard from "./components/UserDashboard";
+import PracticeTest from "./components/PracticeTest";
+import OfficialTest from "./components/OfficialTest";
+import TestResults from "./components/TestResults";
 
 // Import theme from theme file
 import theme from './theme';
@@ -124,7 +125,7 @@ function App() {
   const navItems = [
     { text: "Home", icon: <Home />, path: "/", auth: false },
     { text: "About", icon: <Info />, path: "/about", auth: false },
-    { text: "Practice Tests", icon: <Assessment />, path: "/test", auth: true },
+    { text: "Dashboard", icon: <Assessment />, path: "/dashboard", auth: true },
     { text: "Question Manager", icon: <School />, path: "/admin/questions", auth: true },
     { text: "Pricing", icon: <Payment />, path: "/pricing", auth: false },
     { text: "Account", icon: <AccountCircle />, path: "/account", auth: true },
@@ -410,18 +411,34 @@ function App() {
                 }
               />
               <Route
-                path="/test"
+                path="/dashboard"
                 element={
                   <ProtectedRoute>
-                    <TestSession />
+                    <UserDashboard />
                   </ProtectedRoute>
                 }
               />
               <Route
-                path="/proctor"
+                path="/test/practice"
                 element={
                   <ProtectedRoute>
-                    <ProctoringMonitor />
+                    <PracticeTest />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/test/official"
+                element={
+                  <ProtectedRoute>
+                    <OfficialTest />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/test/results/:testId"
+                element={
+                  <ProtectedRoute>
+                    <TestResults />
                   </ProtectedRoute>
                 }
               />
@@ -430,14 +447,6 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <AdminQuestionManager />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/test/practice"
-                element={
-                  <ProtectedRoute>
-                    <TestEnvironment />
                   </ProtectedRoute>
                 }
               />

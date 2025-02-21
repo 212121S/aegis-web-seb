@@ -13,7 +13,10 @@ import {
   uploadQuestions,
   getQuestions,
   updateQuestion,
-  deleteQuestion
+  deleteQuestion,
+  getTestHistory,
+  getTestAnalytics,
+  getTestResults
 } from '../controllers/examController';
 import { authenticateToken } from '../middleware/authMiddleware';
 import { validateSubscription } from '../middleware/subscriptionMiddleware';
@@ -26,6 +29,11 @@ router.get('/:sessionId/next-question', authenticateToken, getNextQuestion);
 router.post('/:sessionId/submit', authenticateToken, submitAnswer);
 router.post('/:sessionId/proctoring', authenticateToken, submitProctoringEvent);
 router.post('/:sessionId/finalize', authenticateToken, finalizeTest);
+
+// Test history and analytics routes
+router.get('/history', authenticateToken, getTestHistory);
+router.get('/analytics', authenticateToken, getTestAnalytics);
+router.get('/results/:testId', authenticateToken, getTestResults);
 
 // Verification routes
 router.post('/verify/:testResultId/generate', authenticateToken, generateVerificationLink);

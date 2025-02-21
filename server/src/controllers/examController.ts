@@ -405,6 +405,95 @@ export async function deleteQuestion(req: Request, res: Response) {
   }
 }
 
+export async function getTestHistory(req: Request, res: Response) {
+  try {
+    const userId = req.user!._id;
+    const testHistory = await TestResult.find({ userId })
+      .sort({ completedAt: -1 })
+      .limit(20);
+    
+    return res.json(testHistory);
+  } catch (err) {
+    console.error('Failed to get test history:', err);
+    return res.status(500).json({ error: 'Failed to get test history' });
+  }
+}
+
+export async function getTestAnalytics(req: Request, res: Response) {
+  try {
+    const userId = req.user!._id;
+    
+    // Get all completed tests for the user
+    const tests = await TestResult.find({ 
+      userId,
+      status: 'completed'
+    });
+
+    if (tests.length === 0) {
+      return res.json({
+        averageScore: 0,
+        testsCompleted: 0,
+        highestScore: 0,
+        averageDifficulty: 0,
+        categoryPerformance: {}
+      });
+    }
+
+    // Calculate analytics
+    const analytics = {
+      averageScore: tests.reduce((sum, test) => sum + test.finalScore, 0) / tests.length,
+      testsCompleted: tests.length,
+      highestScore: Math.max(...tests.map(test => test.finalScore)),
+      averageDifficulty: tests.reduce((sum, test) => sum + test.averageDifficulty, 0) / tests.length,
+      categoryPerformance: {}
+    };
+
+    // Calculate category performance
+    const categoryStats: { [key: string]: { correct: number, total: number } } = {};
+    tests.forEach(test => {
+      test.questionBreakdown.forEach(breakdown => {
+        if (!categoryStats[breakdown.category]) {
+          categoryStats[breakdown.category] = { correct: 0, total: 0 };
+        }
+        categoryStats[breakdown.category].correct += breakdown.correct;
+        categoryStats[breakdown.category].total += breakdown.total;
+      });
+    });
+
+    analytics.categoryPerformance = Object.entries(categoryStats).map(([category, stats]) => ({
+      category,
+      accuracy: (stats.correct / stats.total) * 100,
+      total: stats.total
+    }));
+
+    return res.json(analytics);
+  } catch (err) {
+    console.error('Failed to get analytics:', err);
+    return res.status(500).json({ error: 'Failed to get analytics' });
+  }
+}
+
+export async function getTestResults(req: Request, res: Response) {
+  try {
+    const { testId } = req.params;
+    const userId = req.user!._id;
+
+    const testResult = await TestResult.findOne({
+      _id: testId,
+      userId
+    });
+
+    if (!testResult) {
+      return res.status(404).json({ error: 'Test result not found' });
+    }
+
+    return res.json(testResult);
+  } catch (err) {
+    console.error('Failed to get test results:', err);
+    return res.status(500).json({ error: 'Failed to get test results' });
+  }
+}
+
 export async function finalizeTest(req: Request, res: Response) {
   try {
     const { sessionId } = req.params;
