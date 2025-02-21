@@ -122,6 +122,11 @@ app.use("/api/exam", examRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/verify", verificationRoutes);
 
+// Root route for Render health checks
+app.get('/', (req: Request, res: Response) => {
+  res.json({ status: 'ok' });
+});
+
 // Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok' });

@@ -6,6 +6,8 @@ services:
     region: ohio
     buildCommand: cd server && npm install && npm run build
     startCommand: cd server && npm start
+    healthCheckPath: /
+    port: 10000
     envVars:
       - key: NODE_ENV
         value: production
