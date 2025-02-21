@@ -26,7 +26,10 @@ app.use(
 );
 
 // Regular middleware for other routes
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000', 'https://www.aegistestingtech.com'],
+  credentials: true
+}));
 app.use(express.json());
 
 // Connect to Mongo once on startup
