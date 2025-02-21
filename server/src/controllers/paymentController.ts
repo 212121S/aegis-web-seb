@@ -12,7 +12,11 @@ interface AuthenticatedRequest extends Request {
   user?: UserPayload;
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('STRIPE_SECRET_KEY is not configured');
+}
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2023-10-16' as Stripe.LatestApiVersion
 });
 
@@ -99,7 +103,25 @@ export const createCheckoutSession = async (req: AuthenticatedRequest, res: Resp
       return res.status(400).json({ message: 'Invalid plan selected' });
     }
 
+    // Get user from database
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
     const plan = plans[planId as keyof typeof plans];
+
+    // Create or get Stripe customer
+    let stripeCustomerId = user.subscription?.stripeCustomerId;
+    if (!stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: {
+          userId: user.id // Document.id is a string
+        }
+      });
+      stripeCustomerId = customer.id;
+    }
 
     // Apply coupon if provided
     const { couponCode } = req.body;
@@ -113,6 +135,7 @@ export const createCheckoutSession = async (req: AuthenticatedRequest, res: Resp
     }
 
     const session = await stripe.checkout.sessions.create({
+      customer: stripeCustomerId,
       payment_method_types: ['card'],
       line_items: [
         {
@@ -130,12 +153,20 @@ export const createCheckoutSession = async (req: AuthenticatedRequest, res: Resp
       mode: plan.type === 'subscription' ? 'subscription' : 'payment',
       success_url: `${DOMAIN}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${DOMAIN}/pricing`,
-      customer_email: req.user?.email,
       metadata: {
         userId: userId,
         planId: planId
       }
     });
+
+    // Update user with Stripe customer ID if it's new
+    if (!user.subscription?.stripeCustomerId) {
+      await User.findByIdAndUpdate(userId, {
+        $set: {
+          'subscription.stripeCustomerId': stripeCustomerId
+        }
+      });
+    }
 
     res.json({ sessionId: session.id });
   } catch (error) {

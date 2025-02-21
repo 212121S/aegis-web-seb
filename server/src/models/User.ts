@@ -27,7 +27,7 @@ interface IUserModel extends Model<IUser> {
 const subscriptionSchema = new mongoose.Schema<ISubscription>({
   planId: {
     type: String,
-    enum: ['basic', 'pro', 'premium'],
+    enum: ['practice-basic', 'practice-pro', 'test-standard', 'test-premium'],
   },
   active: {
     type: Boolean,
