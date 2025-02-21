@@ -158,11 +158,33 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start the server
-const PORT = parseInt(process.env.PORT || '10000', 10);
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-  // Log the port for debugging
+const port = parseInt(process.env.PORT || '3000', 10);
+const host = '0.0.0.0';
+
+const server = app.listen(port, host, () => {
+  const address = server.address();
+  console.log(`Server running at http://${host}:${port}`);
+  console.log('Server address:', address);
   console.log('Environment PORT:', process.env.PORT);
+});
+
+server.on('error', (error: any) => {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  switch (error.code) {
+    case 'EACCES':
+      console.error(`Port ${port} requires elevated privileges`);
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(`Port ${port} is already in use`);
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
 });
 
 // Export the app for testing

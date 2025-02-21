@@ -7,12 +7,9 @@ services:
     buildCommand: cd server && npm install && npm run build
     startCommand: cd server && npm start
     healthCheckPath: /
-    port: 10000
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: "10000"
       - key: MONGODB_URI
         sync: false # Sensitive - must be set manually in Render dashboard
       - key: JWT_SECRET
