@@ -96,29 +96,39 @@ export async function verify(req: Request, res: Response) {
 
 export async function getProfile(req: Request, res: Response) {
   try {
+    console.log('GetProfile - Headers:', req.headers); // Debug headers
     const token = req.headers.authorization?.split(' ')[1];
     
     if (!token) {
+      console.log('GetProfile - No token provided'); // Debug token missing
       return res.status(401).json({ message: "No token provided" });
     }
 
+    console.log('GetProfile - Token:', token); // Debug token
     const decoded = jwt.verify(token, JWT_SECRET) as { _id: string; email: string };
+    console.log('GetProfile - Decoded:', decoded); // Debug decoded token
+
     const user = await User.findById(decoded._id);
+    console.log('GetProfile - User:', user); // Debug user
 
     if (!user) {
+      console.log('GetProfile - User not found'); // Debug user not found
       return res.status(404).json({ message: "User not found" });
     }
 
-    return res.status(200).json({
+    const response = {
       user: {
         id: user._id,
         email: user.email,
         username: user.username,
         phone: user.phone,
+        subscription: user.subscription,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
       }
-    });
+    };
+    console.log('GetProfile - Response:', response); // Debug response
+    return res.status(200).json(response);
   } catch (err: any) {
     if (err instanceof jwt.TokenExpiredError) {
       return res.status(401).json({ message: "Token expired" });

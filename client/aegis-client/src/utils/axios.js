@@ -132,8 +132,15 @@ export const authAPI = {
   },
 
   getProfile: async () => {
-    const response = await instance.get('/auth/user/profile');
-    return response.data;
+    try {
+      console.log('Token:', localStorage.getItem('token')); // Debug token
+      const response = await instance.get('/auth/user/profile');
+      console.log('Profile Response:', response); // Debug response
+      return response;
+    } catch (error) {
+      console.error('Profile Error:', error.response || error); // Debug error
+      throw error;
+    }
   },
 
   updateProfile: async (data) => {
