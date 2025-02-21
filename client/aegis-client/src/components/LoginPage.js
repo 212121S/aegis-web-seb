@@ -59,7 +59,7 @@ function LoginPage() {
     try {
       const res = await authAPI.login({ email, password });
       localStorage.setItem("token", res.token);
-      navigate("/test");
+      navigate("/dashboard");
     } catch (err) {
       setError(err.response?.data?.message || "Login failed. Please try again.");
       console.error(err);

@@ -30,7 +30,7 @@ router.post('/:sessionId/submit', authenticateToken, submitAnswer);
 router.post('/:sessionId/proctoring', authenticateToken, submitProctoringEvent);
 router.post('/:sessionId/finalize', authenticateToken, finalizeTest);
 
-// Test history and analytics routes
+// Test history and analytics routes - no subscription required
 router.get('/history', authenticateToken, getTestHistory);
 router.get('/analytics', authenticateToken, getTestAnalytics);
 router.get('/results/:testId', authenticateToken, getTestResults);

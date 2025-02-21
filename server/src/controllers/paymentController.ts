@@ -63,6 +63,11 @@ const coupons = {
 
 export const createCheckoutSession = async (req: AuthenticatedRequest, res: Response) => {
   try {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('Stripe secret key not configured');
+      return res.status(500).json({ error: 'Payment service not properly configured' });
+    }
+
     const { planId, couponCode } = req.body;
     const userId = req.user?._id;
 
@@ -70,9 +75,21 @@ export const createCheckoutSession = async (req: AuthenticatedRequest, res: Resp
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
+    // Validate user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Validate plan
     const plan = plans[planId as keyof typeof plans];
     if (!plan) {
       return res.status(400).json({ error: 'Invalid plan selected' });
+    }
+
+    // Check if user already has an active subscription for subscription plans
+    if (plan.type === 'subscription' && user.subscription?.active) {
+      return res.status(400).json({ error: 'User already has an active subscription' });
     }
 
     let finalAmount = plan.price;
