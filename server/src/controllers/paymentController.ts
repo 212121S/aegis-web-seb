@@ -24,22 +24,22 @@ const DOMAIN = process.env.DOMAIN || 'http://localhost:3000';
 
 const plans = {
   'practice-basic': {
-    price: 2999, // $29.99
+    price: 199, // $1.99
     name: 'Basic Practice',
     type: 'subscription'
   },
   'practice-pro': {
-    price: 4999, // $49.99
+    price: 499, // $4.99
     name: 'Pro Practice',
     type: 'subscription'
   },
   'test-standard': {
-    price: 9999, // $99.99
+    price: 599, // $5.99
     name: 'Standard Test',
     type: 'one-time'
   },
   'test-premium': {
-    price: 14999, // $149.99
+    price: 999, // $9.99
     name: 'Premium Test',
     type: 'one-time'
   }
