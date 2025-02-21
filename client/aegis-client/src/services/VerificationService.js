@@ -26,7 +26,7 @@ class VerificationService {
   // Verify a result using a verification code
   async verifyByCode(code) {
     try {
-      const response = await axios.post('/api/verify/code', { code });
+      const response = await axios.post('/verify/code', { code });
       return response.data;
     } catch (error) {
       console.error('Failed to verify code:', error);

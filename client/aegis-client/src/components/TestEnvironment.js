@@ -12,7 +12,7 @@ import {
   LinearProgress,
   Paper,
 } from '@mui/material';
-import axios from '../utils/axios';
+import { examAPI } from '../utils/axios';
 
 const TestEnvironment = () => {
   const [session, setSession] = useState(null);
@@ -29,14 +29,7 @@ const TestEnvironment = () => {
 
   const initializeTest = async () => {
     try {
-      const response = await axios.post('/api/exam/initialize', {
-        type: 'practice',
-        browserInfo: {
-          name: navigator.userAgent,
-          version: navigator.appVersion,
-          os: navigator.platform
-        }
-      });
+      const response = await examAPI.initialize('practice');
       
       setSession(response.data.sessionId);
       setStartTime(Date.now());
@@ -49,7 +42,7 @@ const TestEnvironment = () => {
   const fetchNextQuestion = async (sessionId) => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/exam/${sessionId || session}/next-question`);
+      const response = await examAPI.getNextQuestion(sessionId || session);
       
       if (response.data.completed) {
         await finalizeTest();
@@ -72,7 +65,7 @@ const TestEnvironment = () => {
       setLoading(true);
       const timeSpent = Math.round((Date.now() - startTime) / 1000);
       
-      const response = await axios.post(`/api/exam/${session}/submit`, {
+      const response = await examAPI.submitAnswer(session, {
         questionId: question._id,
         answer: selectedAnswer,
         timeSpent
@@ -95,7 +88,7 @@ const TestEnvironment = () => {
 
   const finalizeTest = async () => {
     try {
-      const response = await axios.post(`/api/exam/${session}/finalize`);
+      const response = await examAPI.finalizeTest(session);
       // Navigate to results page or show final score
       console.log('Test completed:', response.data);
     } catch (error) {

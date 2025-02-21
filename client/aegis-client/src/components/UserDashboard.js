@@ -29,7 +29,7 @@ import {
   Schedule
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
-import axios from '../utils/axios';
+import { examAPI } from '../utils/axios';
 import { useSubscription } from '../hooks/useSubscription';
 
 const UserDashboard = () => {
@@ -47,13 +47,13 @@ const UserDashboard = () => {
   const fetchUserData = async () => {
     try {
       setLoading(true);
-      const [historyRes, analyticsRes] = await Promise.all([
-        axios.get('/api/exam/history'),
-        axios.get('/api/exam/analytics')
+      const [history, analytics] = await Promise.all([
+        examAPI.getHistory(),
+        examAPI.getAnalytics()
       ]);
       
-      setTestHistory(historyRes.data);
-      setAnalytics(analyticsRes.data);
+      setTestHistory(history);
+      setAnalytics(analytics);
     } catch (err) {
       setError('Failed to load user data');
       console.error(err);
