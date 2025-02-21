@@ -1,6 +1,7 @@
 # Node modules
 node_modules
-# Yarn lock file (or NPM lock, whichever you don’t want to commit)
+**/.cache/
+# Yarn lock file (or NPM lock, whichever you don't want to commit)
 yarn.lock
 
 # Build output
