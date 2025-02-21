@@ -102,18 +102,43 @@ export const createCheckoutSession = async (req: AuthenticatedRequest, res: Resp
       }
     }
 
+    // Create or retrieve price ID based on plan type
+    let priceId;
+    try {
+      const product = await stripe.products.create({
+        name: plan.name,
+        metadata: {
+          planId: planId
+        }
+      });
+
+      const priceData = {
+        currency: 'usd',
+        product: product.id,
+        unit_amount: finalAmount,
+      };
+
+      if (plan.type === 'subscription') {
+        Object.assign(priceData, {
+          recurring: {
+            interval: 'month'
+          }
+        });
+      }
+
+      const price = await stripe.prices.create(priceData);
+      priceId = price.id;
+    } catch (err) {
+      console.error('Error creating Stripe product/price:', err);
+      throw new Error('Failed to configure payment product');
+    }
+
     const session = await stripe.checkout.sessions.create({
       customer_email: req.user?.email,
       payment_method_types: ['card'],
       line_items: [
         {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: plan.name,
-            },
-            unit_amount: finalAmount,
-          },
+          price: priceId,
           quantity: 1,
         },
       ],
