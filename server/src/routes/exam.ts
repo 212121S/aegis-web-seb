@@ -24,11 +24,11 @@ import { validateSubscription } from '../middleware/subscriptionMiddleware';
 const router = Router();
 
 // Test session routes
-router.post('/initialize', authenticateToken, initializeTest);
-router.get('/:sessionId/next-question', authenticateToken, getNextQuestion);
-router.post('/:sessionId/submit', authenticateToken, submitAnswer);
-router.post('/:sessionId/proctoring', authenticateToken, submitProctoringEvent);
-router.post('/:sessionId/finalize', authenticateToken, finalizeTest);
+router.post('/initialize', authenticateToken, validateSubscription, initializeTest);
+router.get('/:sessionId/next-question', authenticateToken, validateSubscription, getNextQuestion);
+router.post('/:sessionId/submit', authenticateToken, validateSubscription, submitAnswer);
+router.post('/:sessionId/proctoring', authenticateToken, validateSubscription, submitProctoringEvent);
+router.post('/:sessionId/finalize', authenticateToken, validateSubscription, finalizeTest);
 
 // Test history and analytics routes - no subscription required
 router.get('/history', authenticateToken, getTestHistory);
