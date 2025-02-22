@@ -1,8 +1,25 @@
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 const config = {
-  apiUrl: process.env.REACT_APP_API_URL || 'http://localhost:4000',
-  stripe: {
-    publicKey: process.env.REACT_APP_STRIPE_PUBLIC_KEY || 'pk_test_51OqLBXLxBGcNBXtPKGcNrF8RKgEGC9kYwvVvqVVWXYZaAbBcDdEeFfGgHhIjJkLmNoPpQqRsTuVwXyYzZaAbBcD'
+  apiUrl: isDevelopment 
+    ? 'http://localhost:10000'
+    : process.env.REACT_APP_API_URL || 'https://aegis-api.onrender.com',
+  stripePublicKey: process.env.REACT_APP_STRIPE_PUBLIC_KEY,
+  environment: process.env.NODE_ENV || 'development',
+  features: {
+    subscriptions: true,
+    verification: true,
+    proctoring: true
   }
 };
+
+// Log configuration in development
+if (isDevelopment) {
+  console.log('App Configuration:', {
+    apiUrl: config.apiUrl,
+    environment: config.environment,
+    features: config.features
+  });
+}
 
 export default config;

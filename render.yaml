@@ -28,7 +28,9 @@ services:
       - key: CLIENT_URL
         value: https://www.aegistestingtech.com
       - key: CORS_ALLOWED_ORIGINS
-        value: https://www.aegistestingtech.com,https://aegistestingtech.com,https://api.aegistestingtech.com
+        value: https://www.aegistestingtech.com,https://aegistestingtech.com
+      - key: API_URL
+        value: https://aegis-api.onrender.com
       - key: PORT
         value: "10000"
 
@@ -41,7 +43,7 @@ services:
     healthCheckPath: /
     envVars:
       - key: REACT_APP_API_URL
-        value: https://api.aegistestingtech.com
+        value: https://aegis-api.onrender.com
       - key: NODE_ENV
         value: production
     headers:

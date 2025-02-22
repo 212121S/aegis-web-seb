@@ -1,15 +1,28 @@
 import mongoose from 'mongoose';
 
+const isDevelopment = process.env.NODE_ENV !== 'production';
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/aegis';
+
+if (!isDevelopment && !process.env.MONGODB_URI) {
+  throw new Error('MONGODB_URI is required in production');
+}
+
 const MAX_RETRIES = 5;
 const RETRY_INTERVAL = 5000; // 5 seconds
 
+const connectOptions = {
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+  connectTimeoutMS: 10000,
+  retryWrites: true,
+  retryReads: true,
+};
+
 export async function connectMongo(retryCount = 0): Promise<void> {
   try {
-    await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-    });
+    console.log('Attempting to connect to MongoDB...');
+    console.log(`Using MongoDB URI: ${MONGODB_URI.replace(/\/\/[^@]*@/, '//***:***@')}`);
+    await mongoose.connect(MONGODB_URI, connectOptions);
     console.log('✅ Connected to MongoDB!');
 
     mongoose.connection.on('disconnected', () => {

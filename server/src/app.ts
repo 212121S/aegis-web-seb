@@ -17,9 +17,14 @@ const app = express();
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 // Configure CORS with proper options
-const allowedOrigins = isDevelopment 
+const defaultAllowedOrigins = isDevelopment 
   ? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002']
-  : (process.env.CORS_ALLOWED_ORIGINS || '').split(',').filter(Boolean);
+  : ['https://www.aegistestingtech.com', 'https://aegistestingtech.com'];
+
+const allowedOrigins = [
+  ...defaultAllowedOrigins,
+  ...(process.env.CORS_ALLOWED_ORIGINS ? process.env.CORS_ALLOWED_ORIGINS.split(',') : [])
+];
 
 // Log environment configuration
 console.log('Environment Configuration:', {
@@ -31,34 +36,18 @@ console.log('Environment Configuration:', {
   allowedOrigins
 });
 
-// Function to check if origin matches allowed patterns
-const isOriginAllowed = (origin: string): boolean => {
-  if (allowedOrigins.includes(origin)) {
-    return true;
-  }
-
-  if (!isDevelopment) {
-    try {
-      const originUrl = new URL(origin);
-      return originUrl.hostname.endsWith('aegistestingtech.com');
-    } catch (error) {
-      console.error(`[CORS] Error parsing origin URL:`, error);
-    }
-  }
-
-  return false;
-};
-
 // Enhanced CORS configuration
 const corsOptions: CorsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
       return callback(null, true);
     }
 
-    if (isOriginAllowed(origin)) {
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.warn(`[CORS] Rejected request from origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -69,8 +58,10 @@ const corsOptions: CorsOptions = {
     'Authorization',
     'Accept',
     'Origin',
-    'X-Requested-With'
+    'X-Requested-With',
+    'stripe-signature'
   ],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
   maxAge: 86400
 };
 
@@ -120,6 +111,12 @@ app.get('/', (req: Request, res: Response) => {
 // CORS error handling
 app.use((err: Error, req: Request, res: Response, next: NextFunction): void => {
   if (err.message === 'Not allowed by CORS') {
+    console.error('CORS Error:', {
+      origin: req.headers.origin,
+      method: req.method,
+      path: req.path,
+      allowedOrigins
+    });
     res.status(403).json({
       message: 'CORS policy violation: Origin not allowed',
       origin: req.headers.origin
@@ -134,7 +131,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction): void => {
   console.error('Server Error:', err);
   res.status(500).json({
     message: 'An unexpected error occurred',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    error: isDevelopment ? err.message : undefined
   });
 });
 
