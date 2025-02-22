@@ -22,7 +22,19 @@ const PlansPage = () => {
   const { user } = useAuth();
 
   const handleSelectPlan = (plan) => {
-    console.log('Selecting plan:', { plan });
+    // Log plan selection
+    console.log('Selecting plan:', { 
+      plan,
+      timestamp: new Date().toISOString()
+    });
+
+    // Validate plan type
+    if (!['officialTest', 'basicSubscription', 'premiumSubscription'].includes(plan)) {
+      console.error('Invalid plan type:', { plan });
+      return;
+    }
+
+    // Navigate to payment page with plan info
     navigate('/payment', { 
       state: { 
         selectedPlan: plan,

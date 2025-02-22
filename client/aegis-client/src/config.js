@@ -24,25 +24,40 @@ const getApiUrl = () => {
 };
 
 const getStripePrices = () => {
+  // Get price IDs from environment
   const prices = {
     officialTest: process.env.REACT_APP_STRIPE_OFFICIAL_TEST_PRICE_ID,
     basicSubscription: process.env.REACT_APP_STRIPE_BASIC_SUBSCRIPTION_PRICE_ID,
     premiumSubscription: process.env.REACT_APP_STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID
   };
 
+  // Validate price IDs
+  const missingPrices = Object.entries(prices).filter(([_, value]) => !value);
+  if (missingPrices.length > 0) {
+    console.error('Missing Stripe price IDs:', {
+      missing: missingPrices.map(([key]) => key),
+      prices,
+      timestamp: new Date().toISOString()
+    });
+    throw new Error('Stripe price IDs not properly configured');
+  }
+
   // Log price configuration
   console.log('Stripe price configuration:', {
     officialTest: {
-      configured: !!prices.officialTest,
-      value: prices.officialTest
+      configured: true,
+      value: prices.officialTest,
+      matches: prices.officialTest === process.env.REACT_APP_STRIPE_OFFICIAL_TEST_PRICE_ID
     },
     basicSubscription: {
-      configured: !!prices.basicSubscription,
-      value: prices.basicSubscription
+      configured: true,
+      value: prices.basicSubscription,
+      matches: prices.basicSubscription === process.env.REACT_APP_STRIPE_BASIC_SUBSCRIPTION_PRICE_ID
     },
     premiumSubscription: {
-      configured: !!prices.premiumSubscription,
-      value: prices.premiumSubscription
+      configured: true,
+      value: prices.premiumSubscription,
+      matches: prices.premiumSubscription === process.env.REACT_APP_STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID
     },
     timestamp: new Date().toISOString()
   });

@@ -5,14 +5,36 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// Load environment variables
+dotenv.config();
+
+// Initialize Stripe with configuration
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
-console.warn(STRIPE_SECRET_KEY ? '✓ Stripe configured' : '⚠️  Stripe not configured - payment features will be disabled');
+const STRIPE_PRICE_IDS = {
+  officialTest: process.env.STRIPE_OFFICIAL_TEST_PRICE_ID,
+  basicSubscription: process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID,
+  premiumSubscription: process.env.STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID
+};
+
+// Log Stripe configuration
+console.log('Stripe Configuration:', {
+  secretKeyConfigured: !!STRIPE_SECRET_KEY,
+  priceIds: {
+    officialTest: STRIPE_PRICE_IDS.officialTest,
+    basicSubscription: STRIPE_PRICE_IDS.basicSubscription,
+    premiumSubscription: STRIPE_PRICE_IDS.premiumSubscription
+  },
+  timestamp: new Date().toISOString()
+});
 
 let stripe: Stripe | null = null;
 if (STRIPE_SECRET_KEY) {
   stripe = new Stripe(STRIPE_SECRET_KEY, {
     apiVersion: '2025-01-27.acacia'
   });
+  console.log('✓ Stripe initialized successfully');
+} else {
+  console.warn('⚠️  Stripe not configured - payment features will be disabled');
 }
 
 const checkStripeAvailable = (res: Response): boolean => {
@@ -79,22 +101,39 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       timestamp: new Date().toISOString()
     });
 
-    // Validate price ID matches one of the configured prices
-    const validPriceIds = {
-      [process.env.STRIPE_OFFICIAL_TEST_PRICE_ID as string]: 'payment' as const,
-      [process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID as string]: 'subscription' as const,
-      [process.env.STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID as string]: 'subscription' as const
+    // Map price IDs to their modes and validate
+    const priceConfig = {
+      [process.env.STRIPE_OFFICIAL_TEST_PRICE_ID as string]: {
+        mode: 'payment' as const,
+        type: 'officialTest'
+      },
+      [process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID as string]: {
+        mode: 'subscription' as const,
+        type: 'basicSubscription'
+      },
+      [process.env.STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID as string]: {
+        mode: 'subscription' as const,
+        type: 'premiumSubscription'
+      }
     };
+
+    // Debug log environment variables
+    console.log('Environment price IDs:', {
+      officialTest: process.env.STRIPE_OFFICIAL_TEST_PRICE_ID,
+      basic: process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID,
+      premium: process.env.STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID,
+      timestamp: new Date().toISOString()
+    });
 
     // Debug log price validation
     console.log('Price validation:', {
       provided: priceId,
-      validPriceIds: Object.keys(validPriceIds),
-      isValid: Object.keys(validPriceIds).includes(priceId),
+      validPriceIds: Object.keys(priceConfig),
+      isValid: priceId in priceConfig,
       timestamp: new Date().toISOString()
     });
 
-    if (!Object.keys(validPriceIds).includes(priceId)) {
+    if (!(priceId in priceConfig)) {
       console.error('Invalid price ID:', {
         providedPriceId: priceId,
         officialTest: process.env.STRIPE_OFFICIAL_TEST_PRICE_ID,
@@ -106,8 +145,16 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       return;
     }
 
-    // Ensure mode matches price ID
-    const mode: Stripe.Checkout.SessionCreateParams.Mode = validPriceIds[priceId];
+    // Get mode and type from config
+    const { mode, type } = priceConfig[priceId];
+
+    // Log checkout details
+    console.log('Creating checkout session:', {
+      priceId,
+      type,
+      mode,
+      timestamp: new Date().toISOString()
+    });
 
     const userId = req.user?._id;
     if (!userId) {

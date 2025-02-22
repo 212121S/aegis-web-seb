@@ -80,52 +80,40 @@ const PaymentPage = () => {
         throw new Error('Failed to initialize payment system');
       }
 
-      // Get and validate price ID based on product type
+      // Get price ID directly from config based on product type
       let priceId;
-      const priceIdMap = {
-        officialTest: {
-          configKey: 'officialTest',
-          envKey: 'REACT_APP_STRIPE_OFFICIAL_TEST_PRICE_ID',
-          displayName: 'Official Test'
-        },
-        basicSubscription: {
-          configKey: 'basicSubscription',
-          envKey: 'REACT_APP_STRIPE_BASIC_SUBSCRIPTION_PRICE_ID',
-          displayName: 'Basic Subscription'
-        },
-        premiumSubscription: {
-          configKey: 'premiumSubscription',
-          envKey: 'REACT_APP_STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID',
-          displayName: 'Premium Subscription'
-        }
-      };
-
-      const productConfig = priceIdMap[productType];
-      if (!productConfig) {
-        console.error('Invalid product type:', { productType });
-        throw new Error('Invalid product type');
+      switch (productType) {
+        case 'officialTest':
+          priceId = config.stripe.prices.officialTest;
+          break;
+        case 'basicSubscription':
+          priceId = config.stripe.prices.basicSubscription;
+          break;
+        case 'premiumSubscription':
+          priceId = config.stripe.prices.premiumSubscription;
+          break;
+        default:
+          console.error('Invalid product type:', { productType });
+          throw new Error('Invalid product type');
       }
 
-      priceId = config.stripe.prices[productConfig.configKey];
-      const expectedPriceId = process.env[productConfig.envKey];
-
       // Debug logging
-      console.log('Price ID validation:', {
+      console.log('Selected plan:', {
         productType,
-        configuredId: priceId,
-        expectedId: expectedPriceId,
-        matches: priceId === expectedPriceId,
-        timestamp: new Date().toISOString()
+        priceId,
+        fromButton,
+        timestamp: new Date().toISOString(),
+        availablePrices: config.stripe.prices
       });
 
-      if (priceId !== expectedPriceId) {
-        console.error('Price ID mismatch:', {
+      // Validate price ID
+      if (!priceId) {
+        console.error('Price ID not found:', {
           productType,
-          configuredId: priceId,
-          expectedId: expectedPriceId,
-          productConfig
+          availablePrices: config.stripe.prices,
+          timestamp: new Date().toISOString()
         });
-        throw new Error(`Invalid price ID for ${productConfig.displayName}`);
+        throw new Error(`Price ID not found for ${productType}. Please check configuration.`);
       }
 
       // Log selection for debugging

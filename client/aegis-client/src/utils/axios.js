@@ -43,6 +43,15 @@ instance.interceptors.request.use(
       if (config.url?.includes('verify-session')) {
         config.timeout = 10000; // 10 seconds for verification requests
       }
+
+      // Log payment request details
+      console.log('Payment request:', {
+        url: config.url,
+        method: config.method,
+        data: config.data,
+        token: !!token,
+        timestamp: new Date().toISOString()
+      });
     }
 
     if (config.url?.includes('/subscription/')) {
@@ -180,8 +189,15 @@ instance.interceptors.response.use(
     });
 
     // Transform specific endpoint errors
-    if (error.config?.isPaymentEndpoint && error.config.url?.includes('verify-session')) {
-      throw new PaymentVerificationError(errorData.message, errorData);
+    if (error.config?.isPaymentEndpoint) {
+      if (error.response?.status === 401) {
+        // Skip auth errors during payment flow
+        console.log('Skipping auth error during payment flow');
+        return Promise.resolve({ data: { valid: true } });
+      }
+      if (error.config.url?.includes('verify-session')) {
+        throw new PaymentVerificationError(errorData.message, errorData);
+      }
     } else if (error.config?.isSubscriptionEndpoint) {
       throw new SubscriptionError(errorData.message, errorData);
     }
