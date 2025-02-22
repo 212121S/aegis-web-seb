@@ -86,7 +86,7 @@ const UserDashboard = () => {
               </Alert>
             ) : (
               <Alert severity="warning">
-                No active subscription. <Link to="/pricing">View plans</Link>
+                No active subscription. <Link to="/plans">View plans</Link>
               </Alert>
             )}
           </Paper>

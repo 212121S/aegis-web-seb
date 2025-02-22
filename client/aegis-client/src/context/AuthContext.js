@@ -22,13 +22,13 @@ export const AuthProvider = ({ children }) => {
 
       console.log('Verifying token...');
       const response = await authAPI.verifyToken();
-      console.log('Token verification response:', response.data);
+      console.log('Token verification response:', response);
 
-      if (response.data.valid) {
+      if (response.valid) {
         console.log('Token is valid, fetching profile...');
         const profileResponse = await authAPI.getProfile();
-        console.log('Profile response:', profileResponse.data);
-        setUser(profileResponse.data);
+        console.log('Profile response:', profileResponse);
+        setUser(profileResponse);
       } else {
         console.log('Token is invalid, clearing auth state...');
         localStorage.removeItem('token');
@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       console.log('Attempting login...');
       const response = await authAPI.login(credentials);
-      console.log('Login response:', response.data);
+      console.log('Login response:', response);
       
       const { token, user: userData } = response;
       
@@ -83,9 +83,9 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       console.log('Attempting registration...');
       const response = await authAPI.register(userData);
-      console.log('Registration response:', response.data);
+      console.log('Registration response:', response);
 
-      const { token, user: newUser } = response.data;
+      const { token, user: newUser } = response;
 
       if (!token) {
         console.error('No token received from server');
@@ -109,8 +109,8 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       console.log('Updating profile...');
       const response = await authAPI.updateProfile(data);
-      console.log('Update profile response:', response.data);
-      setUser(response.data);
+      console.log('Update profile response:', response);
+      setUser(response);
       return true;
     } catch (error) {
       console.error('Update profile error:', error);

@@ -56,7 +56,17 @@ function PaymentSuccess() {
           startTime: new Date().toISOString()
         }));
 
-        // Start payment verification with automatic retries
+        // Ensure auth token is still valid
+        const token = localStorage.getItem('token');
+        if (token) {
+          try {
+            await verifyAuth();
+          } catch (err) {
+            console.warn('Auth verification skipped during payment flow:', err);
+          }
+        }
+
+        // Start payment verification
         setVerificationProgress(prev => ({
           ...prev,
           stage: 'payment',
@@ -71,7 +81,7 @@ function PaymentSuccess() {
           ...prev,
           stage: 'verified',
           message: 'Payment verified successfully',
-          lastError: null // Clear any previous errors
+          lastError: null
         }));
         
         if (sessionResponse?.paymentStatus === 'paid') {
@@ -82,8 +92,10 @@ function PaymentSuccess() {
           }));
 
           // Give webhook time to process
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 3000));
           
+          // Refresh auth token and subscription status
+          await verifyAuth();
           const subscriptionResponse = await refreshSubscription();
           
           if (subscriptionResponse?.active) {

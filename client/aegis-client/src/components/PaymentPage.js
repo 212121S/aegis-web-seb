@@ -36,6 +36,13 @@ const PaymentPage = () => {
       return;
     }
 
+    // Redirect to plans if no plan selected
+    const location = window.location;
+    if (!location.state?.selectedPlan) {
+      navigate('/plans');
+      return;
+    }
+
     // Check if Stripe is configured
     if (!config.stripe.publicKey || !config.stripe.prices.officialTest || 
         !config.stripe.prices.basicSubscription || !config.stripe.prices.premiumSubscription) {
@@ -49,7 +56,7 @@ const PaymentPage = () => {
     }
   }, [user, navigate]);
 
-  const handlePurchase = async (priceId, productType) => {
+  const handlePurchase = async (productType) => {
     try {
       setLoading(true);
       setError(null);
@@ -64,23 +71,33 @@ const PaymentPage = () => {
       }
 
       // Get the correct price ID based on product type
-      let selectedPriceId;
+      let priceId;
       switch (productType) {
         case 'officialTest':
-          selectedPriceId = config.stripe.prices.officialTest;
+          priceId = config.stripe.prices.officialTest;
           break;
         case 'basicSubscription':
-          selectedPriceId = config.stripe.prices.basicSubscription;
+          priceId = config.stripe.prices.basicSubscription;
           break;
         case 'premiumSubscription':
-          selectedPriceId = config.stripe.prices.premiumSubscription;
+          priceId = config.stripe.prices.premiumSubscription;
           break;
         default:
           throw new Error('Invalid product type');
       }
 
+      if (!priceId) {
+        throw new Error(`Price ID not found for ${productType}`);
+      }
+
+      console.log('Creating checkout session:', {
+        productType,
+        priceId,
+        timestamp: new Date().toISOString()
+      });
+
       // Create checkout session
-      const response = await paymentAPI.createSession(selectedPriceId);
+      const response = await paymentAPI.createSession(priceId);
       const { sessionId } = response;
 
       // Redirect to checkout
@@ -189,7 +206,7 @@ const PaymentPage = () => {
                   color="primary"
                   fullWidth
                   size="large"
-                  onClick={() => handlePurchase(config.stripe.prices.officialTest, 'officialTest')}
+                  onClick={() => handlePurchase('officialTest')}
                   disabled={loading || stripeError}
                   sx={{ mt: 2 }}
                 >
@@ -251,7 +268,7 @@ const PaymentPage = () => {
                   color="primary"
                   fullWidth
                   size="large"
-                  onClick={() => handlePurchase(config.stripe.prices.basicSubscription, 'basicSubscription')}
+                  onClick={() => handlePurchase('basicSubscription')}
                   disabled={loading || stripeError}
                   sx={{ mt: 2 }}
                 >
@@ -340,7 +357,7 @@ const PaymentPage = () => {
                   color="primary"
                   fullWidth
                   size="large"
-                  onClick={() => handlePurchase(config.stripe.prices.premiumSubscription, 'premiumSubscription')}
+                  onClick={() => handlePurchase('premiumSubscription')}
                   disabled={loading || stripeError}
                   sx={{ mt: 2 }}
                 >
