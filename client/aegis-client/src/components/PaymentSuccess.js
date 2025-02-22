@@ -143,13 +143,13 @@ function PaymentSuccess() {
                 Payment Successful!
               </Typography>
               <Typography color="text.secondary" paragraph>
-                Thank you for your purchase. Your subscription is now active.
+                Thank you for your purchase. Please wait a moment while we activate your subscription.
               </Typography>
               <Box sx={{ mt: 4, display: 'flex', gap: 2, justifyContent: 'center' }}>
                 <Button
                   variant="contained"
                   color="primary"
-                  onClick={() => navigate('/test')}
+                  onClick={() => navigate('/test/practice')}
                   sx={{
                     px: 4,
                     py: 1.5,

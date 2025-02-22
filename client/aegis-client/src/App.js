@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Link, Navigate, useLocation } from "react-router-dom";
 import {
   AppBar,
@@ -62,7 +62,14 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 const ProtectedRoute = ({ children, requireSubscription = false }) => {
   const location = useLocation();
   const { isAuthenticated, loading } = useAuth();
-  const { loading: subLoading, error, isSubscriptionActive } = useSubscription();
+  const { loading: subLoading, error, subscription, refreshSubscription } = useSubscription();
+
+  // Effect to refresh subscription status when route is accessed
+  useEffect(() => {
+    if (requireSubscription && isAuthenticated && !loading) {
+      refreshSubscription();
+    }
+  }, [requireSubscription, isAuthenticated, loading, refreshSubscription]);
 
   if (loading || subLoading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -74,7 +81,8 @@ const ProtectedRoute = ({ children, requireSubscription = false }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requireSubscription && (error || !isSubscriptionActive())) {
+  if (requireSubscription && (!subscription?.active || error)) {
+    console.log('Subscription check failed:', { subscription, error });
     return <Navigate to="/pricing" state={{ 
       from: location,
       message: 'An active subscription is required to access this feature'

@@ -178,35 +178,75 @@ export const handleWebhook = async (req: Request, res: Response) => {
         const userId = session.metadata?.userId;
         const planId = session.metadata?.planId;
 
-        if (userId && planId) {
-          const plan = plans[planId as keyof typeof plans];
-          if (plan) {
-            // For subscription plans, fetch subscription details
-            if (plan.type === 'subscription' && session.subscription) {
-              const subscription = await stripe.subscriptions.retrieve(session.subscription.toString());
-              
-              const subscriptionData = {
-                'subscription.planId': planId,
-                'subscription.active': true,
-                'subscription.stripeCustomerId': session.customer,
-                'subscription.stripeSubscriptionId': subscription.id,
-                'subscription.currentPeriodEnd': new Date(subscription.current_period_end * 1000)
-              };
+        console.log('Webhook: checkout.session.completed', {
+          sessionId: session.id,
+          userId,
+          planId,
+          paymentStatus: session.payment_status,
+          customer: session.customer,
+          subscription: session.subscription
+        });
 
-              await User.findByIdAndUpdate(userId, subscriptionData);
-              console.log('Updated user subscription:', subscriptionData);
-            } else {
-              // For one-time payments
-              const subscriptionData = {
-                'subscription.planId': planId,
-                'subscription.active': true,
-                'subscription.currentPeriodEnd': null
-              };
+        if (!userId || !planId) {
+          console.error('Webhook: Missing userId or planId in session metadata');
+          return res.status(400).json({ error: 'Missing required metadata' });
+        }
 
-              await User.findByIdAndUpdate(userId, subscriptionData);
-              console.log('Updated user one-time purchase:', subscriptionData);
-            }
+        const plan = plans[planId as keyof typeof plans];
+        if (!plan) {
+          console.error('Webhook: Invalid plan ID:', planId);
+          return res.status(400).json({ error: 'Invalid plan ID' });
+        }
+
+        try {
+          // For subscription plans
+          if (plan.type === 'subscription' && session.subscription) {
+            const subscription = await stripe.subscriptions.retrieve(session.subscription.toString());
+            
+            const subscriptionData = {
+              subscription: {
+                planId: planId,
+                active: true,
+                stripeCustomerId: session.customer,
+                stripeSubscriptionId: subscription.id,
+                currentPeriodEnd: new Date(subscription.current_period_end * 1000)
+              }
+            };
+
+            const updatedUser = await User.findByIdAndUpdate(
+              userId,
+              subscriptionData,
+              { new: true }
+            );
+            
+            console.log('Webhook: Updated user subscription:', {
+              userId,
+              subscription: updatedUser?.subscription
+            });
+          } else {
+            // For one-time payments
+            const subscriptionData = {
+              subscription: {
+                planId: planId,
+                active: true,
+                currentPeriodEnd: null
+              }
+            };
+
+            const updatedUser = await User.findByIdAndUpdate(
+              userId,
+              subscriptionData,
+              { new: true }
+            );
+
+            console.log('Webhook: Updated user one-time purchase:', {
+              userId,
+              subscription: updatedUser?.subscription
+            });
           }
+        } catch (error) {
+          console.error('Webhook: Error updating user subscription:', error);
+          throw error;
         }
         break;
       }
