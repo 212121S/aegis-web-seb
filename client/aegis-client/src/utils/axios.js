@@ -4,7 +4,6 @@ import config from '../config';
 const instance = axios.create({
   baseURL: config.apiUrl,
   timeout: 45000,
-  withCredentials: true,
   headers: {
     'Accept': 'application/json',
     'Content-Type': 'application/json'
@@ -74,7 +73,7 @@ instance.interceptors.response.use(
 
     // Handle other errors
     return Promise.reject({
-      message: error.response.data?.message || error.message,
+      message: error.response?.data?.message || error.message,
       ...error.response
     });
   }

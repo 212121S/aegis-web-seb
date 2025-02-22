@@ -1,94 +1,113 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect } from 'react';
 import { authAPI } from '../utils/axios';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    verifyAuth();
+  }, []);
 
   const verifyAuth = async () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        throw new Error('No token found');
+        setLoading(false);
+        return;
       }
 
-      console.log('Verifying auth token...');
       const response = await authAPI.verifyToken();
-      console.log('Token verification response:', response);
-
-      setIsAuthenticated(true);
-      setUser(response.user);
-      return true;
-    } catch (err) {
-      console.error('Auth verification failed:', {
-        error: err,
-        message: err.message,
-        response: err.response?.data
-      });
+      if (response.data.valid) {
+        const profileResponse = await authAPI.getProfile();
+        setUser(profileResponse.data);
+      } else {
+        localStorage.removeItem('token');
+        setUser(null);
+      }
+    } catch (error) {
+      console.error('Auth verification failed:', error);
       localStorage.removeItem('token');
-      setIsAuthenticated(false);
       setUser(null);
-      return false;
     } finally {
       setLoading(false);
     }
   };
 
-  // Initial auth verification
-  useEffect(() => {
-    verifyAuth();
-  }, []);
-
-  // Periodic token verification
-  useEffect(() => {
-    if (isAuthenticated) {
-      const intervalId = setInterval(verifyAuth, 5 * 60 * 1000); // Check every 5 minutes
-      return () => clearInterval(intervalId);
-    }
-  }, [isAuthenticated]);
-
-  const login = async (token) => {
+  const login = async (credentials) => {
     try {
-      // Ensure token is properly formatted
-      const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-      localStorage.setItem('token', formattedToken);
+      setError(null);
+      const response = await authAPI.login(credentials);
+      const { token, user: userData } = response.data;
       
-      console.log('Stored auth token, verifying...');
-      const verified = await verifyAuth();
-      
-      if (!verified) {
-        throw new Error('Token verification failed after login');
+      if (!token) {
+        throw new Error('No token received from server');
       }
-      
-      console.log('Login successful and token verified');
-    } catch (err) {
-      console.error('Login error:', err);
-      localStorage.removeItem('token');
-      setIsAuthenticated(false);
-      setUser(null);
-      throw err;
+
+      localStorage.setItem('token', token);
+      setUser(userData);
+      return true;
+    } catch (error) {
+      console.error('Login error:', error);
+      setError(error.response?.data?.error || 'Failed to login');
+      return false;
     }
   };
 
   const logout = () => {
-    console.log('Logging out user...');
     localStorage.removeItem('token');
-    setIsAuthenticated(false);
     setUser(null);
   };
 
+  const register = async (userData) => {
+    try {
+      setError(null);
+      const response = await authAPI.register(userData);
+      const { token, user: newUser } = response.data;
+
+      if (!token) {
+        throw new Error('No token received from server');
+      }
+
+      localStorage.setItem('token', token);
+      setUser(newUser);
+      return true;
+    } catch (error) {
+      console.error('Registration error:', error);
+      setError(error.response?.data?.error || 'Failed to register');
+      return false;
+    }
+  };
+
+  const updateProfile = async (data) => {
+    try {
+      setError(null);
+      const response = await authAPI.updateProfile(data);
+      setUser(response.data);
+      return true;
+    } catch (error) {
+      console.error('Update profile error:', error);
+      setError(error.response?.data?.error || 'Failed to update profile');
+      return false;
+    }
+  };
+
+  const value = {
+    user,
+    loading,
+    error,
+    login,
+    logout,
+    register,
+    updateProfile,
+    verifyAuth
+  };
+
   return (
-    <AuthContext.Provider value={{ 
-      isAuthenticated, 
-      loading, 
-      login, 
-      logout,
-      user,
-      verifyAuth // Export verifyAuth for manual verification if needed
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
@@ -101,3 +120,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export default AuthContext;

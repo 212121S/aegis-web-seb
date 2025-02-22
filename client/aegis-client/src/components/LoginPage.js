@@ -1,71 +1,50 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { authAPI } from "../utils/axios";
-import { useAuth } from "../context/AuthContext";
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import {
-  Container,
   Box,
-  Typography,
-  TextField,
   Button,
-  Paper,
+  Container,
+  TextField,
+  Typography,
   Alert,
-  InputAdornment,
-  IconButton,
+  Paper,
   CircularProgress
-} from "@mui/material";
-import {
-  Visibility,
-  VisibilityOff,
-  Email,
-  Lock,
-  Shield
-} from "@mui/icons-material";
+} from '@mui/material';
 
-function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+const LoginPage = () => {
   const navigate = useNavigate();
+  const { login, error: authError } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
 
-  const validateForm = () => {
-    if (!email) {
-      setError("Email is required");
-      return false;
-    }
-    if (!/\S+@\S+\.\S+/.test(email)) {
-      setError("Please enter a valid email address");
-      return false;
-    }
-    if (!password) {
-      setError("Password is required");
-      return false;
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters long");
-      return false;
-    }
-    return true;
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const { login } = useAuth();
-
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) return;
-
+    setError('');
     setLoading(true);
-    setError("");
 
     try {
-      const res = await authAPI.login({ email, password });
-      login(res.token);
-      navigate("/dashboard");
+      const success = await login(formData);
+      if (success) {
+        navigate('/dashboard');
+      } else {
+        setError(authError || 'Failed to login. Please check your credentials.');
+      }
     } catch (err) {
-      setError(err.response?.data?.message || "Login failed. Please try again.");
-      console.error(err);
+      console.error('Login error:', err);
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -75,33 +54,33 @@ function LoginPage() {
     <Container component="main" maxWidth="xs">
       <Box
         sx={{
-          mt: 8,
-          mb: 8,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center"
+          marginTop: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
         }}
       >
-        <Shield sx={{ fontSize: 48, color: "primary.main", mb: 2 }} />
-        <Typography component="h1" variant="h4" sx={{ mb: 3 }}>
-          Welcome Back
-        </Typography>
-
         <Paper
           elevation={3}
           sx={{
-            p: 4,
-            width: "100%",
-            borderRadius: 2
+            padding: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            width: '100%'
           }}
         >
-          {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {error}
+          <Typography component="h1" variant="h5">
+            Sign In
+          </Typography>
+
+          {(error || authError) && (
+            <Alert severity="error" sx={{ mt: 2, width: '100%' }}>
+              {error || authError}
             </Alert>
           )}
 
-          <Box component="form" onSubmit={handleLogin} sx={{ mt: 1 }}>
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, width: '100%' }}>
             <TextField
               margin="normal"
               required
@@ -111,16 +90,9 @@ function LoginPage() {
               name="email"
               autoComplete="email"
               autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={!!error && error.includes("email")}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Email color="action" />
-                  </InputAdornment>
-                ),
-              }}
+              value={formData.email}
+              onChange={handleChange}
+              disabled={loading}
             />
             <TextField
               margin="normal"
@@ -128,65 +100,37 @@ function LoginPage() {
               fullWidth
               name="password"
               label="Password"
-              type={showPassword ? "text" : "password"}
+              type="password"
               id="password"
               autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={!!error && error.includes("password")}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Lock color="action" />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
+              value={formData.password}
+              onChange={handleChange}
+              disabled={loading}
             />
-
             <Button
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, mb: 2, py: 1.5 }}
+              sx={{ mt: 3, mb: 2 }}
               disabled={loading}
             >
-              {loading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                "Sign In"
-              )}
+              {loading ? <CircularProgress size={24} /> : 'Sign In'}
             </Button>
-
-            <Box sx={{ textAlign: "center", mt: 2 }}>
-              <Typography variant="body2" color="text.secondary">
-                Don't have an account?{" "}
-                <Link
-                  to="/register"
-                  style={{
-                    color: "inherit",
-                    textDecoration: "none",
-                    fontWeight: "bold",
-                  }}
-                >
-                  Sign up
-                </Link>
-              </Typography>
-            </Box>
           </Box>
+
+          <Button
+            onClick={() => navigate('/register')}
+            fullWidth
+            variant="text"
+            sx={{ mt: 1 }}
+            disabled={loading}
+          >
+            Don't have an account? Sign Up
+          </Button>
         </Paper>
       </Box>
     </Container>
   );
-}
+};
 
 export default LoginPage;

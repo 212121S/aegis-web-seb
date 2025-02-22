@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { User, IUser, IUserDocument } from '../models/User';
+import { User, IUser } from '../models/User';
 import { Types } from 'mongoose';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
@@ -9,6 +9,44 @@ console.warn(process.env.JWT_SECRET ? '✓ JWT_SECRET configured' : '⚠️  Usi
 
 const generateToken = (userId: Types.ObjectId | string): string => {
   return jwt.sign({ _id: userId.toString() }, JWT_SECRET, { expiresIn: '24h' });
+};
+
+export const login = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email }).select('+password');
+    if (!user) {
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
+    }
+
+    const token = generateToken(user._id);
+
+    // Remove sensitive data before sending response
+    const userResponse = {
+      _id: user._id,
+      email: user.email,
+      name: user.name,
+      subscription: user.subscription,
+      emailVerified: user.emailVerified,
+      phoneVerified: user.phoneVerified
+    };
+
+    res.json({
+      token,
+      user: userResponse
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Failed to login' });
+  }
 };
 
 export const register = async (req: Request, res: Response): Promise<void> => {
@@ -37,15 +75,21 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     };
 
     const user = await User.create(userData);
-    const token = generateToken(user._id as Types.ObjectId);
+    const token = generateToken(user._id);
+
+    // Remove sensitive data before sending response
+    const userResponse = {
+      _id: user._id,
+      email: user.email,
+      name: user.name,
+      subscription: user.subscription,
+      emailVerified: user.emailVerified,
+      phoneVerified: user.phoneVerified
+    };
 
     res.status(201).json({
       token,
-      user: {
-        _id: user._id,
-        email: user.email,
-        name: user.name
-      }
+      user: userResponse
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -53,35 +97,28 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const login = async (req: Request, res: Response): Promise<void> => {
+export const verifyToken = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password } = req.body;
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      res.status(401).json({ error: 'No token provided' });
+      return;
+    }
 
-    const user = await User.findOne({ email }).select('+password');
+    const decoded = jwt.verify(token, JWT_SECRET) as { _id: string };
+    const user = await User.findById(decoded._id);
     if (!user) {
-      res.status(401).json({ error: 'Invalid credentials' });
+      res.status(404).json({ error: 'User not found' });
       return;
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      res.status(401).json({ error: 'Invalid credentials' });
-      return;
-    }
-
-    const token = generateToken(user._id as Types.ObjectId);
-    res.json({
-      token,
-      user: {
-        _id: user._id,
-        email: user.email,
-        name: user.name,
-        subscription: user.subscription
-      }
-    });
+    res.json({ valid: true });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Failed to login' });
+    if (error instanceof jwt.TokenExpiredError) {
+      res.status(401).json({ error: 'Token expired' });
+    } else {
+      res.status(401).json({ error: 'Invalid token' });
+    }
   }
 };
 
@@ -99,12 +136,17 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    res.json({
+    // Remove sensitive data before sending response
+    const userResponse = {
       _id: user._id,
       email: user.email,
       name: user.name,
-      subscription: user.subscription
-    });
+      subscription: user.subscription,
+      emailVerified: user.emailVerified,
+      phoneVerified: user.phoneVerified
+    };
+
+    res.json(userResponse);
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ error: 'Failed to get profile' });
@@ -126,35 +168,20 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    res.json({
+    // Remove sensitive data before sending response
+    const userResponse = {
       _id: user._id,
       email: user.email,
-      name: user.name
-    });
+      name: user.name,
+      subscription: user.subscription,
+      emailVerified: user.emailVerified,
+      phoneVerified: user.phoneVerified
+    };
+
+    res.json(userResponse);
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ error: 'Failed to update profile' });
-  }
-};
-
-export const verifyToken = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      res.status(401).json({ error: 'No token provided' });
-      return;
-    }
-
-    const decoded = jwt.verify(token, JWT_SECRET) as { _id: string };
-    const user = await User.findById(decoded._id);
-    if (!user) {
-      res.status(404).json({ error: 'User not found' });
-      return;
-    }
-
-    res.json({ valid: true });
-  } catch (error) {
-    res.status(401).json({ error: 'Invalid token' });
   }
 };
 
