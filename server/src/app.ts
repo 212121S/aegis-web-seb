@@ -1,5 +1,5 @@
 import express, { Request, Response, NextFunction } from "express";
-import { connectMongo } from "./database";
+import { connectMongo, isConnected } from "./database";
 import cors, { CorsOptions } from "cors";
 import dotenv from "dotenv";
 
@@ -81,11 +81,23 @@ app.use(
   express.raw({ type: 'application/json' })
 );
 
-// Connect to MongoDB
-connectMongo().catch((err) => {
-  console.error("Failed to connect to MongoDB:", err);
-  process.exit(1);
-});
+// Database connection middleware
+const requireDatabaseConnection = async (req: Request, res: Response, next: NextFunction) => {
+  if (!isConnected()) {
+    try {
+      await connectMongo();
+      next();
+    } catch (error) {
+      console.error('Database connection failed:', error);
+      res.status(503).json({ error: 'Database connection failed' });
+    }
+  } else {
+    next();
+  }
+};
+
+// Apply database connection middleware to API routes
+app.use('/api', requireDatabaseConnection);
 
 // Mount routes
 app.use("/api/auth", authRoutes);
@@ -95,17 +107,34 @@ app.use("/api/verify", verificationRoutes);
 
 // Health check endpoint
 app.get('/health', async (req: Request, res: Response) => {
-  try {
-    await connectMongo();
-    res.json({ status: 'ok' });
-  } catch (error) {
-    res.status(503).json({ status: 'error', message: 'Database connection failed' });
+  const status = {
+    server: 'ok',
+    database: isConnected() ? 'connected' : 'disconnected',
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  };
+
+  if (!isConnected()) {
+    try {
+      await connectMongo();
+      status.database = 'connected';
+      res.json(status);
+    } catch (error) {
+      status.database = 'error';
+      res.status(503).json(status);
+    }
+  } else {
+    res.json(status);
   }
 });
 
 // Root route
 app.get('/', (req: Request, res: Response) => {
-  res.json({ status: 'ok' });
+  res.json({ 
+    status: 'ok',
+    version: process.env.npm_package_version,
+    environment: process.env.NODE_ENV
+  });
 });
 
 // CORS error handling
@@ -141,6 +170,9 @@ const startServer = async (retryCount = 0, maxRetries = 3) => {
   const host = '0.0.0.0';
 
   try {
+    // Initial database connection attempt
+    await connectMongo();
+
     const server = app.listen(port, host, () => {
       console.log(`Server running at http://${host}:${port}`);
       const address = server.address();
@@ -166,7 +198,13 @@ const startServer = async (retryCount = 0, maxRetries = 3) => {
     });
   } catch (error) {
     console.error('Failed to start server:', error);
-    process.exit(1);
+    if (retryCount < maxRetries) {
+      console.log(`Retrying server start... Attempt ${retryCount + 1} of ${maxRetries}`);
+      setTimeout(() => startServer(retryCount + 1, maxRetries), 5000);
+    } else {
+      console.error('Failed to start server after maximum retries');
+      process.exit(1);
+    }
   }
 };
 

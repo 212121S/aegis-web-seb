@@ -5,16 +5,14 @@ services:
     env: node
     region: ohio
     rootDir: server
-    buildCommand: npm ci && npm run build
-    startCommand: cd build && ./start.sh
+    buildCommand: npm ci && npm run build && chmod +x build/start.sh
+    startCommand: cd build && NODE_ENV=production ./start.sh
     healthCheckPath: /health
     plan: free
     runtime: node
     nodeVersion: 18.x
     port: 10000
     envVars:
-      - key: NODE_ENV
-        value: production
       - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET
@@ -23,16 +21,8 @@ services:
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
-      - key: DOMAIN
-        value: https://www.aegistestingtech.com
-      - key: CLIENT_URL
-        value: https://www.aegistestingtech.com
-      - key: CORS_ALLOWED_ORIGINS
-        value: https://www.aegistestingtech.com,https://aegistestingtech.com
       - key: API_URL
         value: https://aegis-api.onrender.com
-      - key: PORT
-        value: "10000"
 
   # Frontend Service  
   - type: web
