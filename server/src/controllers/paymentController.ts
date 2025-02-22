@@ -72,20 +72,23 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
     }
 
     // Validate price ID matches one of the configured prices
-    const validPriceIds = [
-      process.env.STRIPE_OFFICIAL_TEST_PRICE_ID,
-      process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID,
-      process.env.STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID
-    ];
+    const validPriceIds = {
+      [process.env.STRIPE_OFFICIAL_TEST_PRICE_ID as string]: 'payment' as const,
+      [process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID as string]: 'subscription' as const,
+      [process.env.STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID as string]: 'subscription' as const
+    };
 
-    if (!validPriceIds.includes(priceId)) {
+    if (!Object.keys(validPriceIds).includes(priceId)) {
       console.error('Invalid price ID:', {
         providedPriceId: priceId,
-        validPriceIds: validPriceIds.map(id => id ? 'configured' : 'not configured')
+        validPriceIds: Object.keys(validPriceIds).map(id => id ? 'configured' : 'not configured')
       });
       res.status(400).json({ error: 'Invalid price ID' });
       return;
     }
+
+    // Ensure mode matches price ID
+    const mode: Stripe.Checkout.SessionCreateParams.Mode = validPriceIds[priceId];
 
     const userId = req.user?._id;
     if (!userId) {
@@ -112,7 +115,7 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
         price: priceId,
         quantity: 1,
       }],
-      mode: priceId === process.env.STRIPE_OFFICIAL_TEST_PRICE_ID ? 'payment' : 'subscription',
+      mode,
       success_url: `${process.env.CLIENT_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL}/payment/cancel`,
       metadata: {

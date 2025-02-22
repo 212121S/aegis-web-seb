@@ -80,9 +80,31 @@ const PaymentPage = () => {
         throw new Error('Failed to initialize payment system');
       }
 
-      // Get price ID directly from config
-      const priceId = config.stripe.prices[productType];
-      
+      // Get and validate price ID based on product type
+      let priceId;
+      switch (productType) {
+        case 'officialTest':
+          priceId = config.stripe.prices.officialTest;
+          if (priceId !== process.env.REACT_APP_STRIPE_OFFICIAL_TEST_PRICE_ID) {
+            throw new Error('Invalid price ID for official test');
+          }
+          break;
+        case 'basicSubscription':
+          priceId = config.stripe.prices.basicSubscription;
+          if (priceId !== process.env.REACT_APP_STRIPE_BASIC_SUBSCRIPTION_PRICE_ID) {
+            throw new Error('Invalid price ID for basic subscription');
+          }
+          break;
+        case 'premiumSubscription':
+          priceId = config.stripe.prices.premiumSubscription;
+          if (priceId !== process.env.REACT_APP_STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID) {
+            throw new Error('Invalid price ID for premium subscription');
+          }
+          break;
+        default:
+          throw new Error('Invalid product type');
+      }
+
       // Log selection for debugging
       console.log('Selected plan:', {
         productType,
@@ -96,7 +118,7 @@ const PaymentPage = () => {
         }
       });
 
-      // Validate price ID
+      // Double check price ID is set
       if (!priceId) {
         console.error('Price ID not found:', {
           productType,
