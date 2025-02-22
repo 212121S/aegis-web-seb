@@ -24,4 +24,3 @@ coverage/
 *.swp
 *.swo
 .env
-server/src/config/stripe.ts
