@@ -6,10 +6,10 @@ services:
     region: ohio
     rootDir: server
     buildCommand: |
-      npm install
-      rm -rf build
+      npm ci
       npm run build
-      cp -r node_modules build/
+      cd build
+      npm ci --production=true
     healthCheckPath: /health
     plan: free
     runtime: node
@@ -38,17 +38,16 @@ services:
         value: https://www.aegistestingtech.com
       - key: CORS_ALLOWED_ORIGINS
         value: https://www.aegistestingtech.com,https://aegistestingtech.com,https://api.aegistestingtech.com
+      - key: PORT
+        value: "10000"
     autoDeploy: true
     healthCheckTimeout: 300 # 5 minutes
-    numInstances: 1
-    minInstances: 1
-    maxInstances: 1
 
   # Frontend Service
   - type: web
     name: aegis-web
     env: static
-    buildCommand: cd client/aegis-client && npm install && CI=false GENERATE_SOURCEMAP=false npm run build
+    buildCommand: cd client/aegis-client && npm ci && CI=false GENERATE_SOURCEMAP=false npm run build
     staticPublishPath: client/aegis-client/build
     healthCheckPath: /
     buildFilter:
