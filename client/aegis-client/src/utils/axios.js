@@ -305,4 +305,102 @@ export const authAPI = {
   }
 };
 
+export const examAPI = {
+  getPracticeQuestions: async () => {
+    try {
+      const response = await instance.get('/exam/practice-questions');
+      return response;
+    } catch (error) {
+      console.error('Failed to get practice questions:', {
+        error,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  },
+
+  submitPracticeTest: async (data) => {
+    try {
+      const response = await instance.post('/exam/submit-practice', data);
+      return response;
+    } catch (error) {
+      console.error('Failed to submit practice test:', {
+        error,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  },
+
+  initialize: async (type) => {
+    try {
+      const response = await instance.post('/exam/initialize', { type });
+      return response;
+    } catch (error) {
+      console.error('Failed to initialize test:', {
+        error,
+        type,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  },
+
+  getNextQuestion: async (sessionId) => {
+    try {
+      const response = await instance.get(`/exam/question/${sessionId}`);
+      return response;
+    } catch (error) {
+      console.error('Failed to get next question:', {
+        error,
+        sessionId,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  },
+
+  submitAnswer: async (sessionId, data) => {
+    try {
+      const response = await instance.post(`/exam/answer/${sessionId}`, data);
+      return response;
+    } catch (error) {
+      console.error('Failed to submit answer:', {
+        error,
+        sessionId,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  },
+
+  finalizeTest: async (sessionId) => {
+    try {
+      const response = await instance.post(`/exam/finalize/${sessionId}`);
+      return response;
+    } catch (error) {
+      console.error('Failed to finalize test:', {
+        error,
+        sessionId,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  },
+
+  getTestResults: async (testId) => {
+    try {
+      const response = await instance.get(`/exam/results/${testId}`);
+      return response;
+    } catch (error) {
+      console.error('Failed to get test results:', {
+        error,
+        testId,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  }
+};
+
 export default instance;

@@ -17,7 +17,7 @@ import {
   Chip,
   useTheme
 } from '@mui/material';
-import axios from '../utils/axios';
+import { examAPI } from '../utils/axios';
 
 const TestResults = () => {
   const { testId } = useParams();
@@ -33,8 +33,8 @@ const TestResults = () => {
   const fetchResults = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/exam/results/${testId}`);
-      setResults(response.data);
+      const response = await examAPI.getTestResults(testId);
+      setResults(response);
     } catch (err) {
       setError('Failed to load test results');
       console.error(err);
