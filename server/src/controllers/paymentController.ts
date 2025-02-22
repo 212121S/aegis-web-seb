@@ -71,6 +71,14 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       return;
     }
 
+    // Debug log environment variables
+    console.log('Environment price IDs:', {
+      officialTest: process.env.STRIPE_OFFICIAL_TEST_PRICE_ID,
+      basic: process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID,
+      premium: process.env.STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID,
+      timestamp: new Date().toISOString()
+    });
+
     // Validate price ID matches one of the configured prices
     const validPriceIds = {
       [process.env.STRIPE_OFFICIAL_TEST_PRICE_ID as string]: 'payment' as const,
@@ -78,10 +86,21 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       [process.env.STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID as string]: 'subscription' as const
     };
 
+    // Debug log price validation
+    console.log('Price validation:', {
+      provided: priceId,
+      validPriceIds: Object.keys(validPriceIds),
+      isValid: Object.keys(validPriceIds).includes(priceId),
+      timestamp: new Date().toISOString()
+    });
+
     if (!Object.keys(validPriceIds).includes(priceId)) {
       console.error('Invalid price ID:', {
         providedPriceId: priceId,
-        validPriceIds: Object.keys(validPriceIds).map(id => id ? 'configured' : 'not configured')
+        officialTest: process.env.STRIPE_OFFICIAL_TEST_PRICE_ID,
+        basic: process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID,
+        premium: process.env.STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID,
+        timestamp: new Date().toISOString()
       });
       res.status(400).json({ error: 'Invalid price ID' });
       return;
