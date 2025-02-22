@@ -1,1 +1,1 @@
-{"last_found_secrets": [{"match": "57c612bcc139cbb913e739713adb414de6c9eb5d4864724acae32a01f5e94741", "name": "Stripe Webhook Secret - /Users/matthewhansen/aegis-web-seb/server/src/config/stripe.ts"}]}
+{"last_found_secrets": [{"name": "Stripe Webhook Secret - commit://staged/server/src/config/stripe.ts", "match": "57c612bcc139cbb913e739713adb414de6c9eb5d4864724acae32a01f5e94741"}]}
