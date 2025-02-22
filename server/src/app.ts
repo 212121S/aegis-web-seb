@@ -176,9 +176,34 @@ app.get('/', (req: Request, res: Response) => {
   res.json({ status: 'ok' });
 });
 
-// Health check endpoint
-app.get('/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok' });
+// Enhanced health check endpoint
+app.get('/health', async (req: Request, res: Response) => {
+  try {
+    // Check database connection
+    await connectMongo();
+    
+    res.json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      services: {
+        database: 'connected',
+        server: 'running'
+      },
+      version: process.env.npm_package_version || '1.0.0'
+    });
+  } catch (error: any) {
+    console.error('Health check failed:', error);
+    res.status(503).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      services: {
+        database: 'disconnected',
+        server: 'running'
+      },
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Service unavailable'
+    });
+  }
 });
 
 // CORS error handling middleware
