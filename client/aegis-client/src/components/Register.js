@@ -35,9 +35,6 @@ import {
   Cake,
   Shield
 } from "@mui/icons-material";
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 
 const steps = [
   'Basic Information',
@@ -122,7 +119,8 @@ function Register() {
       setError("Date of birth is required");
       return false;
     }
-    const age = new Date().getFullYear() - formData.dateOfBirth.getFullYear();
+    const birthDate = new Date(formData.dateOfBirth);
+    const age = new Date().getFullYear() - birthDate.getFullYear();
     if (age < 13) {
       setError("You must be at least 13 years old");
       return false;
@@ -152,13 +150,16 @@ function Register() {
       const response = await axiosInstance.post('/api/auth/register', {
         ...formData,
         university: formData.university._id,
-        dateOfBirth: formData.dateOfBirth.toISOString(),
+        dateOfBirth: formData.dateOfBirth,
         tosAcceptedDate: new Date().toISOString()
       });
 
-      setUserId(response.data.user.id);
-      await axiosInstance.post('/api/verification/email/send');
-      setActiveStep(1);
+      // Skip verification steps for testing
+      setSuccess(true);
+      setActiveStep(3);
+      setTimeout(() => {
+        navigate("/login");
+      }, 3000);
     } catch (err) {
       console.error("Registration error:", err);
       setError(err.response?.data?.message || "Registration failed");
@@ -331,32 +332,32 @@ function Register() {
                 />
               )}
             />
-            <LocalizationProvider dateAdapter={AdapterDateFns}>
-              <DatePicker
-                label="Date of Birth"
-                value={formData.dateOfBirth}
-                onChange={(newValue) => {
-                  setFormData(prev => ({ ...prev, dateOfBirth: newValue }));
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    margin="normal"
-                    required
-                    fullWidth
-                    error={!!error && error.includes("birth")}
-                    InputProps={{
-                      ...params.InputProps,
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Cake color="action" />
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                )}
-              />
-            </LocalizationProvider>
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              type="date"
+              name="dateOfBirth"
+              label="Date of Birth"
+              value={formData.dateOfBirth || ''}
+              onChange={(e) => {
+                setFormData(prev => ({
+                  ...prev,
+                  dateOfBirth: e.target.value
+                }));
+              }}
+              error={!!error && error.includes("birth")}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Cake color="action" />
+                  </InputAdornment>
+                ),
+              }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
             <FormControlLabel
               control={
                 <Checkbox

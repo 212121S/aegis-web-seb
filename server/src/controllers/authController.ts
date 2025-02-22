@@ -22,12 +22,16 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email already registered' });
     }
 
-    // Create new user
+    // Create new user with verification flags set to true for testing
     const user = new User({
       email,
       password,
       username,
-      phone
+      phone,
+      emailVerified: true,
+      phoneVerified: true,
+      tosAccepted: true,
+      tosAcceptedDate: new Date()
     });
 
     await user.save();
