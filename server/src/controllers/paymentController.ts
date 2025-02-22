@@ -133,8 +133,7 @@ export const createCheckoutSession = async (req: AuthenticatedRequest, res: Resp
       throw new Error('Failed to configure payment product');
     }
 
-    const session = await stripe.checkout.sessions.create({
-      customer_email: req.user?.email,
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       payment_method_types: ['card'],
       line_items: [
         {
@@ -147,10 +146,17 @@ export const createCheckoutSession = async (req: AuthenticatedRequest, res: Resp
       cancel_url: `${DOMAIN}/payment/cancelled`,
       metadata: {
         userId: userId.toString(),
-        planId: planId,
+        planId: planId
       },
-    });
+      customer_creation: 'always'
+    };
 
+    // Add customer email if available
+    if (req.user?.email) {
+      sessionParams.customer_email = req.user.email;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
     res.json({ url: session.url });
   } catch (error) {
     console.error('Error creating checkout session:', error);
@@ -210,6 +216,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
         try {
           // For subscription plans
           if (plan.type === 'subscription' && session.subscription) {
+            // First retrieve and verify the subscription
             const subscription = await stripe.subscriptions.retrieve(session.subscription.toString());
             
             // Log subscription details from Stripe
@@ -217,10 +224,38 @@ export const handleWebhook = async (req: Request, res: Response) => {
               id: subscription.id,
               status: subscription.status,
               currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
-              customer: subscription.customer
+              customer: subscription.customer,
+              metadata: subscription.metadata
             });
 
+            // Update the subscription metadata with userId
+            await stripe.subscriptions.update(subscription.id, {
+              metadata: {
+                userId: userId.toString()
+              }
+            });
+
+            // Update the customer metadata
+            if (session.customer) {
+              await stripe.customers.update(session.customer.toString(), {
+                metadata: {
+                  userId: userId.toString()
+                }
+              });
+            }
+
             const subscriptionData = {
+              $unset: {
+                'subscription.stripeSubscriptionId': '',
+                'subscription.stripeCustomerId': ''
+              }
+            };
+
+            // First remove any existing subscription data
+            await User.findByIdAndUpdate(userId, subscriptionData);
+
+            // Then set the new subscription data
+            const newSubscriptionData = {
               $set: {
                 'subscription.planId': planId,
                 'subscription.active': true,
@@ -233,7 +268,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
             // Log update operation
             console.log('Webhook: Updating user subscription data:', {
               userId,
-              subscriptionData
+              subscriptionData: newSubscriptionData
             });
 
             // Verify user exists before update
@@ -245,7 +280,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
             const updatedUser = await User.findByIdAndUpdate(
               userId,
-              subscriptionData,
+              newSubscriptionData,
               { new: true }
             ).select('subscription');
 
@@ -256,7 +291,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
             console.log('Webhook: Updated subscription data:', {
               userId,
-              subscriptionData,
+              subscriptionData: newSubscriptionData,
               updatedUser: updatedUser?.subscription
             });
             
