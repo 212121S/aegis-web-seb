@@ -185,72 +185,93 @@ instance.interceptors.response.use(
 );
 
 export const paymentAPI = {
-  verifySession: async (sessionId, attempt = 1, maxAttempts = 5, onRetry = null) => {
+  verifySession: async (sessionId, attempt = 1, maxAttempts = 8, onRetry = null) => {
     if (!sessionId) {
       throw new PaymentVerificationError('Session ID is required');
     }
 
-    try {
-      console.log('Initiating payment verification:', {
-        sessionId,
-        attempt,
-        maxAttempts,
-        timestamp: new Date().toISOString()
-      });
-
-      const response = await instance.get(`/payment/verify-session/${sessionId}`);
-      
-      console.log('Payment verification successful:', {
-        sessionId,
-        response,
-        attempt,
-        timestamp: new Date().toISOString()
-      });
-
-      return response;
-    } catch (error) {
-      // Add verification attempt details to error
-      if (error instanceof PaymentVerificationError) {
-        error.details = {
-          ...error.details,
+    const verifyWithRetry = async (currentAttempt) => {
+      try {
+        console.log('Initiating payment verification:', {
           sessionId,
-          attempt,
-          maxAttempts
-        };
-      }
-      
-      // Enhanced error logging
-      console.error('Payment verification error:', {
-        error,
-        sessionId,
-        attempt,
-        maxAttempts,
-        timestamp: new Date().toISOString(),
-        response: error.response?.data,
-        status: error.response?.status
-      });
-      
-      // Determine if retry is needed
-      const shouldRetry = attempt < maxAttempts && (
-        error.response?.status === 500 ||
-        error.code === 'ECONNABORTED' ||
-        !error.response
-      );
+          attempt: currentAttempt,
+          maxAttempts,
+          timestamp: new Date().toISOString()
+        });
 
-      if (shouldRetry) {
-        const delay = Math.min(2000 * Math.pow(1.5, attempt - 1), 8000);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        // Initial delay to allow webhook processing
+        if (currentAttempt === 1) {
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+
+        const response = await instance.get(`/payment/verify-session/${sessionId}`);
         
-        // Call progress callback if provided
-        if (onRetry && typeof onRetry === 'function') {
-          onRetry(attempt + 1);
+        console.log('Payment verification successful:', {
+          sessionId,
+          response,
+          attempt: currentAttempt,
+          timestamp: new Date().toISOString()
+        });
+
+        return response;
+      } catch (error) {
+        // Add verification attempt details to error
+        const enhancedError = error instanceof PaymentVerificationError ? error : new PaymentVerificationError(error.message);
+        enhancedError.details = {
+          sessionId,
+          attempt: currentAttempt,
+          maxAttempts,
+          status: error.response?.status,
+          data: error.response?.data
+        };
+        
+        // Enhanced error logging
+        console.error('Payment verification error:', {
+          error: enhancedError,
+          sessionId,
+          attempt: currentAttempt,
+          maxAttempts,
+          timestamp: new Date().toISOString(),
+          response: error.response?.data,
+          status: error.response?.status
+        });
+        
+        // Determine if retry is needed
+        const shouldRetry = currentAttempt < maxAttempts && (
+          error.response?.status === 500 ||
+          error.response?.status === 404 || // Session not found yet
+          error.code === 'ECONNABORTED' ||
+          !error.response ||
+          error.response?.data?.error === 'Payment not completed'
+        );
+
+        if (shouldRetry) {
+          const baseDelay = 3000; // 3 seconds base delay
+          const delay = Math.min(baseDelay * Math.pow(1.5, currentAttempt - 1), 10000);
+          
+          console.log('Retrying payment verification:', {
+            sessionId,
+            attempt: currentAttempt,
+            nextAttempt: currentAttempt + 1,
+            delay,
+            timestamp: new Date().toISOString()
+          });
+
+          await new Promise(resolve => setTimeout(resolve, delay));
+          
+          // Call progress callback if provided
+          if (onRetry && typeof onRetry === 'function') {
+            onRetry(currentAttempt + 1);
+          }
+          
+          return verifyWithRetry(currentAttempt + 1);
         }
         
-        return paymentAPI.verifySession(sessionId, attempt + 1, maxAttempts, onRetry);
+        throw enhancedError;
       }
-      
-      throw error;
-    }
+    };
+
+    return verifyWithRetry(attempt);
   },
   
   createSession: async (priceId) => {

@@ -258,26 +258,56 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
 
     console.log('Verifying session:', { sessionId });
 
-    const session = await (stripe as Stripe).checkout.sessions.retrieve(sessionId);
+    // Add delay to allow webhook processing
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    // Retrieve session with expanded details
+    const session = await (stripe as Stripe).checkout.sessions.retrieve(sessionId, {
+      expand: ['payment_intent', 'subscription']
+    });
+
     if (!session) {
       console.error('Session not found:', { sessionId });
       res.status(404).json({ error: 'Session not found' });
       return;
     }
 
-    console.log('Session retrieved:', {
+    // Validate session status
+    if (session.status !== 'complete') {
+      console.error('Session not complete:', { 
+        sessionId,
+        status: session.status,
+        paymentStatus: session.payment_status
+      });
+      res.status(400).json({ error: 'Payment not completed' });
+      return;
+    }
+
+    // Validate payment status
+    if (session.payment_status !== 'paid') {
+      console.error('Payment not successful:', {
+        sessionId,
+        paymentStatus: session.payment_status
+      });
+      res.status(400).json({ error: 'Payment not successful' });
+      return;
+    }
+
+    console.log('Session verified successfully:', {
       sessionId,
       paymentStatus: session.payment_status,
       status: session.status,
       customerId: session.customer,
-      subscriptionId: session.subscription
+      subscriptionId: session.subscription,
+      timestamp: new Date().toISOString()
     });
 
     res.json({ 
       paymentStatus: session.payment_status,
       status: session.status,
       customerId: session.customer,
-      subscriptionId: session.subscription
+      subscriptionId: session.subscription,
+      verifiedAt: new Date().toISOString()
     });
   } catch (error) {
     console.error('Error verifying session:', {

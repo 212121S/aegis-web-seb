@@ -80,12 +80,6 @@ const PaymentPage = () => {
         throw new Error('Failed to initialize payment system');
       }
 
-      // Always ensure we have a selected plan
-      if (!location.state?.selectedPlan) {
-        console.error('No plan selected');
-        throw new Error('Please select a plan first');
-      }
-
       // Get the correct price ID based on product type
       let priceId;
       switch (productType) {
@@ -101,6 +95,28 @@ const PaymentPage = () => {
         default:
           console.error('Invalid product type:', { productType });
           throw new Error('Invalid plan selected');
+      }
+
+      // Validate price ID
+      if (!priceId) {
+        console.error('Price ID not found:', {
+          productType,
+          officialTest: config.stripe.prices.officialTest ? 'configured' : 'not configured',
+          basicSubscription: config.stripe.prices.basicSubscription ? 'configured' : 'not configured',
+          premiumSubscription: config.stripe.prices.premiumSubscription ? 'configured' : 'not configured'
+        });
+        throw new Error('Selected plan is not properly configured');
+      }
+
+      // If called from button click, update location state
+      if (fromButton) {
+        navigate('/payment', { 
+          state: { 
+            selectedPlan: productType,
+            timestamp: new Date().toISOString()
+          },
+          replace: true
+        });
       }
 
       if (!priceId) {
