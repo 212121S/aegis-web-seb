@@ -5,7 +5,7 @@ const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 const instance = axios.create({
   baseURL,
-  timeout: 30000,
+  timeout: 45000, // 45 second timeout to account for database operations
   withCredentials: false,
   headers: {
     'Content-Type': 'application/json',
