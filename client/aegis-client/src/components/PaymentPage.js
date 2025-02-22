@@ -16,7 +16,9 @@ import {
   List,
   ListItem,
   ListItemIcon,
-  ListItemText
+  ListItemText,
+  Grid,
+  Paper
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 
@@ -35,19 +37,25 @@ const PaymentPage = () => {
     }
 
     // Check if Stripe is configured
-    if (!config.stripe.publicKey) {
+    if (!config.stripe.publicKey || !config.stripe.prices.officialTest || 
+        !config.stripe.prices.basicSubscription || !config.stripe.prices.premiumSubscription) {
       setStripeError('Payment system is not properly configured. Please try again later.');
-      console.error('Stripe public key is not configured');
+      console.error('Stripe configuration missing:', {
+        publicKey: !config.stripe.publicKey ? 'missing' : 'configured',
+        officialTest: !config.stripe.prices.officialTest ? 'missing' : 'configured',
+        basicSubscription: !config.stripe.prices.basicSubscription ? 'missing' : 'configured',
+        premiumSubscription: !config.stripe.prices.premiumSubscription ? 'missing' : 'configured'
+      });
     }
   }, [user, navigate]);
 
-  const handleSubscribe = async () => {
+  const handlePurchase = async (priceId, productType) => {
     try {
       setLoading(true);
       setError(null);
 
       if (!config.stripe.publicKey) {
-        throw new Error('Payment system is not configured');
+        throw new Error('Payment system is not fully configured');
       }
 
       const stripe = await loadStripe(config.stripe.publicKey);
@@ -56,8 +64,8 @@ const PaymentPage = () => {
       }
 
       // Create checkout session
-      const response = await paymentAPI.createCheckoutSession();
-      const { sessionId } = response.data;
+      const response = await paymentAPI.createSession(priceId);
+      const { sessionId } = response;
 
       // Redirect to checkout
       const result = await stripe.redirectToCheckout({
@@ -77,7 +85,7 @@ const PaymentPage = () => {
 
   if (user?.subscription?.active) {
     return (
-      <Container maxWidth="sm" sx={{ mt: 4 }}>
+      <Container maxWidth="lg" sx={{ mt: 4 }}>
         <Alert severity="info" sx={{ mb: 3 }}>
           You already have an active subscription!
         </Alert>
@@ -103,13 +111,13 @@ const PaymentPage = () => {
   }
 
   return (
-    <Container maxWidth="sm" sx={{ mt: 4 }}>
+    <Container maxWidth="lg" sx={{ mt: 4 }}>
       <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Subscribe to Aegis
+        <Typography variant="h4" component="h1" gutterBottom align="center">
+          Choose Your Plan
         </Typography>
-        <Typography variant="body1" color="text.secondary" paragraph>
-          Get unlimited access to practice tests and study materials.
+        <Typography variant="body1" color="text.secondary" paragraph align="center">
+          Select the option that best fits your needs
         </Typography>
       </Box>
 
@@ -123,66 +131,221 @@ const PaymentPage = () => {
         </Alert>
       ) : null}
 
-      <Card>
-        <CardContent>
-          <Typography variant="h5" component="h2" gutterBottom>
-            Premium Subscription
-          </Typography>
-          <Typography variant="h4" component="p" gutterBottom>
-            $49.99/month
-          </Typography>
+      <Grid container spacing={3} justifyContent="center">
+        {/* Official Test Card */}
+        <Grid item xs={12} md={4}>
+          <Paper elevation={2} sx={{ height: '100%' }}>
+            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <CardContent sx={{ flexGrow: 1 }}>
+                <Typography variant="h5" component="h2" gutterBottom>
+                  Official Test
+                </Typography>
+                <Typography variant="h4" component="p" gutterBottom color="primary">
+                  $4.99
+                </Typography>
+                <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+                  One-time purchase
+                </Typography>
 
-          <List>
-            <ListItem>
-              <ListItemIcon>
-                <CheckIcon color="primary" />
-              </ListItemIcon>
-              <ListItemText primary="Unlimited practice tests" />
-            </ListItem>
-            <ListItem>
-              <ListItemIcon>
-                <CheckIcon color="primary" />
-              </ListItemIcon>
-              <ListItemText primary="Detailed performance analytics" />
-            </ListItem>
-            <ListItem>
-              <ListItemIcon>
-                <CheckIcon color="primary" />
-              </ListItemIcon>
-              <ListItemText primary="Study guides and materials" />
-            </ListItem>
-            <ListItem>
-              <ListItemIcon>
-                <CheckIcon color="primary" />
-              </ListItemIcon>
-              <ListItemText primary="Priority support" />
-            </ListItem>
-          </List>
+                <List>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText primary="Single official test attempt" />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText primary="Proctoring included" />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText primary="Official certification" />
+                  </ListItem>
+                </List>
 
-          <Button
-            variant="contained"
-            color="primary"
-            fullWidth
-            size="large"
-            onClick={handleSubscribe}
-            disabled={loading || stripeError}
-            sx={{ mt: 2 }}
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  fullWidth
+                  size="large"
+                  onClick={() => handlePurchase(config.stripe.prices.officialTest, 'officialTest')}
+                  disabled={loading || stripeError}
+                  sx={{ mt: 2 }}
+                >
+                  {loading ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : (
+                    'Purchase Test'
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </Paper>
+        </Grid>
+
+        {/* Basic Subscription Card */}
+        <Grid item xs={12} md={4}>
+          <Paper elevation={2} sx={{ height: '100%' }}>
+            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <CardContent sx={{ flexGrow: 1 }}>
+                <Typography variant="h5" component="h2" gutterBottom>
+                  Basic Subscription
+                </Typography>
+                <Typography variant="h4" component="p" gutterBottom color="primary">
+                  $19.99
+                </Typography>
+                <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+                  per month
+                </Typography>
+
+                <List>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText primary="Unlimited practice tests" />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText primary="Basic analytics" />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText primary="Study materials" />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText primary="Email support" />
+                  </ListItem>
+                </List>
+
+                <Button
+                  variant="contained"
+                  color="primary"
+                  fullWidth
+                  size="large"
+                  onClick={() => handlePurchase(config.stripe.prices.basicSubscription, 'basicSubscription')}
+                  disabled={loading || stripeError}
+                  sx={{ mt: 2 }}
+                >
+                  {loading ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : (
+                    'Subscribe Now'
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </Paper>
+        </Grid>
+
+        {/* Premium Subscription Card */}
+        <Grid item xs={12} md={4}>
+          <Paper 
+            elevation={4} 
+            sx={{ 
+              height: '100%',
+              position: 'relative',
+              '&::before': {
+                content: '"RECOMMENDED"',
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                backgroundColor: 'primary.main',
+                color: 'white',
+                padding: '4px 12px',
+                borderBottomLeftRadius: 4,
+                fontSize: '0.75rem',
+                fontWeight: 'bold'
+              }
+            }}
           >
-            {loading ? (
-              <CircularProgress size={24} color="inherit" />
-            ) : (
-              'Subscribe Now'
-            )}
-          </Button>
-        </CardContent>
-      </Card>
+            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <CardContent sx={{ flexGrow: 1 }}>
+                <Typography variant="h5" component="h2" gutterBottom>
+                  Premium Subscription
+                </Typography>
+                <Typography variant="h4" component="p" gutterBottom color="primary">
+                  $39.99
+                </Typography>
+                <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+                  per month
+                </Typography>
+
+                <List>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Everything in Basic" 
+                      secondary="Unlimited practice tests, analytics, and study materials"
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText primary="Priority support" />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText primary="Advanced analytics" />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText primary="Additional study materials" />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText primary="1 free official test per month" />
+                  </ListItem>
+                </List>
+
+                <Button
+                  variant="contained"
+                  color="primary"
+                  fullWidth
+                  size="large"
+                  onClick={() => handlePurchase(config.stripe.prices.premiumSubscription, 'premiumSubscription')}
+                  disabled={loading || stripeError}
+                  sx={{ mt: 2 }}
+                >
+                  {loading ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : (
+                    'Get Premium'
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </Paper>
+        </Grid>
+      </Grid>
 
       <Box sx={{ mt: 4 }}>
         <Typography variant="body2" color="text.secondary" align="center">
           Secure payments powered by Stripe
         </Typography>
         <Typography variant="body2" color="text.secondary" align="center">
-          Cancel anytime • No hidden fees
+          Cancel subscription anytime • No hidden fees
         </Typography>
       </Box>
     </Container>

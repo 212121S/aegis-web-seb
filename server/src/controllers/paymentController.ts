@@ -64,6 +64,13 @@ export const getSubscriptionStatus = async (req: Request, res: Response): Promis
 export const createCheckoutSession = async (req: Request, res: Response): Promise<void> => {
   try {
     if (!checkStripeAvailable(res)) return;
+    
+    const { priceId } = req.body;
+    if (!priceId) {
+      res.status(400).json({ error: 'Price ID is required' });
+      return;
+    }
+
     const userId = req.user?._id;
     if (!userId) {
       res.status(401).json({ error: 'Not authenticated' });
@@ -76,14 +83,15 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       return;
     }
 
+    const isOfficialTest = priceId === process.env.STRIPE_OFFICIAL_TEST_PRICE_ID;
     const session = await (stripe as Stripe).checkout.sessions.create({
       customer_email: user.email,
       payment_method_types: ['card'],
       line_items: [{
-        price: process.env.STRIPE_PRICE_ID,
+        price: priceId,
         quantity: 1,
       }],
-      mode: 'subscription',
+      mode: priceId === process.env.STRIPE_OFFICIAL_TEST_PRICE_ID ? 'payment' : 'subscription',
       success_url: `${process.env.CLIENT_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL}/payment/cancel`,
       metadata: {
@@ -117,12 +125,20 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.metadata?.userId;
-        if (userId) {
+        
+        if (!userId) break;
+
+        if (session.mode === 'subscription') {
           await User.findByIdAndUpdate(userId, {
             'subscription.active': true,
             'subscription.stripeCustomerId': session.customer,
             'subscription.stripeSubscriptionId': session.subscription,
-            'subscription.planId': 'premium'
+            'subscription.planId': session.amount_total === 3999 ? 'premium' : 'basic'
+          });
+        } else if (session.mode === 'payment') {
+          // Handle one-time payment for official test
+          await User.findByIdAndUpdate(userId, {
+            $inc: { 'officialTestCredits': 1 }
           });
         }
         break;

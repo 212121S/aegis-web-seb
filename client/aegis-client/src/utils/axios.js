@@ -238,7 +238,7 @@ export const paymentAPI = {
         timestamp: new Date().toISOString()
       });
 
-      const response = await instance.post('/payment/create-session', { priceId });
+      const response = await instance.post('/payment/create-checkout-session', { priceId });
       
       console.log('Payment session created:', {
         priceId,

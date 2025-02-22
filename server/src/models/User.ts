@@ -9,6 +9,7 @@ export interface IUser extends Document {
   phone?: string;
   verificationToken?: string;
   phoneVerificationToken?: string;
+  officialTestCredits: number;
   subscription: {
     active: boolean;
     plan?: string;
@@ -98,6 +99,10 @@ const userSchema = new Schema<IUser>({
     default: 0
   },
   averageScore: {
+    type: Number,
+    default: 0
+  },
+  officialTestCredits: {
     type: Number,
     default: 0
   }
