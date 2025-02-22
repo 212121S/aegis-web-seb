@@ -92,46 +92,22 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       timestamp: new Date().toISOString()
     });
 
-    // Map price IDs to their modes and validate
-    type PriceConfig = {
-      mode: 'payment' | 'subscription';
-      type: string;
-    };
-
-    const priceConfig: Record<string, PriceConfig> = {};
-
-    // Only add price configs if the IDs are available
-    if (STRIPE_PRICE_IDS.officialTest) {
-      priceConfig[STRIPE_PRICE_IDS.officialTest] = {
-        mode: 'payment',
-        type: 'officialTest'
-      };
-    }
-
-    if (STRIPE_PRICE_IDS.basicSubscription) {
-      priceConfig[STRIPE_PRICE_IDS.basicSubscription] = {
-        mode: 'subscription',
-        type: 'basicSubscription'
-      };
-    }
-
-    if (STRIPE_PRICE_IDS.premiumSubscription) {
-      priceConfig[STRIPE_PRICE_IDS.premiumSubscription] = {
-        mode: 'subscription',
-        type: 'premiumSubscription'
-      };
-    }
-
+    // Get all valid price IDs
+    const validPriceIds = [
+      STRIPE_PRICE_IDS.officialTest,
+      STRIPE_PRICE_IDS.basicSubscription,
+      STRIPE_PRICE_IDS.premiumSubscription
+    ].filter(Boolean);
 
     // Debug log price validation
     console.log('Price validation:', {
       provided: priceId,
-      validPriceIds: Object.keys(priceConfig),
-      isValid: priceId in priceConfig,
+      validPriceIds,
+      isValid: validPriceIds.includes(priceId),
       timestamp: new Date().toISOString()
     });
 
-    if (!(priceId in priceConfig)) {
+    if (!validPriceIds.includes(priceId)) {
       console.error('Invalid price ID:', {
         providedPriceId: priceId,
         officialTest: STRIPE_PRICE_IDS.officialTest,
@@ -143,8 +119,10 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       return;
     }
 
-    // Get mode and type from config
-    const { mode, type } = priceConfig[priceId];
+    // Determine mode based on price ID
+    const mode = priceId === STRIPE_PRICE_IDS.officialTest ? 'payment' : 'subscription';
+    const type = priceId === STRIPE_PRICE_IDS.officialTest ? 'officialTest' :
+                 priceId === STRIPE_PRICE_IDS.basicSubscription ? 'basicSubscription' : 'premiumSubscription';
 
     // Log checkout details
     console.log('Creating checkout session:', {
