@@ -6,16 +6,15 @@ services:
     region: ohio
     rootDir: server
     buildCommand: |
+      chmod +x start.sh
       npm ci
       npm run build
-      cd build
-      npm ci --production=true
     healthCheckPath: /health
     plan: free
     runtime: node
     nodeVersion: 18.x
     port: 10000
-    startCommand: cd build && node app.js
+    startCommand: ./start.sh
     buildFilter:
       paths:
         - server/**/*

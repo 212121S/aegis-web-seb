@@ -5,7 +5,7 @@
         "node": "18.x"
     },
     "description": "Aegis backend server",
-    "main": "build/app.js",
+    "main": "app.js",
     "type": "commonjs",
     "dependencies": {
         "bcrypt": "^5.1.0",
@@ -38,11 +38,9 @@
         "typescript": "^4.9.5"
     },
     "scripts": {
-        "prestart": "npm install --production=true",
-        "start": "node build/app.js",
+        "start": "node app.js",
         "dev": "nodemon src/app.ts",
-        "prebuild": "rm -rf build",
-        "build": "tsc && cp -r src/data build/src/ && cp package*.json build/",
+        "build": "rm -rf build && tsc && cp -r src/data build/src/ && cp package*.json start.sh build/",
         "test": "jest",
         "populate-db": "ts-node src/scripts/populateDb.ts"
     }
