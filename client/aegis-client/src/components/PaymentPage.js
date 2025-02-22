@@ -80,22 +80,21 @@ const PaymentPage = () => {
         throw new Error('Failed to initialize payment system');
       }
 
-      // Get the correct price ID based on product type
-      let priceId;
-      switch (productType) {
-        case 'officialTest':
-          priceId = config.stripe.prices.officialTest;
-          break;
-        case 'basicSubscription':
-          priceId = config.stripe.prices.basicSubscription;
-          break;
-        case 'premiumSubscription':
-          priceId = config.stripe.prices.premiumSubscription;
-          break;
-        default:
-          console.error('Invalid product type:', { productType });
-          throw new Error('Invalid plan selected');
-      }
+      // Get price ID directly from config
+      const priceId = config.stripe.prices[productType];
+      
+      // Log selection for debugging
+      console.log('Selected plan:', {
+        productType,
+        priceId,
+        fromButton,
+        timestamp: new Date().toISOString(),
+        availablePrices: {
+          officialTest: config.stripe.prices.officialTest,
+          basicSubscription: config.stripe.prices.basicSubscription,
+          premiumSubscription: config.stripe.prices.premiumSubscription
+        }
+      });
 
       // Validate price ID
       if (!priceId) {
@@ -105,34 +104,19 @@ const PaymentPage = () => {
           basicSubscription: config.stripe.prices.basicSubscription ? 'configured' : 'not configured',
           premiumSubscription: config.stripe.prices.premiumSubscription ? 'configured' : 'not configured'
         });
-        throw new Error('Selected plan is not properly configured');
+        throw new Error(`Price ID not found for ${productType}. Please check configuration.`);
       }
-
-      // If called from button click, update location state
-      if (fromButton) {
-        navigate('/payment', { 
-          state: { 
-            selectedPlan: productType,
-            timestamp: new Date().toISOString()
-          },
-          replace: true
-        });
-      }
-
-      if (!priceId) {
-        throw new Error(`Price ID not found for ${productType}`);
-      }
-
-      console.log('Creating checkout session:', {
-        productType,
-        priceId,
-        fromButton,
-        timestamp: new Date().toISOString()
-      });
 
       // Create checkout session
       const response = await paymentAPI.createSession(priceId);
       const { sessionId } = response;
+
+      console.log('Checkout session created:', {
+        sessionId,
+        productType,
+        priceId,
+        timestamp: new Date().toISOString()
+      });
 
       // Redirect to checkout
       const result = await stripe.redirectToCheckout({

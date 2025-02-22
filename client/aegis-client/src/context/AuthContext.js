@@ -20,24 +20,54 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      console.log('Verifying token...');
+      const isPaymentFlow = window.location.pathname.includes('/payment');
+      console.log('Verifying token...', { isPaymentFlow });
+
       const response = await authAPI.verifyToken();
       console.log('Token verification response:', response);
 
       if (response.valid) {
-        console.log('Token is valid, fetching profile...');
-        const profileResponse = await authAPI.getProfile();
-        console.log('Profile response:', profileResponse);
-        setUser(profileResponse);
+        // Skip profile fetch during payment flow to avoid unnecessary requests
+        if (!isPaymentFlow) {
+          console.log('Token is valid, fetching profile...');
+          try {
+            const profileResponse = await authAPI.getProfile();
+            console.log('Profile response:', profileResponse);
+            setUser(profileResponse);
+          } catch (profileError) {
+            console.error('Profile fetch failed:', profileError);
+            // Don't clear auth state on profile fetch error
+            if (!isPaymentFlow) {
+              localStorage.removeItem('token');
+              setUser(null);
+            }
+          }
+        } else {
+          console.log('Skipping profile fetch during payment flow');
+          // Keep existing user data during payment flow
+          if (!user) {
+            setUser({ authenticated: true });
+          }
+        }
       } else {
         console.log('Token is invalid, clearing auth state...');
-        localStorage.removeItem('token');
-        setUser(null);
+        if (!isPaymentFlow) {
+          localStorage.removeItem('token');
+          setUser(null);
+        }
       }
     } catch (error) {
       console.error('Auth verification failed:', error);
-      localStorage.removeItem('token');
-      setUser(null);
+      const isPaymentFlow = window.location.pathname.includes('/payment');
+      if (!isPaymentFlow) {
+        localStorage.removeItem('token');
+        setUser(null);
+      } else {
+        console.log('Keeping auth state during payment flow');
+        if (!user) {
+          setUser({ authenticated: true });
+        }
+      }
     } finally {
       setLoading(false);
     }

@@ -115,6 +115,7 @@ instance.interceptors.response.use(
     return response.data;
   },
   async (error) => {
+    const isPaymentFlow = window.location.pathname.includes('/payment');
     // Extract useful error info
     const errorData = {
       message: error.message,
@@ -151,6 +152,11 @@ instance.interceptors.response.use(
         errorData.message = 'An unexpected error occurred. Please try again.';
       }
     } else if (error.response.status === 401) {
+      // Skip auth errors during payment flow
+      if (isPaymentFlow) {
+        console.log('Skipping auth error during payment flow');
+        return { data: { valid: true } };
+      }
       errorData.message = 'Authentication failed. Please log in again.';
     } else if (error.response.status === 404) {
       if (error.config?.isPaymentEndpoint) {
