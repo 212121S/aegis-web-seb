@@ -15,23 +15,32 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 
 export const validateSubscription = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // Enhanced request logging
+    console.log('Subscription Check Request:', {
+      path: req.path,
+      method: req.method,
+      headers: req.headers,
+      body: req.body,
+      query: req.query,
+      user: req.user
+    });
+
     // Get test type from request
     const testType = req.body.type || req.query.type;
     
-    console.log('Subscription Check:', {
-      path: req.path,
-      testType,
-      body: req.body,
-      query: req.query
-    });
-
     // Skip subscription check for official tests
     if (testType === 'official') {
       console.log('Skipping subscription check for official test');
       return next();
     }
 
-    const user = await User.findById(req.user!._id).select('subscription email');
+    if (!req.user?._id) {
+      console.error('No user ID in request');
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    console.log('Looking up user:', req.user._id);
+    const user = await User.findById(req.user._id).select('subscription email');
     
     if (!user) {
       console.error('User not found:', req.user!._id);

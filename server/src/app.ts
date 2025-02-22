@@ -74,7 +74,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// CORS configuration
+// Enhanced CORS configuration
 const corsOptions: CorsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     console.log(`[CORS] Request from origin: ${origin || 'No Origin'}`);
@@ -92,6 +92,7 @@ const corsOptions: CorsOptions = {
     } else {
       // Log more details about the rejection
       console.error(`[CORS] Origin ${origin} rejected. Details:`, {
+        origin,
         allowedOrigins,
         isDevelopment,
         NODE_ENV: process.env.NODE_ENV,
@@ -101,7 +102,7 @@ const corsOptions: CorsOptions = {
     }
   },
   credentials: true, // Allow credentials
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
   allowedHeaders: [
     'Content-Type',
     'Authorization',
@@ -109,9 +110,16 @@ const corsOptions: CorsOptions = {
     'Origin',
     'X-Requested-With',
     'Access-Control-Request-Method',
-    'Access-Control-Request-Headers'
+    'Access-Control-Request-Headers',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Credentials'
   ],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  exposedHeaders: [
+    'Content-Range', 
+    'X-Content-Range',
+    'Access-Control-Allow-Origin',
+    'Access-Control-Allow-Credentials'
+  ],
   maxAge: 86400, // 24 hours
   preflightContinue: false,
   optionsSuccessStatus: 204
