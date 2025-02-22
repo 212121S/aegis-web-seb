@@ -36,40 +36,57 @@ function PaymentSuccess() {
 
         while (retries < maxRetries) {
           try {
+            console.log('Attempting verification - Attempt', retries + 1);
+            
             // First verify the session
             const sessionResponse = await paymentAPI.verifySession(sessionId);
+            console.log('Session verification response:', sessionResponse);
             
             // Then check subscription status
             const subscriptionResponse = await refreshSubscription();
+            console.log('Subscription check response:', subscriptionResponse);
             
-            // If subscription is active, we're done
-            if (subscriptionResponse?.active) {
+            // Consider success if either:
+            // 1. Subscription is active
+            // 2. Session payment status is 'paid' (for one-time purchases)
+            if (subscriptionResponse?.active || sessionResponse?.paymentStatus === 'paid') {
+              console.log('Verification successful - Payment confirmed');
               setLoading(false);
               return;
             }
 
-            // If we get here but subscription isn't active yet, wait and retry
+            // If payment is confirmed but subscription not active yet
+            if (sessionResponse?.paymentStatus === 'paid') {
+              console.log('Payment confirmed but waiting for subscription activation');
+            }
+
             retries++;
             if (retries === maxRetries) {
-              throw new Error('Subscription not activated after maximum retries');
+              throw new Error('Payment verified but subscription activation timed out');
             }
             
-            console.log(`Waiting for subscription activation - Retry ${retries}/${maxRetries}`);
+            console.log(`Attempt ${retries}/${maxRetries}: Waiting ${retryDelay}ms before next check...`);
             await new Promise(resolve => setTimeout(resolve, retryDelay));
           } catch (err) {
+            console.error('Verification attempt failed:', err);
             retries++;
             if (retries === maxRetries) {
               throw err;
             }
-            console.log(`Verification failed - Retry ${retries}/${maxRetries}`);
+            console.log(`Attempt ${retries}/${maxRetries}: Retrying after error...`);
             await new Promise(resolve => setTimeout(resolve, retryDelay));
           }
         }
       } catch (err) {
-        console.error('Payment verification error:', err);
+        console.error('Payment verification failed after all retries:', err);
+        const isPaymentConfirmed = err.message?.includes('subscription activation timed out');
+        
         setError(
-          'Payment processed but subscription activation is taking longer than expected. ' +
-          'Please refresh the page in a few moments or contact support if the issue persists.'
+          isPaymentConfirmed
+            ? 'Your payment was successful but subscription activation is taking longer than expected. ' +
+              'Please refresh the page in a few moments or check your account page.'
+            : 'There was an issue verifying your payment. If you completed the payment, ' +
+              'please check your account page or contact support.'
         );
         setLoading(false);
       }

@@ -22,17 +22,21 @@ export const useSubscription = () => {
     try {
       if (!localStorage.getItem('token')) {
         setLoading(false);
-        return;
+        return null;
       }
 
       const response = await paymentAPI.getSubscriptionStatus();
-
-      setSubscription(response.data);
+      const subscriptionData = response.data;
+      
+      setSubscription(subscriptionData);
       setLoading(false);
+      
+      return subscriptionData; // Return the subscription data for the caller
     } catch (err) {
       console.error('Subscription check error:', err);
       setError(err.response?.data?.message || 'Failed to check subscription status');
       setLoading(false);
+      return null;
     }
   };
 
