@@ -18,6 +18,7 @@ import {
 import LoginPage from './components/LoginPage';
 import HomePage from './components/HomePage';
 import AboutPage from './components/AboutPage';
+import PlansPage from './components/PlansPage';
 import UserDashboard from './components/UserDashboard';
 import PracticeTest from './components/PracticeTest';
 import OfficialTest from './components/OfficialTest';
@@ -57,7 +58,7 @@ const NavigationBar = () => {
               Practice Tests
             </Button>
             {!user.subscription?.active && (
-              <Button color="inherit" component={Link} to="/payment">
+              <Button color="inherit" component={Link} to="/plans">
                 Upgrade
               </Button>
             )}
@@ -126,6 +127,14 @@ const AppRoutes = () => {
             <Route path="/register" element={<Register />} />
 
             {/* Protected Routes */}
+            <Route
+              path="/plans"
+              element={
+                <ProtectedRoute>
+                  <PlansPage />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/dashboard"
               element={

@@ -17,7 +17,7 @@ const HomePage = () => {
   const { user } = useAuth();
 
   const handleViewPlans = () => {
-    navigate('/payment');
+    navigate('/plans');
   };
 
   const handleStartPractice = () => {

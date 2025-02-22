@@ -1,8 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loadStripe } from '@stripe/stripe-js';
-import config from '../config';
-import { paymentAPI } from '../utils/axios';
 import { useAuth } from '../context/AuthContext';
 import {
   Box,
@@ -11,117 +8,44 @@ import {
   Typography,
   Card,
   CardContent,
-  Alert,
-  CircularProgress,
+  Grid,
   List,
   ListItem,
   ListItemIcon,
   ListItemText,
-  Grid,
   Paper
 } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 
-const PaymentPage = () => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [stripeError, setStripeError] = useState(null);
-  const { user } = useAuth();
+const PlansPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  useEffect(() => {
-    // Redirect to login if not authenticated
-    if (!user) {
-      navigate('/login', { state: { from: '/payment' } });
-      return;
-    }
-
-    // Check if Stripe is configured
-    if (!config.stripe.publicKey || !config.stripe.prices.officialTest || 
-        !config.stripe.prices.basicSubscription || !config.stripe.prices.premiumSubscription) {
-      setStripeError('Payment system is not properly configured. Please try again later.');
-      console.error('Stripe configuration missing:', {
-        publicKey: !config.stripe.publicKey ? 'missing' : 'configured',
-        officialTest: !config.stripe.prices.officialTest ? 'missing' : 'configured',
-        basicSubscription: !config.stripe.prices.basicSubscription ? 'missing' : 'configured',
-        premiumSubscription: !config.stripe.prices.premiumSubscription ? 'missing' : 'configured'
-      });
-    }
-  }, [user, navigate]);
-
-  const handlePurchase = async (priceId, productType) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      if (!config.stripe.publicKey) {
-        throw new Error('Payment system is not fully configured');
-      }
-
-      const stripe = await loadStripe(config.stripe.publicKey);
-      if (!stripe) {
-        throw new Error('Failed to initialize payment system');
-      }
-
-      // Get the correct price ID based on product type
-      let selectedPriceId;
-      switch (productType) {
-        case 'officialTest':
-          selectedPriceId = config.stripe.prices.officialTest;
-          break;
-        case 'basicSubscription':
-          selectedPriceId = config.stripe.prices.basicSubscription;
-          break;
-        case 'premiumSubscription':
-          selectedPriceId = config.stripe.prices.premiumSubscription;
-          break;
-        default:
-          throw new Error('Invalid product type');
-      }
-
-      // Create checkout session
-      const response = await paymentAPI.createSession(selectedPriceId);
-      const { sessionId } = response;
-
-      // Redirect to checkout
-      const result = await stripe.redirectToCheckout({
-        sessionId
-      });
-
-      if (result.error) {
-        throw new Error(result.error.message);
-      }
-    } catch (err) {
-      console.error('Payment error:', err);
-      setError(err.message || 'Failed to process payment. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  const handleSelectPlan = (plan) => {
+    navigate('/payment', { state: { selectedPlan: plan } });
   };
 
   if (user?.subscription?.active) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Alert severity="info" sx={{ mb: 3 }}>
-          You already have an active subscription!
-        </Alert>
-        <Card>
-          <CardContent>
-            <Typography variant="h5" component="h2" gutterBottom>
-              Current Subscription
-            </Typography>
-            <Typography variant="body1" paragraph>
-              You have access to all premium features.
-            </Typography>
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h4" component="h1" gutterBottom align="center">
+            Active Subscription
+          </Typography>
+          <Typography variant="body1" color="text.secondary" paragraph align="center">
+            You already have an active subscription. Start practicing now!
+          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
             <Button
               variant="contained"
               color="primary"
+              size="large"
               onClick={() => navigate('/practice')}
             >
-              Start Practice Tests
+              Go to Practice Tests
             </Button>
-          </CardContent>
-        </Card>
+          </Box>
+        </Box>
       </Container>
     );
   }
@@ -136,16 +60,6 @@ const PaymentPage = () => {
           Select the option that best fits your needs
         </Typography>
       </Box>
-
-      {stripeError ? (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {stripeError}
-        </Alert>
-      ) : error ? (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      ) : null}
 
       <Grid container spacing={3} justifyContent="center">
         {/* Official Test Card */}
@@ -189,15 +103,10 @@ const PaymentPage = () => {
                   color="primary"
                   fullWidth
                   size="large"
-                  onClick={() => handlePurchase(config.stripe.prices.officialTest, 'officialTest')}
-                  disabled={loading || stripeError}
+                  onClick={() => handleSelectPlan('officialTest')}
                   sx={{ mt: 2 }}
                 >
-                  {loading ? (
-                    <CircularProgress size={24} color="inherit" />
-                  ) : (
-                    'Purchase Test'
-                  )}
+                  Purchase Test
                 </Button>
               </CardContent>
             </Card>
@@ -251,15 +160,10 @@ const PaymentPage = () => {
                   color="primary"
                   fullWidth
                   size="large"
-                  onClick={() => handlePurchase(config.stripe.prices.basicSubscription, 'basicSubscription')}
-                  disabled={loading || stripeError}
+                  onClick={() => handleSelectPlan('basicSubscription')}
                   sx={{ mt: 2 }}
                 >
-                  {loading ? (
-                    <CircularProgress size={24} color="inherit" />
-                  ) : (
-                    'Subscribe Now'
-                  )}
+                  Subscribe Now
                 </Button>
               </CardContent>
             </Card>
@@ -340,15 +244,10 @@ const PaymentPage = () => {
                   color="primary"
                   fullWidth
                   size="large"
-                  onClick={() => handlePurchase(config.stripe.prices.premiumSubscription, 'premiumSubscription')}
-                  disabled={loading || stripeError}
+                  onClick={() => handleSelectPlan('premiumSubscription')}
                   sx={{ mt: 2 }}
                 >
-                  {loading ? (
-                    <CircularProgress size={24} color="inherit" />
-                  ) : (
-                    'Get Premium'
-                  )}
+                  Get Premium
                 </Button>
               </CardContent>
             </Card>
@@ -368,4 +267,4 @@ const PaymentPage = () => {
   );
 };
 
-export default PaymentPage;
+export default PlansPage;

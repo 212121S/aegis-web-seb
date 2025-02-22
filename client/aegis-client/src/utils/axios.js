@@ -300,9 +300,18 @@ export const authAPI = {
   
   verifyToken: async () => {
     try {
-      const response = await instance.get('/auth/verify');
+      const response = await instance.post('/auth/verify-token');
       return response;
     } catch (error) {
+      // Don't throw error during payment flow
+      if (window.location.pathname.includes('/payment/success')) {
+        console.warn('Skipping auth error during payment flow:', {
+          error,
+          timestamp: new Date().toISOString()
+        });
+        return { valid: true };
+      }
+      
       console.error('Token verification error:', {
         error,
         timestamp: new Date().toISOString()

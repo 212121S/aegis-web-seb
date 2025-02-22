@@ -56,24 +56,6 @@ function PaymentSuccess() {
           startTime: new Date().toISOString()
         }));
 
-        // Verify auth token first
-        setVerificationProgress(prev => ({
-          ...prev,
-          stage: 'auth',
-          message: 'Validating authentication...'
-        }));
-
-        // Skip auth verification during payment flow to prevent token clearing
-        const token = localStorage.getItem('token');
-        if (token) {
-          await login(token).catch(err => {
-            console.error('Auth refresh failed:', {
-              error: err,
-              timestamp: new Date().toISOString()
-            });
-          });
-        }
-
         // Start payment verification with automatic retries
         setVerificationProgress(prev => ({
           ...prev,
@@ -82,19 +64,7 @@ function PaymentSuccess() {
           attempt: 1
         }));
 
-        const sessionResponse = await paymentAPI.verifySession(
-          sessionId,
-          1,
-          verificationProgress.maxAttempts,
-          // Progress callback from axios interceptor
-          (retryCount) => {
-            setVerificationProgress(prev => ({
-              ...prev,
-              attempt: retryCount,
-              message: `Verifying payment (Attempt ${retryCount})...`
-            }));
-          }
-        );
+        const sessionResponse = await paymentAPI.verifySession(sessionId);
 
         // Update progress after successful verification
         setVerificationProgress(prev => ({
