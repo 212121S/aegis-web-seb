@@ -26,7 +26,7 @@ import {
   School,
   TrendingUp
 } from '@mui/icons-material';
-import axios from '../utils/axios';
+import axios, { paymentAPI } from '../utils/axios';
 
 import config from '../config';
 
@@ -128,7 +128,7 @@ function PaymentPage() {
     setCouponError('');
     
     try {
-      const response = await axios.post('/payment/validate-coupon', { code: couponCode });
+      const response = await paymentAPI.validateCoupon(couponCode);
       setAppliedCoupon(response.data);
       setSuccess('Coupon applied successfully!');
     } catch (err) {
@@ -150,10 +150,7 @@ function PaymentPage() {
       if (!localStorage.getItem('token')) throw new Error('Please log in to subscribe');
 
       // Create a checkout session with coupon if applied
-      const response = await axios.post('/payment/create-checkout-session', { 
-        planId,
-        couponCode: appliedCoupon?.code
-      });
+      const response = await paymentAPI.createCheckoutSession(planId, appliedCoupon?.code);
 
       // Redirect to Stripe Checkout URL
       window.location.href = response.data.url;
