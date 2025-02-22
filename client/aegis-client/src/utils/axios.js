@@ -1,147 +1,308 @@
 import axios from 'axios';
-import config from '../config';
+import { API_URL } from '../config';
 
 const instance = axios.create({
-  baseURL: config.apiUrl,
-  timeout: 45000,
+  baseURL: API_URL,
+  timeout: 30000,
   headers: {
-    'Accept': 'application/json',
     'Content-Type': 'application/json'
   }
 });
 
-// Request interceptor
+// Custom error classes
+class PaymentVerificationError extends Error {
+  constructor(message, details = {}) {
+    super(message);
+    this.name = 'PaymentVerificationError';
+    this.details = details;
+  }
+}
+
+class SubscriptionError extends Error {
+  constructor(message, details = {}) {
+    super(message);
+    this.name = 'SubscriptionError';
+    this.details = details;
+  }
+}
+
+// Add request interceptor
 instance.interceptors.request.use(
   (config) => {
+    // Add auth token if available
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    console.log('Request Config:', {
-      url: config.url,
-      method: config.method,
-      hasToken: !!token,
-      headers: config.headers
-    });
+    
+    // Configure payment and subscription endpoints
+    if (config.url?.includes('/payment/') || config.url?.includes('/stripe/')) {
+      config.isPaymentEndpoint = true;
+      
+      // Set shorter timeout for verification endpoints
+      if (config.url?.includes('verify-session')) {
+        config.timeout = 10000; // 10 seconds for verification requests
+      }
+    }
+
+    if (config.url?.includes('/subscription/')) {
+      config.isSubscriptionEndpoint = true;
+      config.timeout = 15000; // 15 seconds for subscription requests
+    }
+    
+    // Add request timestamp and metadata for tracking
+    config.metadata = {
+      timestamp: new Date().toISOString(),
+      endpoint: config.url,
+      type: config.isPaymentEndpoint ? 'payment' : 
+            config.isSubscriptionEndpoint ? 'subscription' : 'general'
+    };
+    
     return config;
   },
   (error) => {
-    console.error('Request error:', error);
+    console.error('Request interceptor error:', {
+      error,
+      timestamp: new Date().toISOString()
+    });
     return Promise.reject(error);
   }
 );
 
-// Response interceptor
+// Add response interceptor
 instance.interceptors.response.use(
   (response) => {
-    console.log('Response:', {
-      url: response.config.url,
-      status: response.status,
-      data: response.data
-    });
-    return response;
+    // Log successful payment/subscription responses
+    if (response.config?.isPaymentEndpoint || response.config?.isSubscriptionEndpoint) {
+      console.log(`${response.config.metadata.type} endpoint response:`, {
+        url: response.config.url,
+        status: response.status,
+        timestamp: new Date().toISOString(),
+        requestTimestamp: response.config.metadata?.timestamp,
+        type: response.config.metadata.type
+      });
+    }
+    return response.data;
   },
   async (error) => {
-    const originalRequest = error.config;
-
-    // Handle network errors or server errors for payment verification
-    if (!error.response || (error.response.status === 500 && originalRequest.url.includes('/api/payment/verify-session'))) {
-      const isPaymentVerification = originalRequest.url.includes('/api/payment/verify-session');
-      console.error(isPaymentVerification ? 'Payment verification error:' : 'Network error:', error);
-      
-      // For payment verification, include additional context
-      return Promise.reject({
-        message: isPaymentVerification ? 'Payment verification temporarily unavailable' : 'Network Error',
-        data: error.response?.data,
-        status: error.response?.status,
-        headers: originalRequest?.headers,
-        method: originalRequest?.method,
-        url: originalRequest?.url,
-        isPaymentVerification
-      });
-    }
-
-    // Handle unauthorized errors (but skip for payment verification)
-    if (error.response.status === 401 && !originalRequest.url.includes('/api/payment/verify-session')) {
-      console.error('Unauthorized error:', {
-        url: originalRequest.url,
-        error: error.response.data
-      });
-      localStorage.removeItem('token');
-      window.location.href = '/login';
-      return Promise.reject({
-        message: 'Authentication expired',
-        ...error.response
-      });
-    }
-
-    // Handle CORS errors
-    if (error.response.status === 403 && error.response.data?.message?.includes('CORS')) {
-      console.error('CORS Error:', {
-        origin: window.location.origin,
-        apiUrl: config.apiUrl,
-        error: error.response.data
-      });
-      return Promise.reject({
-        message: 'Access denied - CORS error',
-        ...error.response
-      });
-    }
-
-    // Log all errors with enhanced context
-    console.error('API Error:', {
-      url: originalRequest.url,
-      method: originalRequest.method,
+    // Extract useful error info
+    const errorData = {
+      message: error.message,
       status: error.response?.status,
       data: error.response?.data,
-      isPaymentEndpoint: originalRequest.url.includes('/api/payment'),
-      isAuthEndpoint: originalRequest.url.includes('/api/auth')
-    });
-
-    // Handle other errors with improved context
-    const errorResponse = {
-      message: error.response?.data?.error || error.message,
-      ...error.response,
-      endpoint: {
-        type: originalRequest.url.includes('/api/payment') ? 'payment' :
-              originalRequest.url.includes('/api/auth') ? 'auth' : 'other',
-        path: originalRequest.url
-      }
+      isPaymentEndpoint: error.config?.isPaymentEndpoint,
+      isSubscriptionEndpoint: error.config?.isSubscriptionEndpoint,
+      requestTimestamp: error.config?.metadata?.timestamp,
+      responseTimestamp: new Date().toISOString(),
+      type: error.config?.metadata?.type
     };
 
-    return Promise.reject(errorResponse);
+    // Handle specific error cases
+    if (error.code === 'ECONNABORTED') {
+      if (error.config?.isPaymentEndpoint) {
+        errorData.message = 'Payment verification request timed out. Please check your account page for status.';
+      } else if (error.config?.isSubscriptionEndpoint) {
+        errorData.message = 'Subscription check timed out. Please refresh to try again.';
+      } else {
+        errorData.message = 'Request timed out. Please try again.';
+      }
+    } else if (!error.response) {
+      errorData.message = 'Network error. Please check your connection.';
+    } else if (error.response.status === 500) {
+      if (error.config?.isPaymentEndpoint) {
+        if (error.response.data?.error?.includes('webhook')) {
+          errorData.message = 'Payment webhook processing delayed. Please wait a moment.';
+        } else {
+          errorData.message = 'Payment verification temporarily unavailable';
+        }
+      } else if (error.config?.isSubscriptionEndpoint) {
+        errorData.message = 'Subscription service temporarily unavailable';
+      } else {
+        errorData.message = 'An unexpected error occurred. Please try again.';
+      }
+    } else if (error.response.status === 401) {
+      errorData.message = 'Authentication failed. Please log in again.';
+    } else if (error.response.status === 404) {
+      if (error.config?.isPaymentEndpoint) {
+        errorData.message = 'Payment session not found. Please try the payment process again.';
+      } else if (error.config?.isSubscriptionEndpoint) {
+        errorData.message = 'Subscription information not found';
+      }
+    }
+
+    // Enhanced error logging
+    console.error('API Error:', {
+      ...errorData,
+      config: {
+        method: error.config?.method,
+        url: error.config?.url,
+        timeout: error.config?.timeout,
+      },
+      duration: errorData.responseTimestamp && errorData.requestTimestamp
+        ? new Date(errorData.responseTimestamp) - new Date(errorData.requestTimestamp)
+        : null
+    });
+
+    // Transform specific endpoint errors
+    if (error.config?.isPaymentEndpoint && error.config.url?.includes('verify-session')) {
+      throw new PaymentVerificationError(errorData.message, errorData);
+    } else if (error.config?.isSubscriptionEndpoint) {
+      throw new SubscriptionError(errorData.message, errorData);
+    }
+
+    return Promise.reject(errorData);
   }
 );
 
-// Auth API endpoints
-export const authAPI = {
-  login: (credentials) => instance.post('/api/auth/login', credentials),
-  register: (userData) => instance.post('/api/auth/register', userData),
-  verifyToken: () => instance.post('/api/auth/verify-token'),
-  getProfile: () => instance.get('/api/auth/profile'),
-  updateProfile: (data) => instance.put('/api/auth/profile', data),
-  getVerification: () => instance.get('/api/auth/verification'),
-  regenerateToken: () => instance.post('/api/auth/regenerate-token'),
-  addTestResult: (data) => instance.post('/api/auth/test-result', data)
-};
-
-// Exam API endpoints
-export const examAPI = {
-  getPracticeQuestions: () => instance.get('/api/exam/practice'),
-  getOfficialQuestions: () => instance.get('/api/exam/official'),
-  submitPracticeTest: (answers) => instance.post('/api/exam/practice/submit', answers),
-  submitOfficialTest: (answers) => instance.post('/api/exam/official/submit', answers),
-  getTestHistory: () => instance.get('/api/exam/history'),
-  getTestResults: () => instance.get('/api/exam/results')
-};
-
-// Payment API endpoints
 export const paymentAPI = {
-  createCheckoutSession: () => instance.post('/api/payment/create-checkout-session'),
-  getSubscriptionStatus: () => instance.get('/api/payment/subscription-status'),
-  cancelSubscription: () => instance.post('/api/payment/cancel-subscription'),
-  verifySession: (sessionId) => instance.get(`/api/payment/verify-session/${sessionId}`),
-  validateCoupon: (code) => instance.get(`/api/payment/validate-coupon/${code}`)
+  verifySession: async (sessionId, attempt = 1, maxAttempts = 5, onRetry = null) => {
+    if (!sessionId) {
+      throw new PaymentVerificationError('Session ID is required');
+    }
+
+    try {
+      console.log('Initiating payment verification:', {
+        sessionId,
+        attempt,
+        maxAttempts,
+        timestamp: new Date().toISOString()
+      });
+
+      const response = await instance.get(`/payment/verify-session/${sessionId}`);
+      
+      console.log('Payment verification successful:', {
+        sessionId,
+        response,
+        attempt,
+        timestamp: new Date().toISOString()
+      });
+
+      return response;
+    } catch (error) {
+      // Add verification attempt details to error
+      if (error instanceof PaymentVerificationError) {
+        error.details = {
+          ...error.details,
+          sessionId,
+          attempt,
+          maxAttempts
+        };
+      }
+      
+      console.error('Payment verification error:', {
+        error,
+        sessionId,
+        attempt,
+        maxAttempts,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Determine if retry is needed
+      const shouldRetry = attempt < maxAttempts && (
+        error.response?.status === 500 ||
+        error.code === 'ECONNABORTED' ||
+        !error.response
+      );
+
+      if (shouldRetry) {
+        const delay = Math.min(2000 * Math.pow(1.5, attempt - 1), 8000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        // Call progress callback if provided
+        if (onRetry && typeof onRetry === 'function') {
+          onRetry(attempt + 1);
+        }
+        
+        return paymentAPI.verifySession(sessionId, attempt + 1, maxAttempts, onRetry);
+      }
+      
+      throw error;
+    }
+  },
+  
+  createSession: async (priceId) => {
+    if (!priceId) {
+      throw new Error('Price ID is required');
+    }
+
+    try {
+      console.log('Creating payment session:', {
+        priceId,
+        timestamp: new Date().toISOString()
+      });
+
+      const response = await instance.post('/payment/create-session', { priceId });
+      
+      console.log('Payment session created:', {
+        priceId,
+        sessionId: response.sessionId,
+        timestamp: new Date().toISOString()
+      });
+
+      return response;
+    } catch (error) {
+      console.error('Session creation error:', {
+        error,
+        priceId,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  }
+};
+
+export const subscriptionAPI = {
+  getSubscriptionStatus: async () => {
+    try {
+      console.log('Fetching subscription status:', {
+        timestamp: new Date().toISOString()
+      });
+
+      const response = await instance.get('/subscription/status');
+      
+      console.log('Subscription status retrieved:', {
+        status: response.active,
+        plan: response.plan,
+        timestamp: new Date().toISOString()
+      });
+
+      return response;
+    } catch (error) {
+      console.error('Subscription status error:', {
+        error,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  }
+};
+
+export const authAPI = {
+  login: async (credentials) => {
+    try {
+      const response = await instance.post('/auth/login', credentials);
+      return response;
+    } catch (error) {
+      console.error('Login error:', {
+        error,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  },
+  
+  verifyToken: async () => {
+    try {
+      const response = await instance.get('/auth/verify');
+      return response;
+    } catch (error) {
+      console.error('Token verification error:', {
+        error,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  }
 };
 
 export default instance;

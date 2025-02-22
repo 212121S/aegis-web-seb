@@ -9,9 +9,10 @@ import {
   Paper,
   Alert,
   useTheme,
-  LinearProgress
+  LinearProgress,
+  Divider
 } from '@mui/material';
-import { CheckCircle } from '@mui/icons-material';
+import { CheckCircle, Warning } from '@mui/icons-material';
 import { paymentAPI } from '../utils/axios';
 import { useSubscription } from '../hooks/useSubscription';
 import { useAuth } from '../context/AuthContext';
@@ -22,9 +23,12 @@ function PaymentSuccess() {
   const [error, setError] = useState('');
   const [verificationProgress, setVerificationProgress] = useState({
     attempt: 0,
-    maxAttempts: 20,
+    maxAttempts: 5,
     stage: 'initializing',
-    message: 'Starting verification...'
+    message: 'Starting verification...',
+    sessionId: null,
+    lastError: null,
+    startTime: new Date().toISOString()
   });
   const navigate = useNavigate();
   const theme = useTheme();
@@ -39,200 +43,135 @@ function PaymentSuccess() {
           throw new Error('No session ID found');
         }
 
-        console.log('Starting payment verification process...');
-        
-        let retries = 0;
-        const maxRetries = 20; // Increased max retries
-        const initialRetryDelay = 2000; // Initial delay of 2 seconds
-        const maxRetryDelay = 8000; // Max delay of 8 seconds
-        
-        // Exponential backoff with jitter
-        const getRetryDelay = (attempt) => {
-          const exponentialDelay = Math.min(initialRetryDelay * Math.pow(1.5, attempt), maxRetryDelay);
-          const jitter = Math.random() * 1000; // Add up to 1 second of random jitter
-          return exponentialDelay + jitter;
-        };
-
-        while (retries < maxRetries) {
-          const currentDelay = getRetryDelay(retries);
-          try {
-            setVerificationProgress(prev => ({
-              ...prev,
-              attempt: retries + 1,
-              stage: 'verifying',
-              message: `Verifying payment (Attempt ${retries + 1}/${maxRetries})...`
-            }));
-
-            console.log('Verification attempt', {
-              attempt: retries + 1,
-              maxAttempts: maxRetries,
-              delay: Math.round(currentDelay),
-              sessionId
-            });
-            
-            // First ensure we have a valid auth token
-            try {
-              setVerificationProgress(prev => ({
-                ...prev,
-                stage: 'auth',
-                message: 'Validating authentication...'
-              }));
-
-              const isAuthValid = await verifyAuth();
-              if (!isAuthValid) {
-                console.log('Auth validation failed, attempting token refresh...', {
-                  attempt: retries + 1,
-                  hasToken: !!localStorage.getItem('token')
-                });
-                const token = localStorage.getItem('token');
-                if (token) {
-                  await login(token);
-                  console.log('Successfully refreshed auth token');
-                } else {
-                  throw new Error('No token available for refresh');
-                }
-              }
-            } catch (authError) {
-              console.error('Auth verification failed:', authError);
-              // Continue anyway - the payment verification might still work
-            }
-            
-            // Verify the payment session with timeout
-            let sessionResponse;
-            try {
-              setVerificationProgress(prev => ({
-                ...prev,
-                stage: 'payment',
-                message: 'Verifying payment status...'
-              }));
-
-              const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Verification request timeout')), 30000)
-              );
-              sessionResponse = await Promise.race([
-                paymentAPI.verifySession(sessionId),
-                timeoutPromise
-              ]);
-            } catch (verifyError) {
-              console.error('Session verification failed:', {
-                error: verifyError,
-                attempt: retries + 1,
-                status: verifyError.response?.status,
-                isTimeout: verifyError.message === 'Verification request timeout'
-              });
-              
-              // Retry on server errors or timeouts
-              if (verifyError.response?.status === 500 || verifyError.message === 'Verification request timeout') {
-                await new Promise(resolve => setTimeout(resolve, currentDelay));
-                continue;
-              }
-              throw verifyError;
-            }
-            console.log('Payment session verification:', {
-              status: sessionResponse?.paymentStatus,
-              attempt: retries + 1
-            });
-            
-            if (sessionResponse?.paymentStatus === 'paid') {
-              setVerificationProgress(prev => ({
-                ...prev,
-                stage: 'subscription',
-                message: 'Activating subscription...'
-              }));
-
-              console.log('Payment confirmed, checking subscription...');
-              
-              // Give webhook a moment to process
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              
-              // Check subscription status
-              let subscriptionResponse;
-              try {
-                subscriptionResponse = await refreshSubscription();
-              } catch (subError) {
-                console.error('Subscription check failed:', subError);
-                if (subError.response?.status === 500) {
-                  // If server error, wait and retry
-                  await new Promise(resolve => setTimeout(resolve, currentDelay));
-                  continue;
-                }
-                throw subError;
-              }
-              console.log('Subscription status:', subscriptionResponse);
-              
-              if (subscriptionResponse?.active) {
-                console.log('Success: Payment confirmed and subscription active');
-                setLoading(false);
-                return;
-              }
-            }
-
-            console.log('Subscription activation pending:', {
-              attempt: retries + 1,
-              maxAttempts: maxRetries,
-              nextDelay: Math.round(getRetryDelay(retries + 1)),
-              sessionId
-            });
-            retries++;
-            
-            if (retries === maxRetries) {
-              throw new Error('Payment verified but subscription activation timed out');
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, currentDelay));
-          } catch (err) {
-            console.error('Verification attempt error:', {
-              error: err,
-              attempt: retries + 1,
-              message: err.message,
-              stack: err.stack
-            });
-            
-            // If auth error, try to refresh token
-            if (err.response?.status === 401) {
-              try {
-                const token = localStorage.getItem('token');
-                if (token) {
-                  await login(token);
-                  console.log('Successfully refreshed auth token after 401');
-                }
-              } catch (authErr) {
-                console.error('Auth refresh failed:', authErr);
-              }
-            }
-            
-            retries++;
-            if (retries === maxRetries) {
-              throw err;
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, currentDelay));
-          }
-        }
-      } catch (err) {
-        console.error('Payment verification failed after all retries:', {
-          error: err,
-          message: err.message,
-          stack: err.stack
+        console.log('Starting payment verification process...', { 
+          sessionId,
+          timestamp: new Date().toISOString()
         });
         
-        const isPaymentConfirmed = err.message?.includes('subscription activation timed out');
-        const isTimeout = err.message === 'Verification request timeout';
-        
-        let errorMessage;
-        if (isPaymentConfirmed) {
-          errorMessage = 'Your payment was successful but subscription activation is taking longer than expected. ' +
-                        'Please refresh the page in a few moments or check your account page.';
-        } else if (isTimeout) {
-          errorMessage = 'The verification request is taking longer than expected. ' +
-                        'Your payment may still be processing. Please refresh or check your account page.';
-        } else {
-          errorMessage = 'There was an issue verifying your payment. If you completed the payment, ' +
-                        'please check your account page or contact support if the issue persists.';
+        setVerificationProgress(prev => ({
+          ...prev,
+          sessionId,
+          stage: 'initialized',
+          message: 'Payment verification initialized',
+          startTime: new Date().toISOString()
+        }));
+
+        // Verify auth token first
+        setVerificationProgress(prev => ({
+          ...prev,
+          stage: 'auth',
+          message: 'Validating authentication...'
+        }));
+
+        const isAuthValid = await verifyAuth().catch(err => {
+          console.warn('Auth verification failed:', {
+            error: err,
+            timestamp: new Date().toISOString()
+          });
+          return false;
+        });
+
+        if (!isAuthValid) {
+          const token = localStorage.getItem('token');
+          if (token) {
+            await login(token).catch(err => {
+              console.error('Auth refresh failed:', {
+                error: err,
+                timestamp: new Date().toISOString()
+              });
+            });
+          }
         }
+
+        // Start payment verification with automatic retries
+        setVerificationProgress(prev => ({
+          ...prev,
+          stage: 'payment',
+          message: 'Verifying payment...',
+          attempt: 1
+        }));
+
+        const sessionResponse = await paymentAPI.verifySession(
+          sessionId,
+          1,
+          verificationProgress.maxAttempts,
+          // Progress callback from axios interceptor
+          (retryCount) => {
+            setVerificationProgress(prev => ({
+              ...prev,
+              attempt: retryCount,
+              message: `Verifying payment (Attempt ${retryCount})...`
+            }));
+          }
+        );
+
+        // Update progress after successful verification
+        setVerificationProgress(prev => ({
+          ...prev,
+          stage: 'verified',
+          message: 'Payment verified successfully',
+          lastError: null // Clear any previous errors
+        }));
         
+        if (sessionResponse?.paymentStatus === 'paid') {
+          setVerificationProgress(prev => ({
+            ...prev,
+            stage: 'subscription',
+            message: 'Activating subscription...'
+          }));
+
+          // Give webhook time to process
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          const subscriptionResponse = await refreshSubscription();
+          
+          if (subscriptionResponse?.active) {
+            console.log('Payment verification successful:', {
+              sessionId,
+              duration: new Date() - new Date(verificationProgress.startTime),
+              timestamp: new Date().toISOString()
+            });
+            setLoading(false);
+            return;
+          }
+
+          throw new Error('Subscription not activated after payment verification');
+        } else {
+          throw new Error('Payment verification failed');
+        }
+      } catch (err) {
+        console.error('Payment verification failed:', {
+          error: err,
+          message: err.message,
+          status: err.response?.status,
+          duration: new Date() - new Date(verificationProgress.startTime),
+          timestamp: new Date().toISOString()
+        });
+        
+        // Use standardized error message from axios interceptor
+        let errorMessage = err.message;
+        
+        // Update progress state to reflect error
+        setVerificationProgress(prev => ({
+          ...prev,
+          stage: 'error',
+          lastError: {
+            message: errorMessage,
+            timestamp: new Date().toISOString()
+          }
+        }));
+
+        // Set final error state
         setError(errorMessage);
         setLoading(false);
+
+        // Log error details
+        console.error('Payment verification failed:', {
+          stage: verificationProgress.stage,
+          attempts: verificationProgress.attempt,
+          duration: new Date() - new Date(verificationProgress.startTime),
+          error: errorMessage
+        });
       }
     };
 
@@ -241,6 +180,8 @@ function PaymentSuccess() {
 
   if (loading) {
     const progress = (verificationProgress.attempt / verificationProgress.maxAttempts) * 100;
+    const elapsedTime = new Date() - new Date(verificationProgress.startTime);
+    const showExtendedMessage = elapsedTime > 30000; // 30 seconds
     
     return (
       <Container maxWidth="sm">
@@ -275,6 +216,43 @@ function PaymentSuccess() {
           <Typography variant="body2" color="text.secondary" align="center">
             This may take a few moments. Please do not close this page.
           </Typography>
+          
+          {showExtendedMessage && (
+            <>
+              <Divider sx={{ width: '100%', my: 2 }} />
+              <Typography variant="body2" color="text.secondary" align="center">
+                The verification is taking longer than usual. This can happen when:
+              </Typography>
+              <Box sx={{ width: '100%', mt: 1 }}>
+                <Typography variant="body2" color="text.secondary" component="ul" sx={{ pl: 2 }}>
+                  <li>Payment systems are experiencing high traffic</li>
+                  <li>Bank verification is taking longer than normal</li>
+                  <li>Network connectivity is unstable</li>
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
+                Don't worry - your payment is secure. You can safely refresh this page or check your account status later.
+              </Typography>
+            </>
+          )}
+          
+          {verificationProgress.lastError && (
+            <Alert 
+              severity="info" 
+              sx={{ 
+                width: '100%', 
+                mt: 2,
+                '& .MuiAlert-message': { width: '100%' }
+              }}
+            >
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Temporary issue detected: {verificationProgress.lastError.message}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Retrying verification...
+              </Typography>
+            </Alert>
+          )}
         </Box>
       </Container>
     );
@@ -294,6 +272,16 @@ function PaymentSuccess() {
         >
           {error ? (
             <>
+              <Warning
+                sx={{
+                  fontSize: 64,
+                  color: theme.palette.warning.main,
+                  mb: 2
+                }}
+              />
+              <Typography variant="h5" gutterBottom>
+                Payment Verification Issue
+              </Typography>
               <Alert severity="warning" sx={{ mb: 3 }}>
                 {error}
               </Alert>
@@ -325,6 +313,9 @@ function PaymentSuccess() {
                   View Account
                 </Button>
               </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
+                Need help? Contact our support team
+              </Typography>
             </>
           ) : (
             <>

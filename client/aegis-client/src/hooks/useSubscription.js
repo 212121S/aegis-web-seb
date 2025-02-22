@@ -10,7 +10,7 @@ export const useSubscription = () => {
   const navigate = useNavigate();
   const { isAuthenticated, verifyAuth } = useAuth();
 
-  const checkSubscription = useCallback(async (retryCount = 0) => {
+  const checkSubscription = useCallback(async (retryCount = 0, maxRetries = 5) => {
     try {
       if (!isAuthenticated) {
         console.log('Not authenticated, skipping subscription check');
@@ -20,19 +20,54 @@ export const useSubscription = () => {
 
       console.log('Initiating subscription status check...', {
         attempt: retryCount + 1,
+        maxRetries,
         isAuthenticated
       });
-      const response = await paymentAPI.getSubscriptionStatus();
+
+      const response = await paymentAPI.getSubscriptionStatus().catch(async (err) => {
+        // Handle specific error cases that warrant retries
+        const isServerError = err.response?.status === 500;
+        const isAuthError = err.response?.status === 401;
+        const isTimeout = err.message?.includes('timeout') || err.code === 'ECONNABORTED';
+        const isNetworkError = !err.response && !err.status;
+        
+        if ((isServerError || isAuthError || isTimeout || isNetworkError) && retryCount < maxRetries) {
+          console.log('Retriable error encountered, verifying auth and retrying...', {
+            error: err,
+            type: isServerError ? 'server' : 
+                  isAuthError ? 'auth' :
+                  isTimeout ? 'timeout' : 'network',
+            attempt: retryCount + 1
+          });
+
+          if (isAuthError) {
+            const isValid = await verifyAuth();
+            if (!isValid) {
+              throw err;
+            }
+          }
+
+          // Exponential backoff with jitter
+          const baseDelay = Math.min(2000 * Math.pow(1.5, retryCount), 8000);
+          const jitter = Math.random() * Math.min(1000, baseDelay * 0.1);
+          const delay = Math.round(baseDelay + jitter);
+
+          await new Promise(resolve => setTimeout(resolve, delay));
+          return checkSubscription(retryCount + 1, maxRetries);
+        }
+        throw err;
+      });
+
       console.log('Raw subscription status response:', response);
       
-      // Ensure we have a valid response with the expected structure
+      // Validate response structure
       if (!response || typeof response !== 'object') {
         throw new Error('Invalid subscription response format');
       }
 
-      // Extract and validate subscription data
+      // Extract and validate subscription data with detailed logging
       const subscriptionData = {
-        active: response.active === true, // Ensure boolean
+        active: response.active === true,
         plan: response.plan || null,
         endDate: response.endDate || null,
         details: {
@@ -42,16 +77,39 @@ export const useSubscription = () => {
         }
       };
 
-      console.log('Processed subscription data:', subscriptionData);
+      // Validate critical fields
+      if (typeof subscriptionData.active !== 'boolean') {
+        console.warn('Invalid subscription active status:', subscriptionData.active);
+        throw new Error('Invalid subscription status format');
+      }
+
+      if (subscriptionData.active && !subscriptionData.details.stripeSubscriptionId) {
+        console.warn('Active subscription missing Stripe ID:', subscriptionData);
+        throw new Error('Invalid subscription data: Missing required fields');
+      }
+
+      console.log('Processed subscription data:', {
+        ...subscriptionData,
+        validationPassed: true
+      });
       
-      // Only update state if the subscription status has changed
+      // Update state only if there are meaningful changes
       setSubscription(prevState => {
         const hasChanged = !prevState || 
           prevState.active !== subscriptionData.active ||
-          prevState.plan !== subscriptionData.plan;
+          prevState.plan !== subscriptionData.plan ||
+          prevState.details?.stripeStatus !== subscriptionData.details?.stripeStatus;
         
         if (hasChanged) {
-          console.log('Subscription state updated:', subscriptionData);
+          console.log('Subscription state updated:', {
+            previous: prevState,
+            new: subscriptionData,
+            changes: {
+              activeChanged: prevState?.active !== subscriptionData.active,
+              planChanged: prevState?.plan !== subscriptionData.plan,
+              statusChanged: prevState?.details?.stripeStatus !== subscriptionData.details?.stripeStatus
+            }
+          });
           return subscriptionData;
         }
         return prevState;
@@ -65,28 +123,34 @@ export const useSubscription = () => {
         error: err,
         response: err.response?.data,
         status: err.response?.status,
-        attempt: retryCount + 1
+        attempt: retryCount + 1,
+        maxRetries
       });
 
-      // Handle 401 errors by verifying auth
-      if (err.response?.status === 401 && retryCount < 1) {
-        console.log('Unauthorized error, verifying auth and retrying...');
-        const isValid = await verifyAuth();
-        if (isValid) {
-          return checkSubscription(retryCount + 1);
-        }
-      }
-
-      let errorMessage = 'Failed to check subscription status';
-      if (err.response?.data?.message) {
+      let errorMessage;
+      if (err.response?.status === 401) {
+        errorMessage = 'Authentication required to check subscription';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Access denied to subscription service';
+      } else if (err.response?.status === 500) {
+        errorMessage = 'Subscription service temporarily unavailable';
+      } else if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
-      } else if (err.message === 'Invalid subscription response format') {
-        errorMessage = 'Invalid response from subscription service';
+      } else if (err.message?.includes('Invalid subscription')) {
+        errorMessage = 'Unable to verify subscription status';
+      } else if (err.message?.includes('timeout') || err.code === 'ECONNABORTED') {
+        errorMessage = 'Subscription check timed out. Please try again.';
       } else if (!err.response && err.message) {
         errorMessage = 'Network error: Unable to reach subscription service';
+      } else {
+        errorMessage = 'Failed to check subscription status';
       }
 
-      setSubscription(null);
+      // Only clear subscription state for non-transient errors
+      if (!err.response?.status || ![500, 408].includes(err.response?.status)) {
+        setSubscription(null);
+      }
+      
       setError(errorMessage);
       setLoading(false);
       return null;
@@ -94,6 +158,7 @@ export const useSubscription = () => {
   }, [isAuthenticated, verifyAuth]);
 
   useEffect(() => {
+    let mounted = true;
     const initializeSubscription = async () => {
       try {
         if (!isAuthenticated) {
@@ -113,26 +178,41 @@ export const useSubscription = () => {
         }
 
         console.log('Auth verified, checking subscription');
-        await checkSubscription();
+        if (mounted) {
+          await checkSubscription();
+        }
       } catch (err) {
-        console.error('Subscription initialization error:', err);
-        setError('Failed to initialize subscription status');
-        setLoading(false);
+        console.error('Subscription initialization error:', {
+          error: err,
+          message: err.message,
+          status: err.response?.status
+        });
+        if (mounted) {
+          setError('Failed to initialize subscription status');
+          setLoading(false);
+        }
       }
     };
 
     initializeSubscription();
 
     // Set up periodic subscription check if authenticated
+    let intervalId;
     if (isAuthenticated) {
-      const intervalId = setInterval(async () => {
+      intervalId = setInterval(async () => {
         const isValid = await verifyAuth();
-        if (isValid) {
+        if (isValid && mounted) {
           await checkSubscription();
         }
-      }, 60000);
-      return () => clearInterval(intervalId);
+      }, 60000); // Check every minute
     }
+
+    return () => {
+      mounted = false;
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
   }, [isAuthenticated, verifyAuth, checkSubscription]);
 
   // Log subscription state changes
@@ -140,9 +220,11 @@ export const useSubscription = () => {
     console.log('Subscription state updated:', {
       subscription,
       isActive: subscription?.active,
-      plan: subscription?.planId,
+      plan: subscription?.plan,
+      stripeStatus: subscription?.details?.stripeStatus,
       loading,
-      error
+      error,
+      timestamp: new Date().toISOString()
     });
   }, [subscription, loading, error]);
 
@@ -158,7 +240,10 @@ export const useSubscription = () => {
   const isSubscriptionActive = () => {
     // Ensure we have a valid subscription state
     if (!subscription || typeof subscription.active !== 'boolean') {
-      console.warn('Invalid subscription state in isSubscriptionActive check:', subscription);
+      console.warn('Invalid subscription state in isSubscriptionActive check:', {
+        subscription,
+        timestamp: new Date().toISOString()
+      });
       return false;
     }
     
@@ -166,7 +251,8 @@ export const useSubscription = () => {
       subscription, 
       active: subscription.active,
       plan: subscription.plan,
-      stripeStatus: subscription.details?.stripeStatus 
+      stripeStatus: subscription.details?.stripeStatus,
+      timestamp: new Date().toISOString()
     });
     
     return subscription.active === true;
@@ -177,7 +263,7 @@ export const useSubscription = () => {
   };
 
   const getSubscriptionPlan = () => {
-    return subscription?.planId || null;
+    return subscription?.plan || null;
   };
 
   return {
