@@ -9,12 +9,15 @@ console.log('Environment Variables:', {
 
 const getApiUrl = () => {
   const apiUrl = process.env.REACT_APP_API_URL;
+  let baseUrl;
   if (!apiUrl) {
     console.error('API URL not configured!');
-    return isDevelopment ? 'http://localhost:10001' : 'https://aegis-web-seb.onrender.com';
+    baseUrl = isDevelopment ? 'http://localhost:3005' : 'https://aegis-web-seb.onrender.com';
+  } else {
+    baseUrl = apiUrl;
   }
-  console.log('Using API URL:', apiUrl);
-  return apiUrl;
+  // Ensure the URL ends with /api
+  return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
 };
 
 const config = {
