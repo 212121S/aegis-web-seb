@@ -93,20 +93,34 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
     });
 
     // Map price IDs to their modes and validate
-    const priceConfig = {
-      [STRIPE_PRICE_IDS.officialTest]: {
-        mode: 'payment' as const,
-        type: 'officialTest'
-      },
-      [STRIPE_PRICE_IDS.basicSubscription]: {
-        mode: 'subscription' as const,
-        type: 'basicSubscription'
-      },
-      [STRIPE_PRICE_IDS.premiumSubscription]: {
-        mode: 'subscription' as const,
-        type: 'premiumSubscription'
-      }
+    type PriceConfig = {
+      mode: 'payment' | 'subscription';
+      type: string;
     };
+
+    const priceConfig: Record<string, PriceConfig> = {};
+
+    // Only add price configs if the IDs are available
+    if (STRIPE_PRICE_IDS.officialTest) {
+      priceConfig[STRIPE_PRICE_IDS.officialTest] = {
+        mode: 'payment',
+        type: 'officialTest'
+      };
+    }
+
+    if (STRIPE_PRICE_IDS.basicSubscription) {
+      priceConfig[STRIPE_PRICE_IDS.basicSubscription] = {
+        mode: 'subscription',
+        type: 'basicSubscription'
+      };
+    }
+
+    if (STRIPE_PRICE_IDS.premiumSubscription) {
+      priceConfig[STRIPE_PRICE_IDS.premiumSubscription] = {
+        mode: 'subscription',
+        type: 'premiumSubscription'
+      };
+    }
 
 
     // Debug log price validation
