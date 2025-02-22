@@ -38,6 +38,8 @@ services:
     envVars:
       - key: REACT_APP_API_URL
         value: https://aegis-api.onrender.com
+      - key: REACT_APP_STRIPE_PUBLISHABLE_KEY
+        sync: true
       - key: NODE_ENV
         value: production
     headers:
