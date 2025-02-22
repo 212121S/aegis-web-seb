@@ -19,11 +19,40 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 // Configure CORS with proper options
 const allowedOrigins = isDevelopment 
   ? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002']
-  : ['https://aegistestingtech.com', 'https://www.aegistestingtech.com'];
+  : [
+      'https://aegistestingtech.com',
+      'https://www.aegistestingtech.com',
+      'https://aegis-web-seb.onrender.com',
+      'https://api.aegistestingtech.com',
+      process.env.CLIENT_URL
+    ].filter(Boolean);
 
 // Function to check if origin matches allowed patterns
 const isOriginAllowed = (origin: string): boolean => {
-  return allowedOrigins.includes(origin);
+  // Log the check for debugging
+  console.log(`[CORS] Checking if origin ${origin} is allowed`);
+  console.log(`[CORS] isDevelopment: ${isDevelopment}`);
+  console.log(`[CORS] allowedOrigins:`, allowedOrigins);
+  console.log(`[CORS] CLIENT_URL:`, process.env.CLIENT_URL);
+  
+  // Check exact matches first
+  if (allowedOrigins.includes(origin)) {
+    console.log(`[CORS] Origin ${origin} is allowed by exact match`);
+    return true;
+  }
+
+  // For production, also allow the domain regardless of subdomain
+  if (!isDevelopment) {
+    const originUrl = new URL(origin);
+    const isAegisDomain = originUrl.hostname.endsWith('aegistestingtech.com');
+    if (isAegisDomain) {
+      console.log(`[CORS] Origin ${origin} is allowed as aegistestingtech.com subdomain`);
+      return true;
+    }
+  }
+
+  console.log(`[CORS] Origin ${origin} is not allowed`);
+  return false;
 };
 
 // Request logging middleware
@@ -43,6 +72,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 const corsOptions: CorsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     console.log(`[CORS] Request from origin: ${origin || 'No Origin'}`);
+    console.log(`[CORS] Current NODE_ENV: ${process.env.NODE_ENV}`);
     
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
@@ -55,7 +85,9 @@ const corsOptions: CorsOptions = {
       console.log(`[CORS] Origin ${origin} is allowed`);
       callback(null, true);
     } else {
-      console.log(`[CORS] Origin ${origin} is not allowed`);
+      // Log more details about the rejection
+      console.error(`[CORS] Origin ${origin} rejected. Current allowed origins:`, allowedOrigins);
+      console.error(`[CORS] Environment mode: ${isDevelopment ? 'development' : 'production'}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
