@@ -1,17 +1,17 @@
 import mongoose from 'mongoose';
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGO_URI = process.env.MONGO_URI;
 
-// In development, allow fallback to localhost if MONGODB_URI is not set
-if (!MONGODB_URI) {
-  if (isDevelopment) {
-    console.warn('⚠️  MONGODB_URI not set, falling back to localhost');
-  } else {
-    console.error('❌ MONGODB_URI environment variable is required in production');
-    // Don't exit immediately, let the health check handle the error
-  }
-}
+// Log database configuration (hiding credentials)
+const logMongoConfig = () => {
+  const uri = MONGO_URI || 'not set';
+  console.log('MongoDB Configuration:', {
+    uri: uri.replace(/\/\/[^@]*@/, '//***:***@'),
+    environment: process.env.NODE_ENV,
+    development: isDevelopment
+  });
+};
 
 const connectOptions = {
   serverSelectionTimeoutMS: 5000,
@@ -22,29 +22,33 @@ const connectOptions = {
 };
 
 export async function connectMongo(retryCount = 0): Promise<void> {
+  const MAX_RETRIES = 5;
+  const RETRY_INTERVAL = 5000;
+
   try {
-    const uri = MONGODB_URI || (isDevelopment ? 'mongodb://localhost:27017/aegis' : null);
+    // In development, allow fallback to localhost
+    const uri = MONGO_URI || (isDevelopment ? 'mongodb://localhost:27017/aegis' : null);
     
     if (!uri) {
-      throw new Error('No MongoDB URI available');
+      throw new Error('MONGO_URI environment variable is required in production');
     }
 
+    logMongoConfig();
     console.log('Attempting to connect to MongoDB...');
-    console.log(`Using MongoDB URI: ${uri.replace(/\/\/[^@]*@/, '//***:***@')}`);
     
     await mongoose.connect(uri, connectOptions);
     console.log('✅ Connected to MongoDB!');
 
     mongoose.connection.on('disconnected', () => {
       console.log('MongoDB disconnected. Attempting to reconnect...');
-      setTimeout(() => connectMongo(), 5000);
+      setTimeout(() => connectMongo(), RETRY_INTERVAL);
     });
 
     mongoose.connection.on('error', (err) => {
       console.error('MongoDB connection error:', err);
-      if (retryCount < 5) {
-        console.log(`Retrying connection... Attempt ${retryCount + 1} of 5`);
-        setTimeout(() => connectMongo(retryCount + 1), 5000);
+      if (retryCount < MAX_RETRIES) {
+        console.log(`Retrying connection... Attempt ${retryCount + 1} of ${MAX_RETRIES}`);
+        setTimeout(() => connectMongo(retryCount + 1), RETRY_INTERVAL);
       } else {
         console.error('Failed to connect to MongoDB after maximum retries');
         // Don't exit, let the health check handle the error
@@ -52,10 +56,24 @@ export async function connectMongo(retryCount = 0): Promise<void> {
     });
 
   } catch (error) {
-    console.error('Failed to connect to MongoDB:', error);
-    if (retryCount < 5) {
-      console.log(`Retrying connection... Attempt ${retryCount + 1} of 5`);
-      setTimeout(() => connectMongo(retryCount + 1), 5000);
+    if (error instanceof Error) {
+      if (error.message.includes('MONGO_URI environment variable is required')) {
+        console.error('❌', error.message);
+        if (!isDevelopment) {
+          console.error('This error indicates that the MONGO_URI environment variable is not set.');
+          console.error('Please ensure you have set this variable in your Render dashboard.');
+          console.error('Go to: Dashboard > Your Service > Environment Variables');
+        }
+      } else {
+        console.error('Failed to connect to MongoDB:', error);
+      }
+    } else {
+      console.error('Unknown error during MongoDB connection:', error);
+    }
+
+    if (retryCount < MAX_RETRIES) {
+      console.log(`Retrying connection... Attempt ${retryCount + 1} of ${MAX_RETRIES}`);
+      setTimeout(() => connectMongo(retryCount + 1), RETRY_INTERVAL);
     } else {
       console.error('Failed to connect to MongoDB after maximum retries');
       // Don't exit, let the health check handle the error
@@ -65,3 +83,6 @@ export async function connectMongo(retryCount = 0): Promise<void> {
 
 // Export connection status check
 export const isConnected = () => mongoose.connection.readyState === 1;
+
+// Export connection instance for direct access if needed
+export const connection = mongoose.connection;
