@@ -318,16 +318,42 @@ export const authAPI = {
       });
       throw error;
     }
+  },
+
+  getProfile: async () => {
+    try {
+      const response = await instance.get('/auth/profile');
+      return response;
+    } catch (error) {
+      console.error('Get profile error:', {
+        error,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
   }
 };
 
 export const examAPI = {
   getPracticeQuestions: async () => {
     try {
-      const response = await instance.get('/exam/practice-questions');
+      const response = await instance.get('/exam/practice');
       return response;
     } catch (error) {
       console.error('Failed to get practice questions:', {
+        error,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  },
+
+  getHistory: async () => {
+    try {
+      const response = await instance.get('/exam/history');
+      return response;
+    } catch (error) {
+      console.error('Failed to get test history:', {
         error,
         timestamp: new Date().toISOString()
       });

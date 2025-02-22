@@ -47,16 +47,26 @@ const UserDashboard = () => {
   const fetchUserData = async () => {
     try {
       setLoading(true);
-      const [history, analytics] = await Promise.all([
-        examAPI.getHistory(),
-        examAPI.getAnalytics()
-      ]);
-      
-      setTestHistory(history);
-      setAnalytics(analytics);
+      setError(null);
+
+      // Get test history
+      const history = await examAPI.getHistory();
+      setTestHistory(history || []);
+
+      // Calculate analytics from history
+      if (history && history.length > 0) {
+        const analytics = {
+          testsCompleted: history.length,
+          averageScore: history.reduce((sum, test) => sum + test.score, 0) / history.length,
+          highestScore: Math.max(...history.map(test => test.score))
+        };
+        setAnalytics(analytics);
+      }
     } catch (err) {
-      setError('Failed to load user data');
-      console.error(err);
+      console.error('Failed to load user data:', err);
+      setError('Failed to load user data. Please try again.');
+      setTestHistory([]);
+      setAnalytics(null);
     } finally {
       setLoading(false);
     }

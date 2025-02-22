@@ -36,13 +36,6 @@ const PaymentPage = () => {
       return;
     }
 
-    // Redirect to plans if no plan selected
-    const location = window.location;
-    if (!location.state?.selectedPlan) {
-      navigate('/plans');
-      return;
-    }
-
     // Check if Stripe is configured
     if (!config.stripe.publicKey || !config.stripe.prices.officialTest || 
         !config.stripe.prices.basicSubscription || !config.stripe.prices.premiumSubscription) {
@@ -56,7 +49,15 @@ const PaymentPage = () => {
     }
   }, [user, navigate]);
 
-  const handlePurchase = async (productType) => {
+  // Handle plan selection from URL state
+  useEffect(() => {
+    const location = window.location;
+    if (location.state?.selectedPlan) {
+      handlePurchase(location.state.selectedPlan);
+    }
+  }, []);
+
+  const handlePurchase = async (productType, fromButton = false) => {
     try {
       setLoading(true);
       setError(null);
@@ -68,6 +69,12 @@ const PaymentPage = () => {
       const stripe = await loadStripe(config.stripe.publicKey);
       if (!stripe) {
         throw new Error('Failed to initialize payment system');
+      }
+
+      // If called from button click and no plan selected, redirect to plans
+      if (fromButton && !window.location.state?.selectedPlan) {
+        navigate('/plans');
+        return;
       }
 
       // Get the correct price ID based on product type
@@ -93,6 +100,7 @@ const PaymentPage = () => {
       console.log('Creating checkout session:', {
         productType,
         priceId,
+        fromButton,
         timestamp: new Date().toISOString()
       });
 
@@ -206,7 +214,7 @@ const PaymentPage = () => {
                   color="primary"
                   fullWidth
                   size="large"
-                  onClick={() => handlePurchase('officialTest')}
+                  onClick={() => handlePurchase('officialTest', true)}
                   disabled={loading || stripeError}
                   sx={{ mt: 2 }}
                 >
@@ -268,7 +276,7 @@ const PaymentPage = () => {
                   color="primary"
                   fullWidth
                   size="large"
-                  onClick={() => handlePurchase('basicSubscription')}
+                  onClick={() => handlePurchase('basicSubscription', true)}
                   disabled={loading || stripeError}
                   sx={{ mt: 2 }}
                 >
@@ -357,7 +365,7 @@ const PaymentPage = () => {
                   color="primary"
                   fullWidth
                   size="large"
-                  onClick={() => handlePurchase('premiumSubscription')}
+                  onClick={() => handlePurchase('premiumSubscription', true)}
                   disabled={loading || stripeError}
                   sx={{ mt: 2 }}
                 >
