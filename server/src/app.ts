@@ -2,8 +2,16 @@ import express, { Request, Response, NextFunction } from "express";
 import { connectMongo, isConnected } from "./database";
 import cors, { CorsOptions } from "cors";
 import dotenv from "dotenv";
+import { stripeConfig } from "./config/stripe";
 
 // Import your route modules
+// Log Stripe configuration
+console.log('Stripe Configuration:', {
+  secretKeyConfigured: !!stripeConfig.secretKey,
+  priceIds: stripeConfig.prices,
+  timestamp: new Date().toISOString()
+});
+
 import authRoutes from "./routes/auth";
 import examRoutes from "./routes/exam";
 import paymentRoutes from "./routes/payment";

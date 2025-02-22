@@ -3,6 +3,7 @@ import { auth } from '../middleware/authMiddleware';
 import { User, IUser } from '../models/User';
 import Stripe from 'stripe';
 import { Types } from 'mongoose';
+import { stripeConfig } from '../config/stripe';
 
 interface UserDocument extends IUser {
   _id: Types.ObjectId;
@@ -10,13 +11,17 @@ interface UserDocument extends IUser {
 
 const router = express.Router();
 
-const stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, {
+const stripe = stripeConfig.secretKey
+  ? new Stripe(stripeConfig.secretKey, {
       apiVersion: '2025-01-27.acacia' as Stripe.LatestApiVersion
     })
   : null;
 
-console.log(stripe ? '✓ Stripe configured' : '⚠️  Stripe not configured - payment features will be disabled');
+console.log('Stripe Router Configuration:', {
+  secretKeyConfigured: !!stripeConfig.secretKey,
+  priceIds: stripeConfig.prices,
+  timestamp: new Date().toISOString()
+});
 
 // Create checkout session
 router.post('/create-checkout-session', auth, async (req, res) => {
@@ -31,28 +36,32 @@ router.post('/create-checkout-session', auth, async (req, res) => {
       return;
     }
 
+    const { priceId } = req.body;
+    if (!priceId) {
+      res.status(400).json({ error: 'Price ID is required' });
+      return;
+    }
+
+    // Validate price ID
+    const validPriceIds = Object.values(stripeConfig.prices);
+    if (!validPriceIds.includes(priceId)) {
+      res.status(400).json({ error: 'Invalid price ID' });
+      return;
+    }
+
+    // Determine mode based on price ID
+    const mode = priceId === stripeConfig.prices.officialTest ? 'payment' : 'subscription';
+
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: 'Premium Subscription',
-              description: 'Access to all premium features',
-            },
-            unit_amount: 4999, // $49.99
-            recurring: {
-              interval: 'month'
-            }
-          },
-          quantity: 1,
-        },
-      ],
-      mode: 'subscription',
+      line_items: [{
+        price: priceId,
+        quantity: 1,
+      }],
+      mode,
       success_url: `${process.env.CLIENT_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.CLIENT_URL}/payment`,
+      cancel_url: `${process.env.CLIENT_URL}/payment/cancel`,
       customer_email: user.email,
       metadata: {
         userId: user._id.toString()
@@ -160,14 +169,14 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     }
 
     const sig = req.headers['stripe-signature'];
-    if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
+    if (!sig || !stripeConfig.webhookSecret) {
       throw new Error('Stripe webhook secret not configured');
     }
 
     const event = stripe.webhooks.constructEvent(
       req.body,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET
+      stripeConfig.webhookSecret
     );
 
     // Handle the event

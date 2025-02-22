@@ -1,20 +1,11 @@
 import { Request, Response } from 'express';
 import { User } from '../models/User';
 import Stripe from 'stripe';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-// Load environment variables
-dotenv.config();
+import { stripeConfig } from '../config/stripe';
 
 // Initialize Stripe with configuration
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
-const STRIPE_PRICE_IDS = {
-  officialTest: process.env.STRIPE_OFFICIAL_TEST_PRICE_ID,
-  basicSubscription: process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID,
-  premiumSubscription: process.env.STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID
-};
+const STRIPE_SECRET_KEY = stripeConfig.secretKey;
+const STRIPE_PRICE_IDS = stripeConfig.prices;
 
 // Log Stripe configuration
 console.log('Stripe Configuration:', {
@@ -93,37 +84,30 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       return;
     }
 
-    // Debug log environment variables
-    console.log('Environment price IDs:', {
-      officialTest: process.env.STRIPE_OFFICIAL_TEST_PRICE_ID,
-      basic: process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID,
-      premium: process.env.STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID,
+    // Debug log price IDs
+    console.log('Price IDs:', {
+      officialTest: STRIPE_PRICE_IDS.officialTest,
+      basic: STRIPE_PRICE_IDS.basicSubscription,
+      premium: STRIPE_PRICE_IDS.premiumSubscription,
       timestamp: new Date().toISOString()
     });
 
     // Map price IDs to their modes and validate
     const priceConfig = {
-      [process.env.STRIPE_OFFICIAL_TEST_PRICE_ID as string]: {
+      [STRIPE_PRICE_IDS.officialTest]: {
         mode: 'payment' as const,
         type: 'officialTest'
       },
-      [process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID as string]: {
+      [STRIPE_PRICE_IDS.basicSubscription]: {
         mode: 'subscription' as const,
         type: 'basicSubscription'
       },
-      [process.env.STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID as string]: {
+      [STRIPE_PRICE_IDS.premiumSubscription]: {
         mode: 'subscription' as const,
         type: 'premiumSubscription'
       }
     };
 
-    // Debug log environment variables
-    console.log('Environment price IDs:', {
-      officialTest: process.env.STRIPE_OFFICIAL_TEST_PRICE_ID,
-      basic: process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID,
-      premium: process.env.STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID,
-      timestamp: new Date().toISOString()
-    });
 
     // Debug log price validation
     console.log('Price validation:', {
@@ -136,9 +120,9 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
     if (!(priceId in priceConfig)) {
       console.error('Invalid price ID:', {
         providedPriceId: priceId,
-        officialTest: process.env.STRIPE_OFFICIAL_TEST_PRICE_ID,
-        basic: process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID,
-        premium: process.env.STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID,
+        officialTest: STRIPE_PRICE_IDS.officialTest,
+        basic: STRIPE_PRICE_IDS.basicSubscription,
+        premium: STRIPE_PRICE_IDS.premiumSubscription,
         timestamp: new Date().toISOString()
       });
       res.status(400).json({ error: 'Invalid price ID' });
@@ -171,7 +155,7 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
     console.log('Creating checkout session:', {
       userId: userId.toString(),
       priceId,
-      isOfficialTest: priceId === process.env.STRIPE_OFFICIAL_TEST_PRICE_ID
+      isOfficialTest: priceId === STRIPE_PRICE_IDS.officialTest
     });
 
     const session = await (stripe as Stripe).checkout.sessions.create({
@@ -215,7 +199,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
   try {
     if (!checkStripeAvailable(res)) return;
     const sig = req.headers['stripe-signature'];
-    if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
+    if (!sig || !stripeConfig.webhookSecret) {
       res.status(400).json({ error: 'Missing signature or webhook secret' });
       return;
     }
@@ -223,7 +207,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
     const event = (stripe as Stripe).webhooks.constructEvent(
       req.body,
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET
+      stripeConfig.webhookSecret
     );
 
     console.log('Processing webhook event:', {
@@ -253,7 +237,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
             'subscription.active': true,
             'subscription.stripeCustomerId': session.customer,
             'subscription.stripeSubscriptionId': session.subscription,
-            'subscription.planId': priceId === process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID ? 'basic' : 'premium'
+            'subscription.planId': priceId === STRIPE_PRICE_IDS.basicSubscription ? 'basic' : 'premium'
           });
           console.log('Subscription activated:', { userId, subscriptionId: session.subscription });
         } else if (session.mode === 'payment') {
