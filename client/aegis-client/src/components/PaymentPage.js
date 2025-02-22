@@ -152,11 +152,21 @@ function PaymentPage() {
       // Create a checkout session with coupon if applied
       const response = await paymentAPI.createCheckoutSession(planId, appliedCoupon?.code);
 
+      if (!response || !response.url) {
+        throw new Error('Invalid response from payment server');
+      }
+
       // Redirect to Stripe Checkout URL
-      window.location.href = response.data.url;
+      window.location.href = response.url;
     } catch (err) {
-      setError(err.message || 'Failed to process payment');
+      const errorMessage = err.response?.data?.error || err.message || 'Failed to process payment';
+      setError(errorMessage);
       console.error('Payment error:', err);
+      console.error('Error details:', {
+        response: err.response?.data,
+        status: err.response?.status,
+        message: err.message
+      });
     } finally {
       setLoading(false);
     }
