@@ -1,45 +1,41 @@
-// server/src/database.ts
-import mongoose from "mongoose";
-import dotenv from "dotenv";
+import mongoose from 'mongoose';
 
-dotenv.config();
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/aegis';
+const MAX_RETRIES = 5;
+const RETRY_INTERVAL = 5000; // 5 seconds
 
-const uri = process.env.MONGO_URI || "";
-
-const options: mongoose.ConnectOptions = {
-  serverSelectionTimeoutMS: 30000,
-  socketTimeoutMS: 35000,
-  connectTimeoutMS: 35000,
-  heartbeatFrequencyMS: 10000, // Reduced frequency for less overhead
-  maxPoolSize: 10, // Add connection pooling
-  minPoolSize: 2,
-  maxIdleTimeMS: 60000, // Keep idle connections for 1 minute
-  retryWrites: true
-};
-
-export async function connectMongo(): Promise<void> {
+export async function connectMongo(retryCount = 0): Promise<void> {
   try {
-    mongoose.set('strictQuery', false);
-    await mongoose.connect(uri, options);
-    console.log("✅ Connected to MongoDB!");
-
-    // Handle connection errors after initial connection
-    mongoose.connection.on('error', (error) => {
-      console.error('MongoDB connection error:', error);
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
     });
+    console.log('✅ Connected to MongoDB!');
 
     mongoose.connection.on('disconnected', () => {
       console.log('MongoDB disconnected. Attempting to reconnect...');
+      setTimeout(() => connectMongo(), RETRY_INTERVAL);
     });
 
-    mongoose.connection.on('reconnected', () => {
-      console.log('MongoDB reconnected successfully!');
+    mongoose.connection.on('error', (err) => {
+      console.error('MongoDB connection error:', err);
+      if (retryCount < MAX_RETRIES) {
+        console.log(`Retrying connection... Attempt ${retryCount + 1} of ${MAX_RETRIES}`);
+        setTimeout(() => connectMongo(retryCount + 1), RETRY_INTERVAL);
+      } else {
+        console.error('Failed to connect to MongoDB after maximum retries');
+        process.exit(1);
+      }
     });
 
-  } catch (err) {
-    console.error("Failed to connect to MongoDB:", err);
-    throw err;
+  } catch (error) {
+    console.error('Failed to connect to MongoDB:', error);
+    if (retryCount < MAX_RETRIES) {
+      console.log(`Retrying connection... Attempt ${retryCount + 1} of ${MAX_RETRIES}`);
+      setTimeout(() => connectMongo(retryCount + 1), RETRY_INTERVAL);
+    } else {
+      console.error('Failed to connect to MongoDB after maximum retries');
+      process.exit(1);
+    }
   }
 }
-
-export const connection = mongoose.connection;

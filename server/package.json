@@ -5,7 +5,7 @@
         "node": "18.x"
     },
     "description": "Aegis backend server",
-    "main": "build/app.js",
+    "main": "build/src/app.js",
     "type": "commonjs",
     "dependencies": {
         "bcrypt": "^5.1.0",
@@ -38,9 +38,10 @@
         "ts-node": "^10.9.1"
     },
     "scripts": {
-        "start": "node build/app.js",
+        "start": "node build/src/app.js",
         "dev": "nodemon src/app.ts",
-        "build": "rm -rf build && tsc && cp -r src/data build/src/",
-        "test": "jest"
+        "build": "rm -rf build && tsc && cp -r src/data build/src/ && cp package*.json start.sh build/ && chmod +x build/start.sh",
+        "test": "jest",
+        "postinstall": "npm run build"
     }
 }

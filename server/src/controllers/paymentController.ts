@@ -5,16 +5,27 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is not configured');
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+console.warn(STRIPE_SECRET_KEY ? '✓ Stripe configured' : '⚠️  Stripe not configured - payment features will be disabled');
+
+let stripe: Stripe | null = null;
+if (STRIPE_SECRET_KEY) {
+  stripe = new Stripe(STRIPE_SECRET_KEY, {
+    apiVersion: '2025-01-27.acacia'
+  });
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2025-01-27.acacia'
-});
+const checkStripeAvailable = (res: Response): boolean => {
+  if (!stripe) {
+    res.status(503).json({ error: 'Payment service not available' });
+    return false;
+  }
+  return true;
+};
 
 export const getSubscriptionStatus = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!checkStripeAvailable(res)) return;
     const userId = req.user?._id;
     if (!userId) {
       res.status(401).json({ error: 'Not authenticated' });
@@ -28,7 +39,7 @@ export const getSubscriptionStatus = async (req: Request, res: Response): Promis
     }
 
     if (user.subscription?.stripeSubscriptionId) {
-      const subscription = await stripe.subscriptions.retrieve(
+      const subscription = await (stripe as Stripe).subscriptions.retrieve(
         user.subscription.stripeSubscriptionId
       );
 
@@ -52,6 +63,7 @@ export const getSubscriptionStatus = async (req: Request, res: Response): Promis
 
 export const createCheckoutSession = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!checkStripeAvailable(res)) return;
     const userId = req.user?._id;
     if (!userId) {
       res.status(401).json({ error: 'Not authenticated' });
@@ -64,7 +76,7 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       return;
     }
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await (stripe as Stripe).checkout.sessions.create({
       customer_email: user.email,
       payment_method_types: ['card'],
       line_items: [{
@@ -88,13 +100,14 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
 
 export const handleWebhook = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!checkStripeAvailable(res)) return;
     const sig = req.headers['stripe-signature'];
     if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
       res.status(400).json({ error: 'Missing signature or webhook secret' });
       return;
     }
 
-    const event = stripe.webhooks.constructEvent(
+    const event = (stripe as Stripe).webhooks.constructEvent(
       req.body,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET
@@ -133,6 +146,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
 
 export const cancelSubscription = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!checkStripeAvailable(res)) return;
     const userId = req.user?._id;
     if (!userId) {
       res.status(401).json({ error: 'Not authenticated' });
@@ -145,7 +159,7 @@ export const cancelSubscription = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    await stripe.subscriptions.cancel(user.subscription.stripeSubscriptionId);
+    await (stripe as Stripe).subscriptions.cancel(user.subscription.stripeSubscriptionId);
     await User.findByIdAndUpdate(userId, { 'subscription.active': false });
 
     res.json({ message: 'Subscription cancelled successfully' });
@@ -157,8 +171,9 @@ export const cancelSubscription = async (req: Request, res: Response): Promise<v
 
 export const verifySession = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!checkStripeAvailable(res)) return;
     const { sessionId } = req.params;
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await (stripe as Stripe).checkout.sessions.retrieve(sessionId);
     res.json({ status: session.payment_status });
   } catch (error) {
     console.error('Error verifying session:', error);
@@ -168,8 +183,9 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
 
 export const validateCoupon = async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!checkStripeAvailable(res)) return;
     const { code } = req.params;
-    const coupon = await stripe.coupons.retrieve(code);
+    const coupon = await (stripe as Stripe).coupons.retrieve(code);
     res.json({ valid: true, discount: coupon.percent_off });
   } catch (error) {
     console.error('Error validating coupon:', error);

@@ -6,7 +6,7 @@ services:
     region: ohio
     rootDir: server
     buildCommand: npm ci && npm run build
-    startCommand: node build/app.js
+    startCommand: cd build && ./start.sh
     healthCheckPath: /health
     plan: free
     runtime: node

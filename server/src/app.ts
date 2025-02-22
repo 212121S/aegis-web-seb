@@ -138,12 +138,41 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction): void => {
   });
 });
 
-// Start server
-const port = process.env.PORT || '3000';
-const host = '0.0.0.0';
+// Start server with retry logic
+const startServer = async (retryCount = 0, maxRetries = 3) => {
+  const port = parseInt(process.env.PORT || '3000', 10);
+  const host = '0.0.0.0';
 
-const server = app.listen(parseInt(port), host, () => {
-  console.log(`Server running at http://${host}:${port}`);
-});
+  try {
+    const server = app.listen(port, host, () => {
+      console.log(`Server running at http://${host}:${port}`);
+      const address = server.address();
+      if (address && typeof address !== 'string') {
+        console.log('Server address details:', {
+          address: address.address,
+          family: address.family,
+          port: address.port
+        });
+      }
+      console.log('Process ID:', process.pid);
+    });
+
+    server.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE' && retryCount < maxRetries) {
+        console.log(`Port ${port} is in use, trying port ${port + 1}...`);
+        process.env.PORT = (port + 1).toString();
+        startServer(retryCount + 1, maxRetries);
+      } else {
+        console.error('Failed to start server:', error);
+        process.exit(1);
+      }
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 export default app;

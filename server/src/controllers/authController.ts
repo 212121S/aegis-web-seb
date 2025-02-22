@@ -4,12 +4,11 @@ import { Types } from 'mongoose';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 
-if (!process.env.JWT_SECRET) {
-  throw new Error('JWT_SECRET is not configured');
-}
+const JWT_SECRET = process.env.JWT_SECRET || 'default-jwt-secret-key-for-development';
+console.warn(process.env.JWT_SECRET ? '✓ JWT_SECRET configured' : '⚠️  Using default JWT_SECRET - not secure for production');
 
 const generateToken = (userId: Types.ObjectId | string): string => {
-  return jwt.sign({ _id: userId.toString() }, process.env.JWT_SECRET!, { expiresIn: '24h' });
+  return jwt.sign({ _id: userId.toString() }, JWT_SECRET, { expiresIn: '24h' });
 };
 
 export const register = async (req: Request, res: Response): Promise<void> => {
@@ -146,7 +145,7 @@ export const verifyToken = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { _id: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as { _id: string };
     const user = await User.findById(decoded._id);
     if (!user) {
       res.status(404).json({ error: 'User not found' });
