@@ -60,6 +60,10 @@ export interface ITestResult extends Document {
     correct: number;
     total: number;
   }[];
+  maxDifficulty: number; // Highest difficulty level reached
+  questionsAttempted: number; // Total questions attempted
+  incorrectAnswers: number; // Total incorrect answers
+  totalTimeMinutes: number; // Total time taken in minutes
   averageDifficulty: number;
   timePerQuestion: number;
   type: 'official' | 'practice';
@@ -136,6 +140,10 @@ const TestResultSchema = new Schema<ITestResult>({
     correct: { type: Number, required: true },
     total: { type: Number, required: true }
   }],
+  maxDifficulty: { type: Number, required: true },
+  questionsAttempted: { type: Number, required: true },
+  incorrectAnswers: { type: Number, required: true },
+  totalTimeMinutes: { type: Number, required: true },
   averageDifficulty: { type: Number, required: true },
   timePerQuestion: { type: Number, required: true },
   type: { type: String, required: true, enum: ['official', 'practice'] },

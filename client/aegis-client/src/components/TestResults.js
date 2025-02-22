@@ -127,7 +127,7 @@ const TestResults = () => {
                 <ListItem>
                   <ListItemText
                     primary="Total Time"
-                    secondary={`${results.totalTime} minutes`}
+                    secondary={`${results.totalTimeMinutes || 0} minutes`}
                   />
                 </ListItem>
               </List>
@@ -145,13 +145,13 @@ const TestResults = () => {
                 <ListItem>
                   <ListItemText
                     primary="Average Difficulty"
-                    secondary={results.averageDifficulty.toFixed(1)}
+                    secondary={(results.averageDifficulty || 0).toFixed(1)}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
                     primary="Highest Difficulty Reached"
-                    secondary={results.maxDifficulty}
+                    secondary={results.maxDifficulty || 'N/A'}
                   />
                 </ListItem>
               </List>
@@ -169,13 +169,13 @@ const TestResults = () => {
                 <ListItem>
                   <ListItemText
                     primary="Questions Attempted"
-                    secondary={results.questionsAttempted}
+                    secondary={results.questionsAttempted || 0}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
                     primary="Incorrect Answers"
-                    secondary={results.incorrectAnswers}
+                    secondary={results.incorrectAnswers || 0}
                   />
                 </ListItem>
               </List>
@@ -221,10 +221,10 @@ const TestResults = () => {
                 Percentile Ranking
               </Typography>
               <Typography variant="h3" color="primary">
-                {results.percentile.toFixed(1)}
+                {(results.percentile || 0).toFixed(1)}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                You performed better than {results.percentile.toFixed(1)}% of test takers
+                You performed better than {(results.percentile || 0).toFixed(1)}% of test takers
               </Typography>
             </Paper>
           </Grid>

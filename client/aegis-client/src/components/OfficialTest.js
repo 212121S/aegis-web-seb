@@ -32,10 +32,68 @@ const OfficialTest = () => {
   const [score, setScore] = useState(0);
   const [incorrectAnswers, setIncorrectAnswers] = useState(0);
   const [startTime, setStartTime] = useState(null);
+  const [timeLeft, setTimeLeft] = useState(30);
+  const [timer, setTimer] = useState(null);
 
   useEffect(() => {
     initializeTest();
+    return () => {
+      if (timer) clearInterval(timer);
+    };
   }, []);
+
+  // Timer effect
+  useEffect(() => {
+    if (question) {
+      // Clear any existing timer
+      if (timer) clearInterval(timer);
+      
+      // Start new timer
+      setTimeLeft(30);
+      const newTimer = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(newTimer);
+            handleTimeout();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      setTimer(newTimer);
+
+      // Cleanup on unmount or new question
+      return () => clearInterval(newTimer);
+    }
+  }, [question]);
+
+  const handleTimeout = async () => {
+    if (!question) return;
+    
+    try {
+      setLoading(true);
+      const timeSpent = 30; // Full time used
+      
+      const response = await examAPI.submitAnswer(session, {
+        questionId: question._id,
+        answer: '', // Empty answer counts as incorrect
+        timeSpent
+      });
+
+      setScore(response.currentScore);
+      setIncorrectAnswers(response.incorrectAnswers);
+      setStartTime(Date.now());
+      
+      if (response.incorrectAnswers >= 5) {
+        await finalizeTest();
+      } else {
+        await fetchNextQuestion();
+      }
+    } catch (err) {
+      setError('Failed to submit answer');
+      console.error(err);
+    }
+  };
 
   const initializeTest = async () => {
     try {
@@ -127,7 +185,23 @@ const OfficialTest = () => {
         </Alert>
       )}
 
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <Paper sx={{ p: 3, mb: 3, position: 'relative' }}>
+        <Box sx={{ 
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          width: 40,
+          height: 40,
+          borderRadius: '50%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: timeLeft <= 5 ? 'error.main' : 'primary.main',
+          color: 'white',
+          fontWeight: 'bold'
+        }}>
+          {timeLeft}
+        </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
           <Typography variant="h6">
             Score: {score.toFixed(2)}%

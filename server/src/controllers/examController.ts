@@ -16,18 +16,43 @@ function calculateNextDifficulty(currentDifficulty: number, isCorrect: boolean):
   return Math.min(Math.max(currentDifficulty + difficultyChange, 1), 10);
 }
 
+// Track consecutive correct answers at max difficulty
+let consecutiveMaxDifficultyCorrect = 0;
+const MAX_DIFFICULTY = 10;
+const CONSECUTIVE_REQUIRED = 10;
+
 // Calculate final score based on difficulty and correctness
 function calculateScore(questions: any[]): number {
+  // Count consecutive correct answers at max difficulty
+  let currentStreak = 0;
+  for (let i = questions.length - 1; i >= 0; i--) {
+    const q = questions[i];
+    if (q.difficulty === MAX_DIFFICULTY && q.userAnswer === q.questionId.correctAnswer) {
+      currentStreak++;
+    } else {
+      break;
+    }
+  }
+  consecutiveMaxDifficultyCorrect = Math.max(consecutiveMaxDifficultyCorrect, currentStreak);
+
+  // If we have 10 consecutive correct at max difficulty, return 100
+  if (consecutiveMaxDifficultyCorrect >= CONSECUTIVE_REQUIRED) {
+    return 100;
+  }
+
+  // Otherwise calculate based on difficulty and correctness
   const totalPoints = questions.reduce((sum, q) => {
+    const isCorrect = q.userAnswer === q.questionId.correctAnswer;
     const difficultyMultiplier = Math.pow(1.2, q.difficulty - 1);
-    return sum + (q.userAnswer ? difficultyMultiplier : 0);
+    return sum + (isCorrect ? difficultyMultiplier : 0);
   }, 0);
   
   const maxPossiblePoints = questions.reduce((sum, q) => {
     return sum + Math.pow(1.2, q.difficulty - 1);
   }, 0);
 
-  return (totalPoints / maxPossiblePoints) * 100;
+  // Cap score at 90% unless they achieve 10 consecutive max difficulty correct
+  return Math.min((totalPoints / maxPossiblePoints) * 100, 90);
 }
 
 export async function initializeTest(req: Request, res: Response) {
@@ -530,6 +555,9 @@ export async function finalizeTest(req: Request, res: Response) {
       return acc;
     }, {});
 
+    // Calculate statistics
+    const maxDifficulty = Math.max(...session.questions.map(q => q.difficulty));
+    const totalTimeMinutes = Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000);
     const avgDifficulty = session.questions.reduce((sum, q) => sum + q.difficulty, 0) / session.questions.length;
     const avgTime = session.questions.reduce((sum, q) => sum + q.timeSpent, 0) / session.questions.length;
 
@@ -543,6 +571,10 @@ export async function finalizeTest(req: Request, res: Response) {
         correct: stats.correct,
         total: stats.total
       })),
+      maxDifficulty,
+      questionsAttempted: session.questions.length,
+      incorrectAnswers: session.incorrectAnswers,
+      totalTimeMinutes,
       averageDifficulty: avgDifficulty,
       timePerQuestion: avgTime,
       type: session.type,
