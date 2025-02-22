@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   Box,
@@ -14,13 +14,22 @@ import {
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { login, error: authError } = useAuth();
+  const location = useLocation();
+  const { login, error: authError, user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      console.log('User already logged in, redirecting to dashboard');
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -36,10 +45,17 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
+      console.log('Attempting login with:', { email: formData.email });
       const success = await login(formData);
+      console.log('Login response:', { success });
+
       if (success) {
-        navigate('/dashboard');
+        console.log('Login successful, navigating to dashboard');
+        // Get the redirect path from location state or default to dashboard
+        const from = location.state?.from?.pathname || '/dashboard';
+        navigate(from, { replace: true });
       } else {
+        console.error('Login failed:', authError);
         setError(authError || 'Failed to login. Please check your credentials.');
       }
     } catch (err) {
@@ -49,6 +65,20 @@ const LoginPage = () => {
       setLoading(false);
     }
   };
+
+  // If already logged in, show loading
+  if (user) {
+    return (
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        minHeight="100vh"
+      >
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Container component="main" maxWidth="xs">
@@ -93,6 +123,7 @@ const LoginPage = () => {
               value={formData.email}
               onChange={handleChange}
               disabled={loading}
+              error={!!error}
             />
             <TextField
               margin="normal"
@@ -106,13 +137,14 @@ const LoginPage = () => {
               value={formData.password}
               onChange={handleChange}
               disabled={loading}
+              error={!!error}
             />
             <Button
               type="submit"
               fullWidth
               variant="contained"
               sx={{ mt: 3, mb: 2 }}
-              disabled={loading}
+              disabled={loading || !formData.email || !formData.password}
             >
               {loading ? <CircularProgress size={24} /> : 'Sign In'}
             </Button>

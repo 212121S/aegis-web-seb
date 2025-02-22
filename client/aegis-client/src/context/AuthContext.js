@@ -20,11 +20,17 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
+      console.log('Verifying token...');
       const response = await authAPI.verifyToken();
+      console.log('Token verification response:', response.data);
+
       if (response.data.valid) {
+        console.log('Token is valid, fetching profile...');
         const profileResponse = await authAPI.getProfile();
+        console.log('Profile response:', profileResponse.data);
         setUser(profileResponse.data);
       } else {
+        console.log('Token is invalid, clearing auth state...');
         localStorage.removeItem('token');
         setUser(null);
       }
@@ -40,44 +46,58 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       setError(null);
+      console.log('Attempting login...');
       const response = await authAPI.login(credentials);
+      console.log('Login response:', response.data);
+      
       const { token, user: userData } = response.data;
       
       if (!token) {
+        console.error('No token received from server');
         throw new Error('No token received from server');
       }
 
+      console.log('Setting auth state...');
       localStorage.setItem('token', token);
       setUser(userData);
       return true;
     } catch (error) {
       console.error('Login error:', error);
-      setError(error.response?.data?.error || 'Failed to login');
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to login';
+      setError(errorMessage);
       return false;
     }
   };
 
   const logout = () => {
+    console.log('Logging out...');
     localStorage.removeItem('token');
     setUser(null);
+    setError(null);
   };
 
   const register = async (userData) => {
     try {
       setError(null);
+      console.log('Attempting registration...');
       const response = await authAPI.register(userData);
+      console.log('Registration response:', response.data);
+
       const { token, user: newUser } = response.data;
 
       if (!token) {
+        console.error('No token received from server');
         throw new Error('No token received from server');
       }
 
+      console.log('Setting auth state...');
       localStorage.setItem('token', token);
       setUser(newUser);
       return true;
     } catch (error) {
       console.error('Registration error:', error);
-      setError(error.response?.data?.error || 'Failed to register');
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to register';
+      setError(errorMessage);
       return false;
     }
   };
@@ -85,12 +105,15 @@ export const AuthProvider = ({ children }) => {
   const updateProfile = async (data) => {
     try {
       setError(null);
+      console.log('Updating profile...');
       const response = await authAPI.updateProfile(data);
+      console.log('Update profile response:', response.data);
       setUser(response.data);
       return true;
     } catch (error) {
       console.error('Update profile error:', error);
-      setError(error.response?.data?.error || 'Failed to update profile');
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to update profile';
+      setError(errorMessage);
       return false;
     }
   };

@@ -1,9 +1,15 @@
 const isDevelopment = process.env.NODE_ENV === 'development';
 
+const getApiUrl = () => {
+  if (isDevelopment) {
+    // In development, use the port where the server is running
+    return process.env.REACT_APP_API_URL || 'http://localhost:10001';
+  }
+  return process.env.REACT_APP_API_URL || 'https://aegis-api.onrender.com';
+};
+
 const config = {
-  apiUrl: isDevelopment 
-    ? 'http://localhost:10000'
-    : process.env.REACT_APP_API_URL || 'https://aegis-api.onrender.com',
+  apiUrl: getApiUrl(),
   stripe: {
     publicKey: process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY || process.env.REACT_APP_STRIPE_PUBLIC_KEY
   },

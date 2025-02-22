@@ -1,111 +1,112 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import { auth } from '../middleware/authMiddleware';
 import { VerificationService } from '../services/VerificationService';
 import { User } from '../models/User';
 
 const router = express.Router();
 
-router.post('/email/send', auth, async (req: Request, res: Response): Promise<void> => {
+// Send email verification
+router.post('/email/send', auth, async (req, res) => {
   try {
-    if (!req.user?._id) {
+    const userId = req.user?._id.toString();
+    if (!userId) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
 
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      res.status(404).json({ error: 'User not found' });
-      return;
-    }
-
-    await VerificationService.sendEmailVerification(req.user._id.toString(), user.email);
-    res.json({ message: 'Verification email sent' });
+    await VerificationService.sendEmailVerification(userId);
+    res.json({ message: 'Email verification sent' });
   } catch (error) {
-    console.error('Error sending verification email:', error);
-    res.status(500).json({ error: 'Failed to send verification email' });
+    console.error('Send email verification error:', error);
+    res.status(500).json({ error: 'Failed to send email verification' });
   }
 });
 
-router.post('/email/verify/:token', auth, async (req: Request, res: Response): Promise<void> => {
+// Verify email
+router.post('/email/verify', async (req, res) => {
   try {
-    const { token } = req.params;
-    await VerificationService.verifyEmail(token);
-    res.json({ message: 'Email verified successfully' });
+    const { userId, token } = req.body;
+    if (!userId || !token) {
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
+    }
+
+    const verified = await VerificationService.verifyEmail(userId, token);
+    if (verified) {
+      res.json({ message: 'Email verified successfully' });
+    } else {
+      res.status(400).json({ error: 'Invalid verification token' });
+    }
   } catch (error) {
-    console.error('Error verifying email:', error);
+    console.error('Verify email error:', error);
     res.status(500).json({ error: 'Failed to verify email' });
   }
 });
 
-router.post('/email/resend', auth, async (req: Request, res: Response): Promise<void> => {
+// Send phone verification
+router.post('/phone/send', auth, async (req, res) => {
   try {
-    if (!req.user?._id) {
+    const userId = req.user?._id.toString();
+    if (!userId) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
 
-    await VerificationService.resendEmailVerification(req.user._id.toString());
-    res.json({ message: 'Verification email resent' });
+    const { phone } = req.body;
+    if (!phone) {
+      res.status(400).json({ error: 'Phone number is required' });
+      return;
+    }
+
+    await VerificationService.sendPhoneVerification(userId, phone);
+    res.json({ message: 'Phone verification sent' });
   } catch (error) {
-    console.error('Error resending verification email:', error);
-    res.status(500).json({ error: 'Failed to resend verification email' });
+    console.error('Send phone verification error:', error);
+    res.status(500).json({ error: 'Failed to send phone verification' });
   }
 });
 
-router.post('/phone/send', auth, async (req: Request, res: Response): Promise<void> => {
+// Verify phone
+router.post('/phone/verify', auth, async (req, res) => {
   try {
-    if (!req.user?._id) {
-      res.status(401).json({ error: 'Not authenticated' });
-      return;
-    }
-
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      res.status(404).json({ error: 'User not found' });
-      return;
-    }
-
-    if (!user.phone) {
-      res.status(400).json({ error: 'Phone number not found' });
-      return;
-    }
-
-    await VerificationService.sendPhoneVerification(req.user._id.toString(), user.phone);
-    res.json({ message: 'Verification code sent' });
-  } catch (error) {
-    console.error('Error sending verification code:', error);
-    res.status(500).json({ error: 'Failed to send verification code' });
-  }
-});
-
-router.post('/phone/verify', auth, async (req: Request, res: Response): Promise<void> => {
-  try {
-    if (!req.user?._id) {
+    const userId = req.user?._id.toString();
+    if (!userId) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
 
     const { code } = req.body;
-    await VerificationService.verifyPhone(req.user._id.toString(), code);
-    res.json({ message: 'Phone verified successfully' });
+    if (!code) {
+      res.status(400).json({ error: 'Verification code is required' });
+      return;
+    }
+
+    const verified = await VerificationService.verifyPhone(userId, code);
+    if (verified) {
+      res.json({ message: 'Phone verified successfully' });
+    } else {
+      res.status(400).json({ error: 'Invalid verification code' });
+    }
   } catch (error) {
-    console.error('Error verifying phone:', error);
+    console.error('Verify phone error:', error);
     res.status(500).json({ error: 'Failed to verify phone' });
   }
 });
 
-router.post('/phone/resend', auth, async (req: Request, res: Response): Promise<void> => {
+// Get verification status
+router.get('/status', auth, async (req, res) => {
   try {
-    if (!req.user?._id) {
+    const userId = req.user?._id;
+    if (!userId) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
 
-    await VerificationService.resendPhoneVerification(req.user._id.toString());
-    res.json({ message: 'Verification code resent' });
+    const status = await VerificationService.getVerificationStatus(userId);
+    res.json(status);
   } catch (error) {
-    console.error('Error resending verification code:', error);
-    res.status(500).json({ error: 'Failed to resend verification code' });
+    console.error('Get verification status error:', error);
+    res.status(500).json({ error: 'Failed to get verification status' });
   }
 });
 

@@ -17,6 +17,12 @@ instance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    console.log('Request Config:', {
+      url: config.url,
+      method: config.method,
+      hasToken: !!token,
+      headers: config.headers
+    });
     return config;
   },
   (error) => {
@@ -27,7 +33,14 @@ instance.interceptors.request.use(
 
 // Response interceptor
 instance.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log('Response:', {
+      url: response.config.url,
+      status: response.status,
+      data: response.data
+    });
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
 
@@ -45,13 +58,13 @@ instance.interceptors.response.use(
     }
 
     // Handle unauthorized errors
-    if (error.response.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      // Clear token and redirect to login
+    if (error.response.status === 401) {
+      console.error('Unauthorized error:', {
+        url: originalRequest.url,
+        error: error.response.data
+      });
       localStorage.removeItem('token');
       window.location.href = '/login';
-      
       return Promise.reject({
         message: 'Authentication expired',
         ...error.response
@@ -71,9 +84,17 @@ instance.interceptors.response.use(
       });
     }
 
+    // Log all errors
+    console.error('API Error:', {
+      url: originalRequest.url,
+      method: originalRequest.method,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+
     // Handle other errors
     return Promise.reject({
-      message: error.response?.data?.message || error.message,
+      message: error.response?.data?.error || error.message,
       ...error.response
     });
   }

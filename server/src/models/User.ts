@@ -1,48 +1,35 @@
-import { Document, Schema, model, Types } from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
-export interface ITestHistory {
-  testId: Types.ObjectId;
-  type: 'practice' | 'official';
-  score: number;
-  date: Date;
-  questions: Array<{
-    questionId: string;
-    userAnswer: string;
-    correct: boolean;
-  }>;
-}
-
-export interface IUser {
+export interface IUser extends Document {
   email: string;
   password: string;
   name: string;
-  phone?: string;
   emailVerified: boolean;
   phoneVerified: boolean;
+  phone?: string;
   verificationToken?: string;
-  emailVerificationToken?: string;
-  phoneVerificationCode?: string;
+  phoneVerificationToken?: string;
   subscription: {
     active: boolean;
+    plan?: string;
+    startDate?: Date;
+    endDate?: Date;
     stripeCustomerId?: string;
     stripeSubscriptionId?: string;
-    planId?: string;
-    currentPeriodEnd?: Date;
   };
+  testHistory: Array<{
+    score: number;
+    date: Date;
+  }>;
   testResults?: Array<{
     score: number;
     date: Date;
   }>;
-  testHistory: ITestHistory[];
   highestScore: number;
   averageScore: number;
 }
 
-export interface IUserDocument extends Document, IUser {
-  _id: Types.ObjectId;
-}
-
-const userSchema = new Schema<IUserDocument>({
+const userSchema = new Schema<IUser>({
   email: {
     type: String,
     required: true,
@@ -53,15 +40,11 @@ const userSchema = new Schema<IUserDocument>({
   password: {
     type: String,
     required: true,
-    select: false
+    select: false // Don't include password by default in queries
   },
   name: {
     type: String,
     required: true,
-    trim: true
-  },
-  phone: {
-    type: String,
     trim: true
   },
   emailVerified: {
@@ -72,19 +55,34 @@ const userSchema = new Schema<IUserDocument>({
     type: Boolean,
     default: false
   },
+  phone: {
+    type: String,
+    trim: true,
+    sparse: true
+  },
   verificationToken: String,
-  emailVerificationToken: String,
-  phoneVerificationCode: String,
+  phoneVerificationToken: String,
   subscription: {
     active: {
       type: Boolean,
       default: false
     },
+    plan: String,
+    startDate: Date,
+    endDate: Date,
     stripeCustomerId: String,
-    stripeSubscriptionId: String,
-    planId: String,
-    currentPeriodEnd: Date
+    stripeSubscriptionId: String
   },
+  testHistory: [{
+    score: {
+      type: Number,
+      required: true
+    },
+    date: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   testResults: [{
     score: {
       type: Number,
@@ -95,39 +93,6 @@ const userSchema = new Schema<IUserDocument>({
       default: Date.now
     }
   }],
-  testHistory: [{
-    testId: {
-      type: Schema.Types.ObjectId,
-      required: true
-    },
-    type: {
-      type: String,
-      enum: ['practice', 'official'],
-      required: true
-    },
-    score: {
-      type: Number,
-      required: true
-    },
-    date: {
-      type: Date,
-      default: Date.now
-    },
-    questions: [{
-      questionId: {
-        type: String,
-        required: true
-      },
-      userAnswer: {
-        type: String,
-        required: true
-      },
-      correct: {
-        type: Boolean,
-        required: true
-      }
-    }]
-  }],
   highestScore: {
     type: Number,
     default: 0
@@ -136,6 +101,34 @@ const userSchema = new Schema<IUserDocument>({
     type: Number,
     default: 0
   }
+}, {
+  timestamps: true
 });
 
-export const User = model<IUserDocument>('User', userSchema);
+// Indexes
+userSchema.index({ email: 1 });
+userSchema.index({ phone: 1 });
+userSchema.index({ 'subscription.stripeCustomerId': 1 });
+
+// Methods
+userSchema.methods.toJSON = function() {
+  const obj = this.toObject();
+  delete obj.password;
+  delete obj.verificationToken;
+  delete obj.phoneVerificationToken;
+  return obj;
+};
+
+// Update highest and average scores when test results are added
+userSchema.pre('save', function(next) {
+  if (this.isModified('testResults')) {
+    const scores = this.testResults?.map(result => result.score) || [];
+    if (scores.length > 0) {
+      this.highestScore = Math.max(...scores);
+      this.averageScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+    }
+  }
+  next();
+});
+
+export const User = mongoose.model<IUser>('User', userSchema);

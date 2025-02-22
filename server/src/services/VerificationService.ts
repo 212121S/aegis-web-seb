@@ -1,109 +1,140 @@
-import nodemailer from 'nodemailer';
-import twilio from 'twilio';
 import { User } from '../models/User';
-import crypto from 'crypto';
+import { Types } from 'mongoose';
+import twilio from 'twilio';
+
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+
+let client: twilio.Twilio | null = null;
+
+// Initialize Twilio client only if credentials are valid
+if (accountSid?.startsWith('AC') && authToken) {
+  try {
+    client = twilio(accountSid, authToken);
+    console.log('✓ Twilio client configured');
+  } catch (error) {
+    console.warn('⚠️  Failed to initialize Twilio client:', error);
+    client = null;
+  }
+} else {
+  console.warn('⚠️  Twilio credentials not configured - SMS features will be disabled');
+}
 
 export class VerificationService {
-  private static emailTransporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT || '587'),
-    secure: process.env.EMAIL_SECURE === 'true',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
+  static async sendEmailVerification(userId: string): Promise<void> {
+    try {
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Generate verification token
+      const token = Math.random().toString(36).substring(2, 15);
+      user.verificationToken = token;
+      await user.save();
+
+      // TODO: Implement email sending
+      console.log('Email verification token:', token);
+    } catch (error) {
+      console.error('Send email verification error:', error);
+      throw error;
     }
-  });
-
-  private static twilioClient = process.env.TWILIO_ACCOUNT_SID?.startsWith('AC') && process.env.TWILIO_AUTH_TOKEN
-    ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
-    : null;
-
-  private static generateToken(): string {
-    return crypto.randomBytes(32).toString('hex');
   }
 
-  private static generateVerificationCode(): string {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+  static async verifyEmail(userId: string, token: string): Promise<boolean> {
+    try {
+      const user = await User.findById(userId);
+      if (!user || user.verificationToken !== token) {
+        return false;
+      }
+
+      user.emailVerified = true;
+      user.verificationToken = undefined;
+      await user.save();
+
+      return true;
+    } catch (error) {
+      console.error('Verify email error:', error);
+      throw error;
+    }
   }
 
-  public static async sendEmailVerification(userId: string, email: string): Promise<void> {
-    const token = this.generateToken();
-    const verificationLink = `${process.env.CLIENT_URL}/verify/email/${token}`;
+  static async sendPhoneVerification(userId: string, phone: string): Promise<void> {
+    try {
+      if (!client || !twilioPhoneNumber) {
+        throw new Error('SMS service not configured');
+      }
 
-    await User.findByIdAndUpdate(userId, {
-      emailVerificationToken: token
-    });
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
 
-    await this.emailTransporter.sendMail({
-      from: process.env.EMAIL_FROM,
-      to: email,
-      subject: 'Verify your email address',
-      html: `
-        <p>Please click the link below to verify your email address:</p>
-        <a href="${verificationLink}">${verificationLink}</a>
-      `
-    });
+      // Generate verification code
+      const code = Math.random().toString().substring(2, 8);
+      user.phoneVerificationToken = code;
+      user.phone = phone;
+      await user.save();
+
+      try {
+        // Send SMS
+        await client.messages.create({
+          body: `Your verification code is: ${code}`,
+          to: phone,
+          from: twilioPhoneNumber
+        });
+        console.log('SMS sent successfully to:', phone);
+      } catch (smsError) {
+        console.error('Failed to send SMS:', smsError);
+        // Reset verification token if SMS fails
+        user.phoneVerificationToken = undefined;
+        await user.save();
+        throw new Error('Failed to send verification SMS');
+      }
+    } catch (error) {
+      console.error('Send phone verification error:', error);
+      throw error;
+    }
   }
 
-  public static async verifyEmail(token: string): Promise<void> {
-    const user = await User.findOne({ emailVerificationToken: token });
-    if (!user) {
-      throw new Error('Invalid verification token');
-    }
+  static async verifyPhone(userId: string, code: string): Promise<boolean> {
+    try {
+      const user = await User.findById(userId);
+      if (!user || user.phoneVerificationToken !== code) {
+        return false;
+      }
 
-    user.emailVerified = true;
-    user.emailVerificationToken = undefined;
-    await user.save();
+      user.phoneVerified = true;
+      user.phoneVerificationToken = undefined;
+      await user.save();
+
+      return true;
+    } catch (error) {
+      console.error('Verify phone error:', error);
+      throw error;
+    }
   }
 
-  public static async resendEmailVerification(userId: string): Promise<void> {
-    const user = await User.findById(userId);
-    if (!user) {
-      throw new Error('User not found');
+  static async getVerificationStatus(userId: Types.ObjectId): Promise<{
+    emailVerified: boolean;
+    phoneVerified: boolean;
+    smsEnabled: boolean;
+  }> {
+    try {
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      return {
+        emailVerified: user.emailVerified,
+        phoneVerified: user.phoneVerified,
+        smsEnabled: !!client && !!twilioPhoneNumber
+      };
+    } catch (error) {
+      console.error('Get verification status error:', error);
+      throw error;
     }
-
-    await this.sendEmailVerification(userId, user.email);
-  }
-
-  public static async sendPhoneVerification(userId: string, phone: string): Promise<void> {
-    const code = this.generateVerificationCode();
-
-    await User.findByIdAndUpdate(userId, {
-      phoneVerificationCode: code
-    });
-
-    if (!this.twilioClient) {
-      throw new Error('Twilio client not configured');
-    }
-
-    await this.twilioClient.messages.create({
-      body: `Your verification code is: ${code}`,
-      to: phone,
-      from: process.env.TWILIO_PHONE_NUMBER
-    });
-  }
-
-  public static async verifyPhone(userId: string, code: string): Promise<void> {
-    const user = await User.findById(userId);
-    if (!user || user.phoneVerificationCode !== code) {
-      throw new Error('Invalid verification code');
-    }
-
-    user.phoneVerified = true;
-    user.phoneVerificationCode = undefined;
-    await user.save();
-  }
-
-  public static async resendPhoneVerification(userId: string): Promise<void> {
-    const user = await User.findById(userId);
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    if (!user.phone) {
-      throw new Error('No phone number found');
-    }
-
-    await this.sendPhoneVerification(userId, user.phone);
   }
 }
