@@ -92,22 +92,19 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       timestamp: new Date().toISOString()
     });
 
-    // Get all valid price IDs
-    const validPriceIds = [
-      STRIPE_PRICE_IDS.officialTest,
-      STRIPE_PRICE_IDS.basicSubscription,
-      STRIPE_PRICE_IDS.premiumSubscription
-    ].filter(Boolean);
-
     // Debug log price validation
     console.log('Price validation:', {
       provided: priceId,
-      validPriceIds,
-      isValid: validPriceIds.includes(priceId),
+      officialTest: STRIPE_PRICE_IDS.officialTest,
+      basicSubscription: STRIPE_PRICE_IDS.basicSubscription,
+      premiumSubscription: STRIPE_PRICE_IDS.premiumSubscription,
       timestamp: new Date().toISOString()
     });
 
-    if (!validPriceIds.includes(priceId)) {
+    // Check if the provided priceId matches any of our valid price IDs
+    if (priceId !== STRIPE_PRICE_IDS.officialTest && 
+        priceId !== STRIPE_PRICE_IDS.basicSubscription && 
+        priceId !== STRIPE_PRICE_IDS.premiumSubscription) {
       console.error('Invalid price ID:', {
         providedPriceId: priceId,
         officialTest: STRIPE_PRICE_IDS.officialTest,
