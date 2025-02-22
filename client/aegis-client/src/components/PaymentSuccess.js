@@ -63,24 +63,15 @@ function PaymentSuccess() {
           message: 'Validating authentication...'
         }));
 
-        const isAuthValid = await verifyAuth().catch(err => {
-          console.warn('Auth verification failed:', {
-            error: err,
-            timestamp: new Date().toISOString()
-          });
-          return false;
-        });
-
-        if (!isAuthValid) {
-          const token = localStorage.getItem('token');
-          if (token) {
-            await login(token).catch(err => {
-              console.error('Auth refresh failed:', {
-                error: err,
-                timestamp: new Date().toISOString()
-              });
+        // Skip auth verification during payment flow to prevent token clearing
+        const token = localStorage.getItem('token');
+        if (token) {
+          await login(token).catch(err => {
+            console.error('Auth refresh failed:', {
+              error: err,
+              timestamp: new Date().toISOString()
             });
-          }
+          });
         }
 
         // Start payment verification with automatic retries

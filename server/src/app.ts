@@ -19,7 +19,7 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 // Configure CORS with proper options
 const defaultAllowedOrigins = isDevelopment 
   ? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002']
-  : ['https://aegistestingtech.com', 'https://www.aegistestingtech.com'];
+  : ['https://aegistestingtech.com', 'https://www.aegistestingtech.com', 'https://aegis-web-seb.onrender.com'];
 
 const allowedOrigins = [
   ...defaultAllowedOrigins,
@@ -106,7 +106,7 @@ app.use('/api', requireDatabaseConnection);
 app.use("/api/auth", authRoutes);
 app.use("/api/exam", examRoutes);
 app.use("/api/payment", paymentRoutes);
-app.use("/api/verify", verificationRoutes);
+app.use("/api/auth/verify", verificationRoutes);
 
 // Health check endpoint
 app.get('/health', async (req: Request, res: Response) => {

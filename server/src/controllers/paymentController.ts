@@ -95,7 +95,8 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       success_url: `${process.env.CLIENT_URL}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL}/payment/cancel`,
       metadata: {
-        userId: userId.toString()
+        userId: userId.toString(),
+        priceId: priceId
       }
     });
 
@@ -125,6 +126,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.metadata?.userId;
+        const priceId = session.metadata?.priceId;
         
         if (!userId) break;
 
@@ -133,7 +135,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
             'subscription.active': true,
             'subscription.stripeCustomerId': session.customer,
             'subscription.stripeSubscriptionId': session.subscription,
-            'subscription.planId': session.amount_total === 3999 ? 'premium' : 'basic'
+            'subscription.planId': priceId === process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID ? 'basic' : 'premium'
           });
         } else if (session.mode === 'payment') {
           // Handle one-time payment for official test
