@@ -204,12 +204,12 @@ export const handleWebhook = async (req: Request, res: Response) => {
             const subscription = await stripe.subscriptions.retrieve(session.subscription.toString());
             
             const subscriptionData = {
-              subscription: {
-                planId: planId,
-                active: true,
-                stripeCustomerId: session.customer,
-                stripeSubscriptionId: subscription.id,
-                currentPeriodEnd: new Date(subscription.current_period_end * 1000)
+              $set: {
+                'subscription.planId': planId,
+                'subscription.active': true,
+                'subscription.stripeCustomerId': session.customer,
+                'subscription.stripeSubscriptionId': subscription.id,
+                'subscription.currentPeriodEnd': new Date(subscription.current_period_end * 1000)
               }
             };
 
@@ -218,6 +218,12 @@ export const handleWebhook = async (req: Request, res: Response) => {
               subscriptionData,
               { new: true }
             );
+
+            console.log('Webhook: Updated subscription data:', {
+              userId,
+              subscriptionData,
+              updatedUser: updatedUser?.subscription
+            });
             
             console.log('Webhook: Updated user subscription:', {
               userId,
@@ -226,10 +232,10 @@ export const handleWebhook = async (req: Request, res: Response) => {
           } else {
             // For one-time payments
             const subscriptionData = {
-              subscription: {
-                planId: planId,
-                active: true,
-                currentPeriodEnd: null
+              $set: {
+                'subscription.planId': planId,
+                'subscription.active': true,
+                'subscription.currentPeriodEnd': null
               }
             };
 
@@ -238,6 +244,12 @@ export const handleWebhook = async (req: Request, res: Response) => {
               subscriptionData,
               { new: true }
             );
+
+            console.log('Webhook: Updated one-time purchase data:', {
+              userId,
+              subscriptionData,
+              updatedUser: updatedUser?.subscription
+            });
 
             console.log('Webhook: Updated user one-time purchase:', {
               userId,
@@ -255,11 +267,20 @@ export const handleWebhook = async (req: Request, res: Response) => {
         const userId = subscription.metadata?.userId;
         
         if (userId) {
-          await User.findByIdAndUpdate(userId, {
-            'subscription.active': false,
-            'subscription.planId': null,
-            'subscription.currentPeriodEnd': null,
-            'subscription.stripeSubscriptionId': null
+          const updateData = {
+            $set: {
+              'subscription.active': false,
+              'subscription.planId': null,
+              'subscription.currentPeriodEnd': null,
+              'subscription.stripeSubscriptionId': null
+            }
+          };
+
+          const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
+          console.log('Webhook: Cancelled subscription:', {
+            userId,
+            updateData,
+            updatedUser: updatedUser?.subscription
           });
         }
         break;
@@ -366,10 +387,23 @@ export const getSubscriptionStatus = async (req: AuthenticatedRequest, res: Resp
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Log subscription status for debugging
+    console.log('Subscription Status Check:', {
+      userId,
+      subscription: user.subscription,
+      hasSubscription: !!user.subscription,
+      isActive: user.subscription?.active
+    });
+
+    // Return detailed subscription info
     res.json({
       active: user.subscription?.active || false,
       plan: user.subscription?.planId,
-      endDate: user.subscription?.currentPeriodEnd
+      endDate: user.subscription?.currentPeriodEnd,
+      details: {
+        stripeCustomerId: user.subscription?.stripeCustomerId,
+        stripeSubscriptionId: user.subscription?.stripeSubscriptionId
+      }
     });
   } catch (error) {
     console.error('Error fetching subscription status:', error);

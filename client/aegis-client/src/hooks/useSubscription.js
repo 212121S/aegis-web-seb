@@ -18,6 +18,17 @@ export const useSubscription = () => {
     }
   }, [localStorage.getItem('token')]);
 
+  // Log subscription state changes
+  useEffect(() => {
+    console.log('Subscription state updated:', {
+      subscription,
+      isActive: subscription?.active,
+      plan: subscription?.planId,
+      loading,
+      error
+    });
+  }, [subscription, loading, error]);
+
   const checkSubscription = async () => {
     try {
       if (!localStorage.getItem('token')) {
@@ -25,15 +36,23 @@ export const useSubscription = () => {
         return null;
       }
 
+      console.log('Checking subscription status...');
       const response = await paymentAPI.getSubscriptionStatus();
+      console.log('Subscription status response:', response);
+      
       const subscriptionData = response.data;
+      console.log('Setting subscription data:', subscriptionData);
       
       setSubscription(subscriptionData);
       setLoading(false);
       
-      return subscriptionData; // Return the subscription data for the caller
+      return subscriptionData;
     } catch (err) {
       console.error('Subscription check error:', err);
+      console.error('Error details:', {
+        response: err.response?.data,
+        status: err.response?.status
+      });
       setError(err.response?.data?.message || 'Failed to check subscription status');
       setLoading(false);
       return null;
@@ -50,15 +69,17 @@ export const useSubscription = () => {
   };
 
   const isSubscriptionActive = () => {
-    return subscription?.active || false;
+    const active = subscription?.active || false;
+    console.log('Checking subscription active:', { subscription, active });
+    return active;
   };
 
   const getSubscriptionEndDate = () => {
-    return subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd) : null;
+    return subscription?.endDate ? new Date(subscription.endDate) : null;
   };
 
   const getSubscriptionPlan = () => {
-    return subscription?.plan || null;
+    return subscription?.planId || null;
   };
 
   return {
