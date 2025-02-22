@@ -10,9 +10,15 @@ export const useSubscription = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
+    console.log('Token check in useSubscription:', { hasToken: !!token });
+    
     if (token) {
       checkSubscription();
+      // Set up periodic subscription check every minute
+      const intervalId = setInterval(checkSubscription, 60000);
+      return () => clearInterval(intervalId);
     } else {
+      console.log('No token found, clearing subscription state');
       setSubscription(null);
       setLoading(false);
     }
@@ -31,21 +37,39 @@ export const useSubscription = () => {
 
   const checkSubscription = async () => {
     try {
-      if (!localStorage.getItem('token')) {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('No token available for subscription check');
         setLoading(false);
         return null;
       }
 
-      console.log('Checking subscription status...');
+      console.log('Initiating subscription status check...');
       const response = await paymentAPI.getSubscriptionStatus();
       console.log('Subscription status response:', response);
       
       const subscriptionData = response.data;
-      console.log('Setting subscription data:', subscriptionData);
+      console.log('Processing subscription data:', {
+        active: subscriptionData.active,
+        plan: subscriptionData.plan,
+        stripeStatus: subscriptionData.details?.stripeStatus
+      });
       
-      setSubscription(subscriptionData);
+      // Only update state if the subscription status has changed
+      setSubscription(prevState => {
+        const hasChanged = !prevState || 
+          prevState.active !== subscriptionData.active ||
+          prevState.plan !== subscriptionData.plan;
+        
+        if (hasChanged) {
+          console.log('Subscription state updated:', subscriptionData);
+          return subscriptionData;
+        }
+        return prevState;
+      });
+      
       setLoading(false);
-      
+      setError(null);
       return subscriptionData;
     } catch (err) {
       console.error('Subscription check error:', err);
@@ -53,7 +77,13 @@ export const useSubscription = () => {
         response: err.response?.data,
         status: err.response?.status
       });
-      setError(err.response?.data?.message || 'Failed to check subscription status');
+      const errorMessage = err.response?.data?.message || 'Failed to check subscription status';
+      console.error('Subscription check error details:', {
+        status: err.response?.status,
+        data: err.response?.data,
+        message: errorMessage
+      });
+      setError(errorMessage);
       setLoading(false);
       return null;
     }

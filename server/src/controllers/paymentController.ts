@@ -172,19 +172,28 @@ export const handleWebhook = async (req: Request, res: Response) => {
       process.env.STRIPE_WEBHOOK_SECRET
     );
 
+    // Log all incoming webhook events
+    console.log('Webhook event received:', {
+      type: event.type,
+      id: event.id,
+      created: new Date(event.created * 1000).toISOString()
+    });
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.metadata?.userId;
         const planId = session.metadata?.planId;
 
-        console.log('Webhook: checkout.session.completed', {
+        console.log('Webhook: Processing checkout.session.completed', {
           sessionId: session.id,
           userId,
           planId,
           paymentStatus: session.payment_status,
           customer: session.customer,
-          subscription: session.subscription
+          subscription: session.subscription,
+          paymentIntent: session.payment_intent,
+          created: new Date(session.created * 1000).toISOString()
         });
 
         if (!userId || !planId) {
@@ -203,6 +212,14 @@ export const handleWebhook = async (req: Request, res: Response) => {
           if (plan.type === 'subscription' && session.subscription) {
             const subscription = await stripe.subscriptions.retrieve(session.subscription.toString());
             
+            // Log subscription details from Stripe
+            console.log('Webhook: Retrieved Stripe subscription:', {
+              id: subscription.id,
+              status: subscription.status,
+              currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+              customer: subscription.customer
+            });
+
             const subscriptionData = {
               $set: {
                 'subscription.planId': planId,
@@ -213,11 +230,29 @@ export const handleWebhook = async (req: Request, res: Response) => {
               }
             };
 
+            // Log update operation
+            console.log('Webhook: Updating user subscription data:', {
+              userId,
+              subscriptionData
+            });
+
+            // Verify user exists before update
+            const existingUser = await User.findById(userId);
+            if (!existingUser) {
+              console.error('Webhook: User not found for update:', userId);
+              return res.status(404).json({ error: 'User not found' });
+            }
+
             const updatedUser = await User.findByIdAndUpdate(
               userId,
               subscriptionData,
               { new: true }
-            );
+            ).select('subscription');
+
+            if (!updatedUser) {
+              console.error('Webhook: Failed to update user:', userId);
+              return res.status(500).json({ error: 'Failed to update user subscription' });
+            }
 
             console.log('Webhook: Updated subscription data:', {
               userId,
@@ -382,17 +417,66 @@ export const getSubscriptionStatus = async (req: AuthenticatedRequest, res: Resp
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const user = await User.findById(userId).select('subscription');
+    console.log('Checking subscription status for user:', userId);
+
+    const user = await User.findById(userId).select('subscription email');
     if (!user) {
+      console.error('User not found:', userId);
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Log subscription status for debugging
-    console.log('Subscription Status Check:', {
+    let stripeSubscription = null;
+    if (user.subscription?.stripeSubscriptionId) {
+      try {
+        stripeSubscription = await stripe.subscriptions.retrieve(
+          user.subscription.stripeSubscriptionId
+        );
+        console.log('Retrieved Stripe subscription:', {
+          id: stripeSubscription.id,
+          status: stripeSubscription.status,
+          currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000).toISOString()
+        });
+
+        // Verify subscription status matches between DB and Stripe
+        if (stripeSubscription.status === 'active' && !user.subscription.active) {
+          console.warn('Subscription status mismatch - Stripe: active, DB: inactive');
+          // Update local DB to match Stripe
+          await User.findByIdAndUpdate(userId, {
+            'subscription.active': true,
+            'subscription.currentPeriodEnd': new Date(stripeSubscription.current_period_end * 1000)
+          });
+          user.subscription.active = true;
+          user.subscription.currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1000);
+        } else if (stripeSubscription.status !== 'active' && user.subscription.active) {
+          console.warn('Subscription status mismatch - Stripe: inactive, DB: active');
+          // Update local DB to match Stripe
+          await User.findByIdAndUpdate(userId, {
+            'subscription.active': false
+          });
+          user.subscription.active = false;
+        }
+      } catch (error: any) {
+        console.error('Error retrieving Stripe subscription:', error);
+        // If Stripe subscription not found, deactivate local subscription
+        if (error?.type === 'StripeInvalidRequestError' && error?.statusCode === 404) {
+          console.warn('Stripe subscription not found, deactivating local subscription');
+          await User.findByIdAndUpdate(userId, {
+            'subscription.active': false,
+            'subscription.stripeSubscriptionId': null
+          });
+          user.subscription.active = false;
+          user.subscription.stripeSubscriptionId = undefined;
+        }
+      }
+    }
+
+    // Log final subscription status
+    console.log('Final subscription status:', {
       userId,
       subscription: user.subscription,
       hasSubscription: !!user.subscription,
-      isActive: user.subscription?.active
+      isActive: user.subscription?.active,
+      stripeStatus: stripeSubscription?.status
     });
 
     // Return detailed subscription info
@@ -402,7 +486,8 @@ export const getSubscriptionStatus = async (req: AuthenticatedRequest, res: Resp
       endDate: user.subscription?.currentPeriodEnd,
       details: {
         stripeCustomerId: user.subscription?.stripeCustomerId,
-        stripeSubscriptionId: user.subscription?.stripeSubscriptionId
+        stripeSubscriptionId: user.subscription?.stripeSubscriptionId,
+        stripeStatus: stripeSubscription?.status
       }
     });
   } catch (error) {
