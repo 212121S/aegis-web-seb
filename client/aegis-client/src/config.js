@@ -23,15 +23,38 @@ const getApiUrl = () => {
   return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
 };
 
+const getStripePrices = () => {
+  const prices = {
+    officialTest: process.env.REACT_APP_STRIPE_OFFICIAL_TEST_PRICE_ID,
+    basicSubscription: process.env.REACT_APP_STRIPE_BASIC_SUBSCRIPTION_PRICE_ID,
+    premiumSubscription: process.env.REACT_APP_STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID
+  };
+
+  // Log price configuration
+  console.log('Stripe price configuration:', {
+    officialTest: {
+      configured: !!prices.officialTest,
+      value: prices.officialTest
+    },
+    basicSubscription: {
+      configured: !!prices.basicSubscription,
+      value: prices.basicSubscription
+    },
+    premiumSubscription: {
+      configured: !!prices.premiumSubscription,
+      value: prices.premiumSubscription
+    },
+    timestamp: new Date().toISOString()
+  });
+
+  return prices;
+};
+
 const config = {
   apiUrl: getApiUrl(),
   stripe: {
     publicKey: process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY,
-    prices: {
-      officialTest: process.env.REACT_APP_STRIPE_OFFICIAL_TEST_PRICE_ID,
-      basicSubscription: process.env.REACT_APP_STRIPE_BASIC_SUBSCRIPTION_PRICE_ID,
-      premiumSubscription: process.env.REACT_APP_STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID
-    }
+    prices: getStripePrices()
   },
   environment: process.env.NODE_ENV || 'development',
   features: {

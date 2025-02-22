@@ -82,27 +82,50 @@ const PaymentPage = () => {
 
       // Get and validate price ID based on product type
       let priceId;
-      switch (productType) {
-        case 'officialTest':
-          priceId = config.stripe.prices.officialTest;
-          if (priceId !== process.env.REACT_APP_STRIPE_OFFICIAL_TEST_PRICE_ID) {
-            throw new Error('Invalid price ID for official test');
-          }
-          break;
-        case 'basicSubscription':
-          priceId = config.stripe.prices.basicSubscription;
-          if (priceId !== process.env.REACT_APP_STRIPE_BASIC_SUBSCRIPTION_PRICE_ID) {
-            throw new Error('Invalid price ID for basic subscription');
-          }
-          break;
-        case 'premiumSubscription':
-          priceId = config.stripe.prices.premiumSubscription;
-          if (priceId !== process.env.REACT_APP_STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID) {
-            throw new Error('Invalid price ID for premium subscription');
-          }
-          break;
-        default:
-          throw new Error('Invalid product type');
+      const priceIdMap = {
+        officialTest: {
+          configKey: 'officialTest',
+          envKey: 'REACT_APP_STRIPE_OFFICIAL_TEST_PRICE_ID',
+          displayName: 'Official Test'
+        },
+        basicSubscription: {
+          configKey: 'basicSubscription',
+          envKey: 'REACT_APP_STRIPE_BASIC_SUBSCRIPTION_PRICE_ID',
+          displayName: 'Basic Subscription'
+        },
+        premiumSubscription: {
+          configKey: 'premiumSubscription',
+          envKey: 'REACT_APP_STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID',
+          displayName: 'Premium Subscription'
+        }
+      };
+
+      const productConfig = priceIdMap[productType];
+      if (!productConfig) {
+        console.error('Invalid product type:', { productType });
+        throw new Error('Invalid product type');
+      }
+
+      priceId = config.stripe.prices[productConfig.configKey];
+      const expectedPriceId = process.env[productConfig.envKey];
+
+      // Debug logging
+      console.log('Price ID validation:', {
+        productType,
+        configuredId: priceId,
+        expectedId: expectedPriceId,
+        matches: priceId === expectedPriceId,
+        timestamp: new Date().toISOString()
+      });
+
+      if (priceId !== expectedPriceId) {
+        console.error('Price ID mismatch:', {
+          productType,
+          configuredId: priceId,
+          expectedId: expectedPriceId,
+          productConfig
+        });
+        throw new Error(`Invalid price ID for ${productConfig.displayName}`);
       }
 
       // Log selection for debugging
