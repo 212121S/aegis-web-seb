@@ -1,16 +1,9 @@
 import { Request, Response } from 'express';
+import { User } from '../models/User';
 import Stripe from 'stripe';
 import dotenv from 'dotenv';
-import { User } from '../models/User';
 
 dotenv.config();
-
-// Extend Request type to include user
-import { UserPayload } from '../middleware/authMiddleware';
-
-interface AuthenticatedRequest extends Request {
-  user?: UserPayload;
-}
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('STRIPE_SECRET_KEY is not configured');
@@ -20,78 +13,55 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2025-01-27.acacia'
 });
 
-export const getSubscriptionStatus = async (req: AuthenticatedRequest, res: Response) => {
+export const getSubscriptionStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?._id;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
     }
 
-    const user = await User.findById(userId).select('subscription email');
+    const user = await User.findById(userId).select('subscription');
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      res.status(404).json({ error: 'User not found' });
+      return;
     }
 
-    let stripeSubscription: Stripe.Response<Stripe.Subscription> | undefined;
-    
     if (user.subscription?.stripeSubscriptionId) {
-      try {
-        stripeSubscription = await stripe.subscriptions.retrieve(
-          user.subscription.stripeSubscriptionId
-        );
+      const subscription = await stripe.subscriptions.retrieve(
+        user.subscription.stripeSubscriptionId
+      );
 
-        if (stripeSubscription) {
-          if (stripeSubscription.status === 'active' && !user.subscription.active) {
-            await User.findByIdAndUpdate(userId, {
-              'subscription.active': true,
-              'subscription.currentPeriodEnd': new Date(stripeSubscription.current_period_end * 1000)
-            });
-            user.subscription.active = true;
-            user.subscription.currentPeriodEnd = new Date(stripeSubscription.current_period_end * 1000);
-          } else if (stripeSubscription.status !== 'active' && user.subscription.active) {
-            await User.findByIdAndUpdate(userId, {
-              'subscription.active': false
-            });
-            user.subscription.active = false;
-          }
-        }
-      } catch (error: any) {
-        if (error?.type === 'StripeInvalidRequestError' && error?.statusCode === 404) {
-          await User.findByIdAndUpdate(userId, {
-            'subscription.active': false,
-            'subscription.stripeSubscriptionId': null
-          });
-          user.subscription.active = false;
-          user.subscription.stripeSubscriptionId = undefined;
-        }
-      }
+      res.json({
+        active: subscription.status === 'active',
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        plan: subscription.items.data[0]?.price.id
+      });
+    } else {
+      res.json({
+        active: false,
+        currentPeriodEnd: null,
+        plan: null
+      });
     }
-
-    res.json({
-      active: user.subscription?.active || false,
-      plan: user.subscription?.planId,
-      endDate: user.subscription?.currentPeriodEnd,
-      details: {
-        stripeCustomerId: user.subscription?.stripeCustomerId,
-        stripeSubscriptionId: user.subscription?.stripeSubscriptionId,
-        stripeStatus: stripeSubscription?.status
-      }
-    });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch subscription status' });
+    console.error('Error getting subscription status:', error);
+    res.status(500).json({ error: 'Failed to get subscription status' });
   }
 };
 
-export const createCheckoutSession = async (req: AuthenticatedRequest, res: Response) => {
+export const createCheckoutSession = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?._id;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
     }
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      res.status(404).json({ error: 'User not found' });
+      return;
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -111,17 +81,19 @@ export const createCheckoutSession = async (req: AuthenticatedRequest, res: Resp
 
     res.json({ sessionId: session.id });
   } catch (error) {
+    console.error('Error creating checkout session:', error);
     res.status(500).json({ error: 'Failed to create checkout session' });
   }
 };
 
-export const handleWebhook = async (req: Request, res: Response) => {
-  const sig = req.headers['stripe-signature'];
-  if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
-    return res.status(400).json({ error: 'Missing signature or webhook secret' });
-  }
-
+export const handleWebhook = async (req: Request, res: Response): Promise<void> => {
   try {
+    const sig = req.headers['stripe-signature'];
+    if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
+      res.status(400).json({ error: 'Missing signature or webhook secret' });
+      return;
+    }
+
     const event = stripe.webhooks.constructEvent(
       req.body,
       sig,
@@ -154,20 +126,23 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
     res.json({ received: true });
   } catch (error) {
+    console.error('Webhook error:', error);
     res.status(400).json({ error: 'Webhook error' });
   }
 };
 
-export const cancelSubscription = async (req: AuthenticatedRequest, res: Response) => {
+export const cancelSubscription = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?._id;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
     }
 
     const user = await User.findById(userId);
     if (!user?.subscription?.stripeSubscriptionId) {
-      return res.status(404).json({ error: 'No active subscription found' });
+      res.status(404).json({ error: 'No active subscription found' });
+      return;
     }
 
     await stripe.subscriptions.cancel(user.subscription.stripeSubscriptionId);
@@ -175,26 +150,29 @@ export const cancelSubscription = async (req: AuthenticatedRequest, res: Respons
 
     res.json({ message: 'Subscription cancelled successfully' });
   } catch (error) {
+    console.error('Error cancelling subscription:', error);
     res.status(500).json({ error: 'Failed to cancel subscription' });
   }
 };
 
-export const verifySession = async (req: AuthenticatedRequest, res: Response) => {
+export const verifySession = async (req: Request, res: Response): Promise<void> => {
   try {
     const { sessionId } = req.params;
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     res.json({ status: session.payment_status });
   } catch (error) {
+    console.error('Error verifying session:', error);
     res.status(500).json({ error: 'Failed to verify session' });
   }
 };
 
-export const validateCoupon = async (req: Request, res: Response) => {
+export const validateCoupon = async (req: Request, res: Response): Promise<void> => {
   try {
     const { code } = req.params;
     const coupon = await stripe.coupons.retrieve(code);
     res.json({ valid: true, discount: coupon.percent_off });
   } catch (error) {
+    console.error('Error validating coupon:', error);
     res.json({ valid: false });
   }
 };

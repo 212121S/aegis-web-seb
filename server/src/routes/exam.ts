@@ -1,51 +1,16 @@
-import { Router } from 'express';
+import express from 'express';
+import { auth } from '../middleware/authMiddleware';
 import { 
-  initializeTest, 
-  getNextQuestion, 
-  submitAnswer, 
-  submitProctoringEvent, 
-  finalizeTest,
-  generateVerificationLink,
-  verifyResult,
-  verifyCode,
-  revokeAccess,
-  addQuestion,
-  uploadQuestions,
   getQuestions,
-  updateQuestion,
-  deleteQuestion,
-  getTestHistory,
-  getTestAnalytics,
-  getTestResults
+  submitAnswer,
+  getTestHistory
 } from '../controllers/examController';
-import { authenticateToken } from '../middleware/authMiddleware';
-import { validateSubscription } from '../middleware/subscriptionMiddleware';
 
-const router = Router();
+const router = express.Router();
 
-// Test session routes
-router.post('/initialize', authenticateToken, validateSubscription, initializeTest);
-router.get('/:sessionId/next-question', authenticateToken, validateSubscription, getNextQuestion);
-router.post('/:sessionId/submit', authenticateToken, validateSubscription, submitAnswer);
-router.post('/:sessionId/proctoring', authenticateToken, validateSubscription, submitProctoringEvent);
-router.post('/:sessionId/finalize', authenticateToken, validateSubscription, finalizeTest);
-
-// Test history and analytics routes - no subscription required
-router.get('/history', authenticateToken, getTestHistory);
-router.get('/analytics', authenticateToken, getTestAnalytics);
-router.get('/results/:testId', authenticateToken, getTestResults);
-
-// Verification routes
-router.post('/verify/:testResultId/generate', authenticateToken, generateVerificationLink);
-router.get('/verify/:token', verifyResult);
-router.post('/verify/code', verifyCode);
-router.post('/verify/:testResultId/revoke', authenticateToken, revokeAccess);
-
-// Question management routes
-router.post('/questions', authenticateToken, validateSubscription, addQuestion);
-router.post('/questions/bulk', authenticateToken, validateSubscription, uploadQuestions);
-router.get('/questions', authenticateToken, validateSubscription, getQuestions);
-router.put('/questions/:id', authenticateToken, validateSubscription, updateQuestion);
-router.delete('/questions/:id', authenticateToken, validateSubscription, deleteQuestion);
+// Protected routes
+router.get('/questions', auth, getQuestions);
+router.post('/submit', auth, submitAnswer);
+router.get('/history', auth, getTestHistory);
 
 export default router;

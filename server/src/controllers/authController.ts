@@ -1,251 +1,236 @@
 import { Request, Response } from 'express';
+import { User, IUser, IUserDocument } from '../models/User';
+import { Types } from 'mongoose';
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
-import mongoose from 'mongoose';
-import { User } from '../models/User';
-import { TestResult } from '../models/Question';
+import bcrypt from 'bcrypt';
 
-const generateToken = (userId: string | mongoose.Types.ObjectId | unknown): string => {
-  const id = userId instanceof mongoose.Types.ObjectId ? userId.toString() : String(userId);
-  return jwt.sign({ userId: id }, process.env.JWT_SECRET || 'your-secret-key', {
-    expiresIn: '24h',
-  });
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET is not configured');
+}
+
+const generateToken = (userId: Types.ObjectId | string): string => {
+  return jwt.sign({ _id: userId.toString() }, process.env.JWT_SECRET!, { expiresIn: '24h' });
 };
 
-export const register = async (req: Request, res: Response) => {
+export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password, username, phone } = req.body;
+    const { email, password, name } = req.body;
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ error: 'Email already registered' });
+      res.status(400).json({ error: 'Email already registered' });
+      return;
     }
 
-    // Create new user with verification flags set to true for testing
-    const user = new User({
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const userData: IUser = {
       email,
-      password,
-      username,
-      phone,
-      emailVerified: true,
-      phoneVerified: true,
-      tosAccepted: true,
-      tosAcceptedDate: new Date()
-    });
+      password: hashedPassword,
+      name,
+      emailVerified: false,
+      phoneVerified: false,
+      subscription: {
+        active: false
+      },
+      testHistory: [],
+      highestScore: 0,
+      averageScore: 0
+    };
 
-    await user.save();
-
-    // Generate token
-    const token = generateToken(user._id);
+    const user = await User.create(userData);
+    const token = generateToken(user._id as Types.ObjectId);
 
     res.status(201).json({
       token,
       user: {
-        id: user._id,
+        _id: user._id,
         email: user.email,
-        username: user.username
+        name: user.name
       }
     });
-  } catch (err) {
-    console.error('Registration error:', err);
+  } catch (error) {
+    console.error('Registration error:', error);
     res.status(500).json({ error: 'Failed to register user' });
   }
 };
 
-export const login = async (req: Request, res: Response) => {
+export const login = async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
-    // Find user
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select('+password');
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
     }
 
-    // Check password
-    const isMatch = await user.comparePassword(password);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
     }
 
-    // Generate token
-    const token = generateToken(user._id);
-
+    const token = generateToken(user._id as Types.ObjectId);
     res.json({
       token,
       user: {
-        id: user._id,
+        _id: user._id,
         email: user.email,
-        username: user.username
+        name: user.name,
+        subscription: user.subscription
       }
     });
-  } catch (err) {
-    console.error('Login error:', err);
+  } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ error: 'Failed to login' });
   }
 };
 
-export const getProfile = async (req: Request, res: Response) => {
+export const getProfile = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = await User.findById(req.user!._id)
-      .select('-password')
-      .populate('testHistory.testId');
+    const userId = req.user?._id;
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
+    const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      res.status(404).json({ error: 'User not found' });
+      return;
     }
 
-    // Get official test history
-    const officialTests = user.testHistory.filter(test => test.type === 'official');
-    
-    // Calculate statistics
-    const scores = officialTests.map(test => test.score);
-    const highestScore = Math.max(...scores, 0);
-    const averageScore = scores.length > 0 
-      ? scores.reduce((a, b) => a + b, 0) / scores.length 
-      : 0;
-
-    // Update user statistics if they've changed
-    if (user.highestScore !== highestScore || user.averageScore !== averageScore) {
-      user.highestScore = highestScore;
-      user.averageScore = averageScore;
-      await user.save();
-    }
-
-    res.json({ 
-      user,
-      testStats: {
-        highestScore,
-        averageScore,
-        totalTests: officialTests.length
-      }
+    res.json({
+      _id: user._id,
+      email: user.email,
+      name: user.name,
+      subscription: user.subscription
     });
-  } catch (err) {
-    console.error('Get profile error:', err);
+  } catch (error) {
+    console.error('Get profile error:', error);
     res.status(500).json({ error: 'Failed to get profile' });
   }
 };
 
-export const updateProfile = async (req: Request, res: Response) => {
+export const updateProfile = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { username, email, phone } = req.body;
-
-    const user = await User.findById(req.user!._id);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+    const userId = req.user?._id;
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
     }
 
-    // Update fields
-    if (username) user.username = username;
-    if (email) user.email = email;
-    if (phone) user.phone = phone;
+    const updates = req.body;
+    const user = await User.findByIdAndUpdate(userId, updates, { new: true });
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
 
-    await user.save();
-
-    res.json({ user });
-  } catch (err) {
-    console.error('Update profile error:', err);
+    res.json({
+      _id: user._id,
+      email: user.email,
+      name: user.name
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
     res.status(500).json({ error: 'Failed to update profile' });
   }
 };
 
-export const verifyToken = async (req: Request, res: Response) => {
+export const verifyToken = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = await User.findById(req.user!._id).select('-password');
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      res.status(401).json({ error: 'No token provided' });
+      return;
     }
-    res.json({ user });
-  } catch (err) {
-    console.error('Token verification error:', err);
-    res.status(500).json({ error: 'Failed to verify token' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { _id: string };
+    const user = await User.findById(decoded._id);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    res.json({ valid: true });
+  } catch (error) {
+    res.status(401).json({ error: 'Invalid token' });
   }
 };
 
-export const getUserVerification = async (req: Request, res: Response) => {
+export const getUserVerification = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { token } = req.params;
-
-    const user = await User.findOne({ verificationToken: token })
-      .select('username email phone highestScore averageScore testHistory')
-      .populate('testHistory.testId');
-
-    if (!user) {
-      return res.status(404).json({ error: 'Invalid verification token' });
+    const userId = req.user?._id;
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
     }
 
-    // Filter for only official tests
-    const officialTests = user.testHistory.filter(test => test.type === 'official');
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
 
     res.json({
-      user: {
-        username: user.username,
-        email: user.email,
-        phone: user.phone,
-        highestScore: user.highestScore,
-        averageScore: user.averageScore,
-        testHistory: officialTests
-      }
+      emailVerified: user.emailVerified,
+      phoneVerified: user.phoneVerified,
+      verificationToken: user.verificationToken
     });
-  } catch (err) {
-    console.error('Get verification error:', err);
-    res.status(500).json({ error: 'Failed to get verification' });
+  } catch (error) {
+    console.error('Get verification error:', error);
+    res.status(500).json({ error: 'Failed to get verification status' });
   }
 };
 
-export const regenerateVerificationToken = async (req: Request, res: Response) => {
+export const regenerateVerificationToken = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = await User.findById(req.user!._id);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+    const userId = req.user?._id;
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
     }
 
-    // Generate new token
-    user.verificationToken = crypto.randomBytes(32).toString('hex');
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const verificationToken = Math.random().toString(36).substring(2, 15);
+    user.verificationToken = verificationToken;
     await user.save();
 
-    res.json({ verificationToken: user.verificationToken });
-  } catch (err) {
-    console.error('Regenerate token error:', err);
+    res.json({ verificationToken });
+  } catch (error) {
+    console.error('Regenerate token error:', error);
     res.status(500).json({ error: 'Failed to regenerate verification token' });
   }
 };
 
-export const addTestResult = async (req: Request, res: Response) => {
+export const addTestResult = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { testId, score, type } = req.body;
-    const user = await User.findById(req.user!._id);
-    
+    const userId = req.user?._id;
+    if (!userId) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const { score, date } = req.body;
+    const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      res.status(404).json({ error: 'User not found' });
+      return;
     }
 
-    // Add test to history
-    user.testHistory.push({
-      testId,
-      score,
-      date: new Date(),
-      type
-    });
-
-    // Update statistics for official tests
-    if (type === 'official') {
-      const officialTests = user.testHistory.filter(test => test.type === 'official');
-      const scores = officialTests.map(test => test.score);
-      
-      user.highestScore = Math.max(...scores, user.highestScore);
-      user.averageScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-    }
-
+    user.testResults = user.testResults || [];
+    user.testResults.push({ score, date });
     await user.save();
 
-    res.json({ 
-      message: 'Test result added successfully',
-      testHistory: user.testHistory
-    });
-  } catch (err) {
-    console.error('Add test result error:', err);
+    res.json({ message: 'Test result added successfully' });
+  } catch (error) {
+    console.error('Add test result error:', error);
     res.status(500).json({ error: 'Failed to add test result' });
   }
 };

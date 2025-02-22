@@ -1,74 +1,111 @@
-import express from 'express';
-import { authenticateToken } from '../middleware/authMiddleware';
+import express, { Request, Response } from 'express';
+import { auth } from '../middleware/authMiddleware';
 import { VerificationService } from '../services/VerificationService';
+import { User } from '../models/User';
 
 const router = express.Router();
 
-// Email verification routes
-router.post('/email/send', authenticateToken, async (req, res) => {
+router.post('/email/send', auth, async (req: Request, res: Response): Promise<void> => {
   try {
-    await VerificationService.sendEmailVerification(req.user!._id, req.user!.email);
+    if (!req.user?._id) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    await VerificationService.sendEmailVerification(req.user._id.toString(), user.email);
     res.json({ message: 'Verification email sent' });
-  } catch (err) {
+  } catch (error) {
+    console.error('Error sending verification email:', error);
     res.status(500).json({ error: 'Failed to send verification email' });
   }
 });
 
-router.get('/email/verify/:token', async (req, res) => {
+router.post('/email/verify/:token', auth, async (req: Request, res: Response): Promise<void> => {
   try {
-    await VerificationService.verifyEmail(req.params.token);
+    const { token } = req.params;
+    await VerificationService.verifyEmail(token);
     res.json({ message: 'Email verified successfully' });
-  } catch (err) {
-    res.status(400).json({ error: 'Invalid verification token' });
+  } catch (error) {
+    console.error('Error verifying email:', error);
+    res.status(500).json({ error: 'Failed to verify email' });
   }
 });
 
-router.post('/email/resend', authenticateToken, async (req, res) => {
+router.post('/email/resend', auth, async (req: Request, res: Response): Promise<void> => {
   try {
-    await VerificationService.resendEmailVerification(req.user!._id);
+    if (!req.user?._id) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    await VerificationService.resendEmailVerification(req.user._id.toString());
     res.json({ message: 'Verification email resent' });
-  } catch (err) {
+  } catch (error) {
+    console.error('Error resending verification email:', error);
     res.status(500).json({ error: 'Failed to resend verification email' });
   }
 });
 
-// Phone verification routes
-router.post('/phone/send', authenticateToken, async (req, res) => {
+router.post('/phone/send', auth, async (req: Request, res: Response): Promise<void> => {
   try {
-    await VerificationService.sendPhoneVerification(req.user!._id, req.user!.phone);
-    res.json({ message: 'Verification SMS sent' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to send verification SMS' });
+    if (!req.user?._id) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    if (!user.phone) {
+      res.status(400).json({ error: 'Phone number not found' });
+      return;
+    }
+
+    await VerificationService.sendPhoneVerification(req.user._id.toString(), user.phone);
+    res.json({ message: 'Verification code sent' });
+  } catch (error) {
+    console.error('Error sending verification code:', error);
+    res.status(500).json({ error: 'Failed to send verification code' });
   }
 });
 
-router.post('/phone/verify', authenticateToken, async (req, res) => {
+router.post('/phone/verify', auth, async (req: Request, res: Response): Promise<void> => {
   try {
+    if (!req.user?._id) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
     const { code } = req.body;
-    await VerificationService.verifyPhone(req.user!._id, code);
+    await VerificationService.verifyPhone(req.user._id.toString(), code);
     res.json({ message: 'Phone verified successfully' });
-  } catch (err) {
-    res.status(400).json({ error: 'Invalid verification code' });
+  } catch (error) {
+    console.error('Error verifying phone:', error);
+    res.status(500).json({ error: 'Failed to verify phone' });
   }
 });
 
-router.post('/phone/resend', authenticateToken, async (req, res) => {
+router.post('/phone/resend', auth, async (req: Request, res: Response): Promise<void> => {
   try {
-    await VerificationService.resendPhoneVerification(req.user!._id);
-    res.json({ message: 'Verification SMS resent' });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to resend verification SMS' });
-  }
-});
+    if (!req.user?._id) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
 
-// University routes
-router.get('/universities', async (_req, res) => {
-  try {
-    const { University } = require('../models/University');
-    const universities = await University.find().sort('name');
-    res.json(universities);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch universities' });
+    await VerificationService.resendPhoneVerification(req.user._id.toString());
+    res.json({ message: 'Verification code resent' });
+  } catch (error) {
+    console.error('Error resending verification code:', error);
+    res.status(500).json({ error: 'Failed to resend verification code' });
   }
 });
 

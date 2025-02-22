@@ -1,5 +1,5 @@
 import express from 'express';
-import {
+import { 
   register,
   login,
   getProfile,
@@ -9,24 +9,17 @@ import {
   regenerateVerificationToken,
   addTestResult
 } from '../controllers/authController';
-import { authenticateToken } from '../middleware/authMiddleware';
+import { auth } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
-// Public routes
 router.post('/register', register);
 router.post('/login', login);
-
-// Protected routes (require authentication)
-router.get('/verify', authenticateToken, verifyToken);
-router.get('/profile', authenticateToken, getProfile);
-router.put('/profile', authenticateToken, updateProfile);
-
-// Test result routes
-router.post('/test-result', authenticateToken, addTestResult);
-
-// Verification routes
-router.get('/verification/:token', getUserVerification);
-router.post('/verification/regenerate', authenticateToken, regenerateVerificationToken);
+router.get('/profile', auth, getProfile);
+router.put('/profile', auth, updateProfile);
+router.get('/verify-token', verifyToken);
+router.get('/verification', auth, getUserVerification);
+router.post('/regenerate-token', auth, regenerateVerificationToken);
+router.post('/test-result', auth, addTestResult);
 
 export default router;
