@@ -111,8 +111,6 @@ const userSchema = new Schema<IUser>({
 });
 
 // Indexes
-userSchema.index({ email: 1 });
-userSchema.index({ phone: 1 });
 userSchema.index({ 'subscription.stripeCustomerId': 1 });
 
 // Methods
