@@ -5,10 +5,17 @@
         "node": "18.x"
     },
     "description": "Aegis backend server",
-    "main": "dist/app.js",
+    "main": "build/app.js",
     "dependencies": {
+        "@types/bcrypt": "^5.0.2",
+        "@types/cors": "^2.8.12",
+        "@types/express": "^4.17.17",
+        "@types/jsonwebtoken": "^9.0.1",
         "@types/mongodb": "^4.0.6",
+        "@types/mongoose": "^5.11.96",
+        "@types/morgan": "^1.9.3",
         "@types/multer": "^1.4.12",
+        "@types/node": "^18.0.0",
         "@types/nodemailer": "^6.4.17",
         "@types/twilio": "^3.19.2",
         "bcrypt": "^5.1.0",
@@ -22,25 +29,18 @@
         "multer": "^1.4.5-lts.1",
         "nodemailer": "^6.10.0",
         "stripe": "^17.6.0",
-        "twilio": "^5.4.5"
+        "ts-node": "^10.9.1",
+        "twilio": "^5.4.5",
+        "typescript": "^4.9.5"
     },
     "scripts": {
-        "start": "node dist/app.js",
+        "start": "node build/app.js",
         "dev": "nodemon src/app.ts",
-        "build": "tsc",
+        "build": "rm -rf build && tsc && cp package.json Procfile .env.example build/ && mkdir -p build/src/data && cp src/data/* build/src/data/",
         "test": "jest",
         "populate-db": "ts-node src/scripts/populateDb.ts"
     },
     "devDependencies": {
-        "@types/bcrypt": "^5.0.2",
-        "@types/cors": "^2.8.12",
-        "@types/express": "^4.17.17",
-        "@types/jsonwebtoken": "^9.0.1",
-        "@types/mongoose": "^5.11.96",
-        "@types/morgan": "^1.9.3",
-        "@types/node": "^18.0.0",
-        "nodemon": "^3.1.9",
-        "ts-node": "^10.9.1",
-        "typescript": "^4.9.5"
+        "nodemon": "^3.1.9"
     }
 }
