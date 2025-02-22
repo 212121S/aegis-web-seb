@@ -125,7 +125,7 @@ export const authAPI = {
 
   getProfile: async () => {
     try {
-      const response = await instance.get('/api/auth/user/profile');
+      const response = await instance.get('/api/auth/profile');
       return response.data;
     } catch (error) {
       console.error('Profile Error:', error.response || error);
@@ -134,7 +134,7 @@ export const authAPI = {
   },
 
   updateProfile: async (data) => {
-    const response = await instance.put('/api/auth/user/profile', data);
+    const response = await instance.put('/api/auth/profile', data);
     return response.data;
   }
 };

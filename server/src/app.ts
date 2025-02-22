@@ -19,21 +19,23 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 // Configure CORS with proper options
 const allowedOrigins = isDevelopment 
   ? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002']
-  : [
-      'https://aegistestingtech.com',
-      'https://www.aegistestingtech.com',
-      'https://aegis-web-seb.onrender.com',
-      'https://api.aegistestingtech.com',
-      process.env.CLIENT_URL
-    ].filter(Boolean);
+  : (process.env.CORS_ALLOWED_ORIGINS || '').split(',').filter(Boolean);
+
+// Log environment configuration
+console.log('Environment Configuration:', {
+  NODE_ENV: process.env.NODE_ENV,
+  isDevelopment,
+  DOMAIN: process.env.DOMAIN,
+  CLIENT_URL: process.env.CLIENT_URL,
+  CORS_ALLOWED_ORIGINS: process.env.CORS_ALLOWED_ORIGINS,
+  allowedOrigins
+});
 
 // Function to check if origin matches allowed patterns
 const isOriginAllowed = (origin: string): boolean => {
   // Log the check for debugging
-  console.log(`[CORS] Checking if origin ${origin} is allowed`);
-  console.log(`[CORS] isDevelopment: ${isDevelopment}`);
-  console.log(`[CORS] allowedOrigins:`, allowedOrigins);
-  console.log(`[CORS] CLIENT_URL:`, process.env.CLIENT_URL);
+  console.log(`[CORS] Checking origin: ${origin}`);
+  console.log(`[CORS] Allowed origins:`, allowedOrigins);
   
   // Check exact matches first
   if (allowedOrigins.includes(origin)) {
@@ -43,11 +45,15 @@ const isOriginAllowed = (origin: string): boolean => {
 
   // For production, also allow the domain regardless of subdomain
   if (!isDevelopment) {
-    const originUrl = new URL(origin);
-    const isAegisDomain = originUrl.hostname.endsWith('aegistestingtech.com');
-    if (isAegisDomain) {
-      console.log(`[CORS] Origin ${origin} is allowed as aegistestingtech.com subdomain`);
-      return true;
+    try {
+      const originUrl = new URL(origin);
+      const isAegisDomain = originUrl.hostname.endsWith('aegistestingtech.com');
+      if (isAegisDomain) {
+        console.log(`[CORS] Origin ${origin} is allowed as aegistestingtech.com subdomain`);
+        return true;
+      }
+    } catch (error) {
+      console.error(`[CORS] Error parsing origin URL:`, error);
     }
   }
 
@@ -72,7 +78,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 const corsOptions: CorsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     console.log(`[CORS] Request from origin: ${origin || 'No Origin'}`);
-    console.log(`[CORS] Current NODE_ENV: ${process.env.NODE_ENV}`);
     
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) {
@@ -86,12 +91,16 @@ const corsOptions: CorsOptions = {
       callback(null, true);
     } else {
       // Log more details about the rejection
-      console.error(`[CORS] Origin ${origin} rejected. Current allowed origins:`, allowedOrigins);
-      console.error(`[CORS] Environment mode: ${isDevelopment ? 'development' : 'production'}`);
+      console.error(`[CORS] Origin ${origin} rejected. Details:`, {
+        allowedOrigins,
+        isDevelopment,
+        NODE_ENV: process.env.NODE_ENV,
+        CORS_ALLOWED_ORIGINS: process.env.CORS_ALLOWED_ORIGINS
+      });
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: false,
+  credentials: true, // Allow credentials
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',
