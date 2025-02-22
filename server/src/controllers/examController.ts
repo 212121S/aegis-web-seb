@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import { Question, TestSession, TestResult, IProctoringEvent, VerificationLink, IQuestion } from "../models/Question";
+import { User, ITestHistory } from "../models/User";
 import Stripe from 'stripe';
 import crypto from 'crypto';
 
@@ -592,6 +593,29 @@ export async function finalizeTest(req: Request, res: Response) {
     const totalTests = await TestResult.countDocuments({ type: session.type });
     testResult.percentile = (lowerScores / totalTests) * 100;
     await testResult.save();
+
+    // Add test result to user's history
+    const user = await User.findById(session.userId);
+    if (user) {
+      const testHistoryEntry: ITestHistory = {
+        testId: testResult._id as mongoose.Types.ObjectId,
+        score: testResult.finalScore,
+        date: testResult.completedAt,
+        type: testResult.type
+      };
+      user.testHistory.push(testHistoryEntry);
+
+      // Update user's statistics for official tests
+      if (testResult.type === 'official') {
+        const officialTests = user.testHistory.filter((test: ITestHistory) => test.type === 'official');
+        const scores = officialTests.map((test: ITestHistory) => test.score);
+        
+        user.highestScore = Math.max(...scores, user.highestScore);
+        user.averageScore = scores.reduce((a: number, b: number) => a + b, 0) / scores.length;
+      }
+
+      await user.save();
+    }
 
     return res.json(testResult);
   } catch (err) {

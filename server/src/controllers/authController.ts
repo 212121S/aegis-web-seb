@@ -1,45 +1,41 @@
-import { Request, Response } from "express";
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
-import { User, IUser } from "../models/User";
+import { Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import mongoose from 'mongoose';
+import { User } from '../models/User';
+import { TestResult } from '../models/Question';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const generateToken = (userId: string | mongoose.Types.ObjectId | unknown): string => {
+  const id = userId instanceof mongoose.Types.ObjectId ? userId.toString() : String(userId);
+  return jwt.sign({ userId: id }, process.env.JWT_SECRET || 'your-secret-key', {
+    expiresIn: '24h',
+  });
+};
 
-export async function login(req: Request, res: Response) {
+export const register = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, username, phone } = req.body;
 
-    // Validate required fields
-    if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email already registered' });
     }
 
-    // Find user by email
-    const user = await User.findOne({ email }).select('+password');
-    if (!user) {
-      return res.status(401).json({ message: "Invalid email or password" });
-    }
+    // Create new user
+    const user = new User({
+      email,
+      password,
+      username,
+      phone
+    });
 
-    // Check password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid email or password" });
-    }
+    await user.save();
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { 
-        _id: user._id,
-        email: user.email,
-        username: user.username
-      },
-      JWT_SECRET,
-      { expiresIn: '24h' }
-    );
+    // Generate token
+    const token = generateToken(user._id);
 
-    // Return success with token
-    return res.status(200).json({
-      message: "Login successful",
+    res.status(201).json({
       token,
       user: {
         id: user._id,
@@ -47,144 +43,205 @@ export async function login(req: Request, res: Response) {
         username: user.username
       }
     });
-  } catch (err: any) {
-    console.error("Login error:", err);
-    return res.status(500).json({ 
-      message: "Login failed. Please try again.",
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
+  } catch (err) {
+    console.error('Registration error:', err);
+    res.status(500).json({ error: 'Failed to register user' });
   }
-}
+};
 
-export async function verify(req: Request, res: Response) {
+export const login = async (req: Request, res: Response) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-      return res.status(401).json({ message: "No token provided" });
-    }
+    const { email, password } = req.body;
 
-    const decoded = jwt.verify(token, JWT_SECRET) as { _id: string; email: string };
-    const user = await User.findById(decoded._id);
-
+    // Find user
+    const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    return res.status(200).json({
-      verified: true,
+    // Check password
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate token
+    const token = generateToken(user._id);
+
+    res.json({
+      token,
       user: {
         id: user._id,
         email: user.email,
         username: user.username
       }
     });
-  } catch (err: any) {
-    if (err instanceof jwt.TokenExpiredError) {
-      return res.status(401).json({ message: "Token expired" });
-    }
-    if (err instanceof jwt.JsonWebTokenError) {
-      return res.status(401).json({ message: "Invalid token" });
-    }
-    console.error("Token verification error:", err);
-    return res.status(500).json({ 
-      message: "Token verification failed",
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Failed to login' });
   }
-}
+};
 
-export async function getProfile(req: Request, res: Response) {
+export const getProfile = async (req: Request, res: Response) => {
   try {
-    console.log('GetProfile - Headers:', req.headers); // Debug headers
-    const token = req.headers.authorization?.split(' ')[1];
-    
-    if (!token) {
-      console.log('GetProfile - No token provided'); // Debug token missing
-      return res.status(401).json({ message: "No token provided" });
-    }
-
-    console.log('GetProfile - Token:', token); // Debug token
-    const decoded = jwt.verify(token, JWT_SECRET) as { _id: string; email: string };
-    console.log('GetProfile - Decoded:', decoded); // Debug decoded token
-
-    const user = await User.findById(decoded._id);
-    console.log('GetProfile - User:', user); // Debug user
+    const user = await User.findById(req.user!._id)
+      .select('-password')
+      .populate('testHistory.testId');
 
     if (!user) {
-      console.log('GetProfile - User not found'); // Debug user not found
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    const response = {
-      user: {
-        id: user._id,
-        email: user.email,
-        username: user.username,
-        phone: user.phone,
-        subscription: user.subscription,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt
+    // Get official test history
+    const officialTests = user.testHistory.filter(test => test.type === 'official');
+    
+    // Calculate statistics
+    const scores = officialTests.map(test => test.score);
+    const highestScore = Math.max(...scores, 0);
+    const averageScore = scores.length > 0 
+      ? scores.reduce((a, b) => a + b, 0) / scores.length 
+      : 0;
+
+    // Update user statistics if they've changed
+    if (user.highestScore !== highestScore || user.averageScore !== averageScore) {
+      user.highestScore = highestScore;
+      user.averageScore = averageScore;
+      await user.save();
+    }
+
+    res.json({ 
+      user,
+      testStats: {
+        highestScore,
+        averageScore,
+        totalTests: officialTests.length
       }
-    };
-    console.log('GetProfile - Response:', response); // Debug response
-    return res.status(200).json(response);
-  } catch (err: any) {
-    if (err instanceof jwt.TokenExpiredError) {
-      return res.status(401).json({ message: "Token expired" });
-    }
-    if (err instanceof jwt.JsonWebTokenError) {
-      return res.status(401).json({ message: "Invalid token" });
-    }
-    console.error("Profile fetch error:", err);
-    return res.status(500).json({ 
-      message: "Failed to fetch profile",
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
+  } catch (err) {
+    console.error('Get profile error:', err);
+    res.status(500).json({ error: 'Failed to get profile' });
   }
-}
+};
 
-export async function register(req: Request, res: Response) {
+export const updateProfile = async (req: Request, res: Response) => {
   try {
-    const { email, username, password, phone } = req.body;
+    const { username, email, phone } = req.body;
 
-    // Validate required fields
-    if (!email || !username || !password || !phone) {
-      return res.status(400).json({ 
-        message: "All fields are required (email, username, password, phone)" 
-      });
+    const user = await User.findById(req.user!._id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    // 1) Check if email exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ message: "Email already registered." });
-    }
+    // Update fields
+    if (username) user.username = username;
+    if (email) user.email = email;
+    if (phone) user.phone = phone;
 
-    // 2) Check if username exists
-    const existingUsername = await User.findOne({ username });
-    if (existingUsername) {
-      return res.status(400).json({ message: "Username already taken." });
-    }
+    await user.save();
 
-    // 3) Create new user
-    const newUser = new User({
-      email,
-      username,
-      password, // Password will be hashed by the pre-save hook
-      phone
-    });
-    await newUser.save();
-
-    return res.status(201).json({ 
-      message: "User registered successfully!",
-      userId: newUser._id 
-    });
-  } catch (err: any) {
-    console.error("Register error:", err);
-    return res.status(500).json({ 
-      message: "Registration failed. Please try again.",
-      error: process.env.NODE_ENV === 'development' ? err.message : undefined
-    });
+    res.json({ user });
+  } catch (err) {
+    console.error('Update profile error:', err);
+    res.status(500).json({ error: 'Failed to update profile' });
   }
-}
+};
+
+export const verifyToken = async (req: Request, res: Response) => {
+  try {
+    const user = await User.findById(req.user!._id).select('-password');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ user });
+  } catch (err) {
+    console.error('Token verification error:', err);
+    res.status(500).json({ error: 'Failed to verify token' });
+  }
+};
+
+export const getUserVerification = async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+
+    const user = await User.findOne({ verificationToken: token })
+      .select('username email phone highestScore averageScore testHistory')
+      .populate('testHistory.testId');
+
+    if (!user) {
+      return res.status(404).json({ error: 'Invalid verification token' });
+    }
+
+    // Filter for only official tests
+    const officialTests = user.testHistory.filter(test => test.type === 'official');
+
+    res.json({
+      user: {
+        username: user.username,
+        email: user.email,
+        phone: user.phone,
+        highestScore: user.highestScore,
+        averageScore: user.averageScore,
+        testHistory: officialTests
+      }
+    });
+  } catch (err) {
+    console.error('Get verification error:', err);
+    res.status(500).json({ error: 'Failed to get verification' });
+  }
+};
+
+export const regenerateVerificationToken = async (req: Request, res: Response) => {
+  try {
+    const user = await User.findById(req.user!._id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Generate new token
+    user.verificationToken = crypto.randomBytes(32).toString('hex');
+    await user.save();
+
+    res.json({ verificationToken: user.verificationToken });
+  } catch (err) {
+    console.error('Regenerate token error:', err);
+    res.status(500).json({ error: 'Failed to regenerate verification token' });
+  }
+};
+
+export const addTestResult = async (req: Request, res: Response) => {
+  try {
+    const { testId, score, type } = req.body;
+    const user = await User.findById(req.user!._id);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Add test to history
+    user.testHistory.push({
+      testId,
+      score,
+      date: new Date(),
+      type
+    });
+
+    // Update statistics for official tests
+    if (type === 'official') {
+      const officialTests = user.testHistory.filter(test => test.type === 'official');
+      const scores = officialTests.map(test => test.score);
+      
+      user.highestScore = Math.max(...scores, user.highestScore);
+      user.averageScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+    }
+
+    await user.save();
+
+    res.json({ 
+      message: 'Test result added successfully',
+      testHistory: user.testHistory
+    });
+  } catch (err) {
+    console.error('Add test result error:', err);
+    res.status(500).json({ error: 'Failed to add test result' });
+  }
+};

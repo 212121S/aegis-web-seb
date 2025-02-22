@@ -26,7 +26,9 @@ import {
   Security,
   Notifications,
   Payment,
-  PhotoCamera
+  PhotoCamera,
+  Assessment,
+  Link as LinkIcon
 } from '@mui/icons-material';
 import { authAPI, paymentAPI } from '../utils/axios';
 
@@ -171,6 +173,7 @@ function AccountSettings() {
             <Tab icon={<Security />} label="Security" />
             <Tab icon={<Notifications />} label="Notifications" />
             <Tab icon={<Payment />} label="Billing" />
+            <Tab icon={<Assessment />} label="Test History" />
           </Tabs>
         </Box>
 
@@ -392,6 +395,133 @@ function AccountSettings() {
                 View your payment history and download invoices
               </Typography>
               {/* Payment history will be implemented later */}
+            </Box>
+          </TabPanel>
+
+          <TabPanel value={value} index={4}>
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                Official Test History
+              </Typography>
+              
+              {/* Verification Link */}
+              <Card variant="outlined" sx={{ mb: 4 }}>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6">
+                      Verification Link
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      startIcon={<LinkIcon />}
+                      onClick={() => {
+                        if (userData.verificationToken) {
+                          navigator.clipboard.writeText(
+                            `${window.location.origin}/verify/${userData.verificationToken}`
+                          );
+                          setSuccess('Verification link copied to clipboard');
+                        }
+                      }}
+                      disabled={!userData.verificationToken}
+                    >
+                      Copy Link
+                    </Button>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" paragraph>
+                    Share this link to verify your test scores
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    onClick={async () => {
+                      try {
+                        setLoading(true);
+                        const response = await authAPI.regenerateVerificationToken();
+                        setUserData(prev => ({
+                          ...prev,
+                          verificationToken: response.data.verificationToken
+                        }));
+                        setSuccess('Verification link regenerated');
+                      } catch (err) {
+                        setError('Failed to regenerate verification link');
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    Regenerate Link
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Test Statistics */}
+              <Grid container spacing={3} sx={{ mb: 4 }}>
+                <Grid item xs={12} md={4}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Highest Score
+                      </Typography>
+                      <Typography variant="h3" color="primary">
+                        {userData.highestScore || 0}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Average Score
+                      </Typography>
+                      <Typography variant="h3" color="primary">
+                        {Math.round(userData.averageScore) || 0}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Card>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom>
+                        Tests Taken
+                      </Typography>
+                      <Typography variant="h3" color="primary">
+                        {userData.testHistory?.filter(test => test.type === 'official').length || 0}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+
+              {/* Test History List */}
+              {userData.testHistory?.filter(test => test.type === 'official').map((test, index) => (
+                <Card key={index} variant="outlined" sx={{ mb: 2 }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box>
+                        <Typography variant="h6">
+                          Score: {test.score}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {new Date(test.date).toLocaleDateString()}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ 
+                        width: 60, 
+                        height: 60, 
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: theme.palette.primary.main,
+                        color: 'white'
+                      }}>
+                        {test.score}
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              ))}
             </Box>
           </TabPanel>
       </Paper>

@@ -7,7 +7,6 @@ import {
   Typography,
   Grid,
   CircularProgress,
-  Divider,
   Card,
   CardContent,
   LinearProgress,
@@ -18,13 +17,6 @@ import {
   Chip,
   useTheme
 } from '@mui/material';
-import {
-  Timeline,
-  Assessment,
-  TrendingUp,
-  AccessTime,
-  School
-} from '@mui/icons-material';
 import axios from '../utils/axios';
 
 const TestResults = () => {
@@ -81,10 +73,21 @@ const TestResults = () => {
             <Box sx={{ position: 'relative', display: 'inline-flex', mb: 2 }}>
               <CircularProgress
                 variant="determinate"
+                value={100}
+                size={120}
+                thickness={4}
+                sx={{ color: theme.palette.grey[200] }}
+              />
+              <CircularProgress
+                variant="determinate"
                 value={results.finalScore}
                 size={120}
                 thickness={4}
-                sx={{ color: theme.palette.success.main }}
+                sx={{ 
+                  color: theme.palette.success.main,
+                  position: 'absolute',
+                  left: 0
+                }}
               />
               <Box
                 sx={{
@@ -99,7 +102,7 @@ const TestResults = () => {
                 }}
               >
                 <Typography variant="h4" component="div" color="text.secondary">
-                  {results.finalScore}%
+                  {Math.round(results.finalScore)}
                 </Typography>
               </Box>
             </Box>
@@ -198,7 +201,7 @@ const TestResults = () => {
                         {category.category}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {category.correct}/{category.total} ({((category.correct/category.total) * 100).toFixed(1)}%)
+                        {category.correct}/{category.total}
                       </Typography>
                     </Box>
                     <LinearProgress
@@ -221,10 +224,10 @@ const TestResults = () => {
                 Percentile Ranking
               </Typography>
               <Typography variant="h3" color="primary">
-                {(results.percentile || 0).toFixed(1)}
+                {Math.round(results.percentile)}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                You performed better than {(results.percentile || 0).toFixed(1)}% of test takers
+                You performed better than {Math.round(results.percentile)}% of test takers
               </Typography>
             </Paper>
           </Grid>

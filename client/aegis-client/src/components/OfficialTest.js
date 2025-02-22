@@ -29,7 +29,6 @@ const OfficialTest = () => {
   const [session, setSession] = useState(null);
   const [question, setQuestion] = useState(null);
   const [selectedAnswer, setSelectedAnswer] = useState('');
-  const [score, setScore] = useState(0);
   const [incorrectAnswers, setIncorrectAnswers] = useState(0);
   const [startTime, setStartTime] = useState(null);
   const [timeLeft, setTimeLeft] = useState(30);
@@ -80,11 +79,10 @@ const OfficialTest = () => {
         timeSpent
       });
 
-      setScore(response.currentScore);
       setIncorrectAnswers(response.incorrectAnswers);
       setStartTime(Date.now());
       
-      if (response.incorrectAnswers >= 5) {
+      if (response.incorrectAnswers >= 3) {
         await finalizeTest();
       } else {
         await fetchNextQuestion();
@@ -143,11 +141,10 @@ const OfficialTest = () => {
         timeSpent
       });
 
-      setScore(response.currentScore);
       setIncorrectAnswers(response.incorrectAnswers);
       setStartTime(Date.now());
       
-      if (response.incorrectAnswers >= 5) {
+      if (response.incorrectAnswers >= 3) {
         await finalizeTest();
       } else {
         await fetchNextQuestion();
@@ -161,7 +158,6 @@ const OfficialTest = () => {
   const finalizeTest = async () => {
     try {
       const response = await examAPI.finalizeTest(session);
-      
       navigate(`/test/results/${response._id}`);
     } catch (err) {
       setError('Failed to finalize test');
@@ -188,31 +184,30 @@ const OfficialTest = () => {
       <Paper sx={{ p: 3, mb: 3, position: 'relative' }}>
         <Box sx={{ 
           position: 'absolute',
-          top: 10,
-          right: 10,
-          width: 40,
-          height: 40,
+          top: -20,
+          right: -20,
+          width: 50,
+          height: 50,
           borderRadius: '50%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: timeLeft <= 5 ? 'error.main' : 'primary.main',
           color: 'white',
-          fontWeight: 'bold'
+          fontWeight: 'bold',
+          fontSize: '1.2rem',
+          boxShadow: 2
         }}>
           {timeLeft}
         </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-          <Typography variant="h6">
-            Score: {score.toFixed(2)}%
-          </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
           <Typography variant="h6" color="error">
-            Incorrect: {incorrectAnswers}/5
+            Incorrect: {incorrectAnswers}/3
           </Typography>
         </Box>
         <LinearProgress 
           variant="determinate" 
-          value={(incorrectAnswers / 5) * 100}
+          value={(incorrectAnswers / 3) * 100}
           sx={{ 
             height: 8, 
             borderRadius: 4,

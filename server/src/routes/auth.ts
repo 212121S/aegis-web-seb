@@ -1,17 +1,32 @@
-import { Router } from "express";
-import * as authController from "../controllers/authController";
-import { authenticateToken } from "../middleware/authMiddleware";
+import express from 'express';
+import {
+  register,
+  login,
+  getProfile,
+  updateProfile,
+  verifyToken,
+  getUserVerification,
+  regenerateVerificationToken,
+  addTestResult
+} from '../controllers/authController';
+import { authenticateToken } from '../middleware/authMiddleware';
 
-const router = Router();
+const router = express.Router();
 
-// POST /api/auth/register
-router.post("/register", authController.register);
+// Public routes
+router.post('/register', register);
+router.post('/login', login);
 
-// POST /api/auth/login
-router.post("/login", authController.login);
+// Protected routes (require authentication)
+router.get('/verify', authenticateToken, verifyToken);
+router.get('/profile', authenticateToken, getProfile);
+router.put('/profile', authenticateToken, updateProfile);
 
-// Protected routes
-router.get("/verify", authenticateToken, authController.verify);
-router.get("/user/profile", authenticateToken, authController.getProfile);
+// Test result routes
+router.post('/test-result', authenticateToken, addTestResult);
+
+// Verification routes
+router.get('/verification/:token', getUserVerification);
+router.post('/verification/regenerate', authenticateToken, regenerateVerificationToken);
 
 export default router;
