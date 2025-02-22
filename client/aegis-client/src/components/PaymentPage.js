@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import config from '../config';
 import { paymentAPI } from '../utils/axios';
+import { useAuth } from '../context/AuthContext';
 import {
   Box,
   Button,
@@ -10,21 +12,34 @@ import {
   Card,
   CardContent,
   Alert,
-  CircularProgress
+  CircularProgress,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText
 } from '@mui/material';
+import CheckIcon from '@mui/icons-material/Check';
 
 const PaymentPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [stripeError, setStripeError] = useState(null);
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
+    // Redirect to login if not authenticated
+    if (!user) {
+      navigate('/login', { state: { from: '/payment' } });
+      return;
+    }
+
     // Check if Stripe is configured
     if (!config.stripe.publicKey) {
       setStripeError('Payment system is not properly configured. Please try again later.');
       console.error('Stripe public key is not configured');
     }
-  }, []);
+  }, [user, navigate]);
 
   const handleSubscribe = async () => {
     try {
@@ -60,6 +75,33 @@ const PaymentPage = () => {
     }
   };
 
+  if (user?.subscription?.active) {
+    return (
+      <Container maxWidth="sm" sx={{ mt: 4 }}>
+        <Alert severity="info" sx={{ mb: 3 }}>
+          You already have an active subscription!
+        </Alert>
+        <Card>
+          <CardContent>
+            <Typography variant="h5" component="h2" gutterBottom>
+              Current Subscription
+            </Typography>
+            <Typography variant="body1" paragraph>
+              You have access to all premium features.
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => navigate('/practice')}
+            >
+              Start Practice Tests
+            </Button>
+          </CardContent>
+        </Card>
+      </Container>
+    );
+  }
+
   return (
     <Container maxWidth="sm" sx={{ mt: 4 }}>
       <Box sx={{ mb: 4 }}>
@@ -89,18 +131,33 @@ const PaymentPage = () => {
           <Typography variant="h4" component="p" gutterBottom>
             $49.99/month
           </Typography>
-          <Typography variant="body1" paragraph>
-            ✓ Unlimited practice tests
-          </Typography>
-          <Typography variant="body1" paragraph>
-            ✓ Detailed performance analytics
-          </Typography>
-          <Typography variant="body1" paragraph>
-            ✓ Study guides and materials
-          </Typography>
-          <Typography variant="body1" paragraph>
-            ✓ Priority support
-          </Typography>
+
+          <List>
+            <ListItem>
+              <ListItemIcon>
+                <CheckIcon color="primary" />
+              </ListItemIcon>
+              <ListItemText primary="Unlimited practice tests" />
+            </ListItem>
+            <ListItem>
+              <ListItemIcon>
+                <CheckIcon color="primary" />
+              </ListItemIcon>
+              <ListItemText primary="Detailed performance analytics" />
+            </ListItem>
+            <ListItem>
+              <ListItemIcon>
+                <CheckIcon color="primary" />
+              </ListItemIcon>
+              <ListItemText primary="Study guides and materials" />
+            </ListItem>
+            <ListItem>
+              <ListItemIcon>
+                <CheckIcon color="primary" />
+              </ListItemIcon>
+              <ListItemText primary="Priority support" />
+            </ListItem>
+          </List>
 
           <Button
             variant="contained"

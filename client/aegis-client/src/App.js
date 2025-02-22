@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import theme from './theme';
@@ -56,6 +56,11 @@ const NavigationBar = () => {
             <Button color="inherit" component={Link} to="/practice">
               Practice Tests
             </Button>
+            {!user.subscription?.active && (
+              <Button color="inherit" component={Link} to="/payment">
+                Upgrade
+              </Button>
+            )}
             <Button color="inherit" component={Link} to="/settings">
               Settings
             </Button>
@@ -84,16 +89,17 @@ const NavigationBar = () => {
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
   
   if (loading) {
     return <LoadingScreen />;
   }
 
-  console.log('Protected Route Check:', { user, path: window.location.pathname });
+  console.log('Protected Route Check:', { user, path: location.pathname });
   
   if (!user) {
     console.log('No user found, redirecting to login');
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
   return children;

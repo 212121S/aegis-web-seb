@@ -23,13 +23,16 @@ const LoginPage = () => {
     password: ''
   });
 
+  // Get the redirect path from location state
+  const from = location.state?.from || '/dashboard';
+
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      console.log('User already logged in, redirecting to dashboard');
-      navigate('/dashboard', { replace: true });
+      console.log('User already logged in, redirecting to:', from);
+      navigate(from, { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, navigate, from]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -50,9 +53,7 @@ const LoginPage = () => {
       console.log('Login response:', { success });
 
       if (success) {
-        console.log('Login successful, navigating to dashboard');
-        // Get the redirect path from location state or default to dashboard
-        const from = location.state?.from?.pathname || '/dashboard';
+        console.log('Login successful, navigating to:', from);
         navigate(from, { replace: true });
       } else {
         console.error('Login failed:', authError);
