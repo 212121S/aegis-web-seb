@@ -143,8 +143,8 @@ export const createCheckoutSession = async (req: AuthenticatedRequest, res: Resp
         },
       ],
       mode: plan.type === 'subscription' ? 'subscription' : 'payment',
-      success_url: `${DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${DOMAIN}/payment-cancelled`,
+      success_url: `${DOMAIN}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${DOMAIN}/payment/cancelled`,
       metadata: {
         userId: userId.toString(),
         planId: planId,

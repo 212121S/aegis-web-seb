@@ -30,18 +30,53 @@ function PaymentSuccess() {
           throw new Error('No session ID found');
         }
 
-        await paymentAPI.verifySession(sessionId);
-        await refreshSubscription();
-        setLoading(false);
+        let retries = 0;
+        const maxRetries = 10; // More retries since webhook processing can take time
+        const retryDelay = 2000; // 2 seconds between retries
+
+        while (retries < maxRetries) {
+          try {
+            // First verify the session
+            const sessionResponse = await paymentAPI.verifySession(sessionId);
+            
+            // Then check subscription status
+            const subscriptionResponse = await refreshSubscription();
+            
+            // If subscription is active, we're done
+            if (subscriptionResponse?.active) {
+              setLoading(false);
+              return;
+            }
+
+            // If we get here but subscription isn't active yet, wait and retry
+            retries++;
+            if (retries === maxRetries) {
+              throw new Error('Subscription not activated after maximum retries');
+            }
+            
+            console.log(`Waiting for subscription activation - Retry ${retries}/${maxRetries}`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          } catch (err) {
+            retries++;
+            if (retries === maxRetries) {
+              throw err;
+            }
+            console.log(`Verification failed - Retry ${retries}/${maxRetries}`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+          }
+        }
       } catch (err) {
         console.error('Payment verification error:', err);
-        setError('Failed to verify payment. Please contact support.');
+        setError(
+          'Payment processed but subscription activation is taking longer than expected. ' +
+          'Please refresh the page in a few moments or contact support if the issue persists.'
+        );
         setLoading(false);
       }
     };
 
     verifyPayment();
-  }, [searchParams]);
+  }, [searchParams, refreshSubscription]);
 
   if (loading) {
     return (
