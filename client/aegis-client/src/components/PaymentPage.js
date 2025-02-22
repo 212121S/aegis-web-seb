@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import config from '../config';
 import { paymentAPI } from '../utils/axios';
@@ -28,6 +28,7 @@ const PaymentPage = () => {
   const [stripeError, setStripeError] = useState(null);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     // Redirect to login if not authenticated
@@ -49,13 +50,12 @@ const PaymentPage = () => {
     }
   }, [user, navigate]);
 
-  // Handle plan selection from URL state
+  // Handle plan selection from location state
   useEffect(() => {
-    const location = window.location;
     if (location.state?.selectedPlan) {
       handlePurchase(location.state.selectedPlan);
     }
-  }, []);
+  }, [location]);
 
   const handlePurchase = async (productType, fromButton = false) => {
     try {
@@ -72,7 +72,7 @@ const PaymentPage = () => {
       }
 
       // If called from button click and no plan selected, redirect to plans
-      if (fromButton && !window.location.state?.selectedPlan) {
+      if (fromButton && !location.state?.selectedPlan) {
         navigate('/plans');
         return;
       }

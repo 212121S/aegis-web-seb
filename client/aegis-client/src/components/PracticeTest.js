@@ -37,8 +37,14 @@ const PracticeTest = () => {
       setError(null);
       console.log('Fetching practice questions...');
       const response = await examAPI.getPracticeQuestions();
-      console.log('Practice questions response:', response.data);
-      setQuestions(response.data);
+      console.log('Practice questions response:', response);
+
+      // Validate response
+      if (!Array.isArray(response)) {
+        throw new Error('Invalid response format: expected an array of questions');
+      }
+
+      setQuestions(response);
     } catch (err) {
       console.error('Failed to load questions:', err);
       setError('Failed to load practice questions. Please try again.');
@@ -107,7 +113,7 @@ const PracticeTest = () => {
     );
   }
 
-  if (!questions.length) {
+  if (!Array.isArray(questions) || questions.length === 0) {
     return (
       <Container maxWidth="sm" sx={{ mt: 4 }}>
         <Alert severity="info">

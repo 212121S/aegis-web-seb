@@ -83,12 +83,35 @@ instance.interceptors.response.use(
       });
     }
     
-    // Special handling for auth endpoints to maintain expected response structure
-    if (response.config.url?.startsWith('/auth/')) {
-      return response.data;
+    // Log successful responses for debugging
+    console.log('API Response:', {
+      url: response.config.url,
+      status: response.status,
+      data: response.data,
+      timestamp: new Date().toISOString()
+    });
+
+    // Validate and transform response data
+    if (!response.data) {
+      console.warn('Empty response data:', {
+        url: response.config.url,
+        status: response.status
+      });
+      return null;
     }
-    
-    // For non-auth endpoints, return just the data
+
+    // For array responses (like questions), ensure it's an array
+    if (response.config.url?.includes('/exam/practice') || 
+        response.config.url?.includes('/exam/history')) {
+      if (!Array.isArray(response.data)) {
+        console.error('Invalid array response:', {
+          url: response.config.url,
+          data: response.data
+        });
+        throw new Error('Invalid response format: expected an array');
+      }
+    }
+
     return response.data;
   },
   async (error) => {
@@ -196,12 +219,15 @@ export const paymentAPI = {
         };
       }
       
+      // Enhanced error logging
       console.error('Payment verification error:', {
         error,
         sessionId,
         attempt,
         maxAttempts,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        response: error.response?.data,
+        status: error.response?.status
       });
       
       // Determine if retry is needed
