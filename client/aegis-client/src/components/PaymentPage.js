@@ -52,10 +52,19 @@ const PaymentPage = () => {
 
   // Handle plan selection from location state
   useEffect(() => {
-    if (location.state?.selectedPlan) {
-      handlePurchase(location.state.selectedPlan);
+    if (!location.state?.selectedPlan) {
+      console.log('No plan selected, redirecting to plans page');
+      navigate('/plans');
+      return;
     }
-  }, [location]);
+
+    console.log('Plan selected:', {
+      plan: location.state.selectedPlan,
+      timestamp: location.state.timestamp
+    });
+
+    handlePurchase(location.state.selectedPlan);
+  }, [location, navigate]);
 
   const handlePurchase = async (productType, fromButton = false) => {
     try {
@@ -71,10 +80,10 @@ const PaymentPage = () => {
         throw new Error('Failed to initialize payment system');
       }
 
-      // If called from button click and no plan selected, redirect to plans
-      if (fromButton && !location.state?.selectedPlan) {
-        navigate('/plans');
-        return;
+      // Always ensure we have a selected plan
+      if (!location.state?.selectedPlan) {
+        console.error('No plan selected');
+        throw new Error('Please select a plan first');
       }
 
       // Get the correct price ID based on product type
@@ -90,7 +99,8 @@ const PaymentPage = () => {
           priceId = config.stripe.prices.premiumSubscription;
           break;
         default:
-          throw new Error('Invalid product type');
+          console.error('Invalid product type:', { productType });
+          throw new Error('Invalid plan selected');
       }
 
       if (!priceId) {

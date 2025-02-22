@@ -22,7 +22,14 @@ const PlansPage = () => {
   const { user } = useAuth();
 
   const handleSelectPlan = (plan) => {
-    navigate('/payment', { state: { selectedPlan: plan } });
+    console.log('Selecting plan:', { plan });
+    navigate('/payment', { 
+      state: { 
+        selectedPlan: plan,
+        timestamp: new Date().toISOString()
+      },
+      replace: true // Use replace to prevent back button issues
+    });
   };
 
   if (user?.subscription?.active) {

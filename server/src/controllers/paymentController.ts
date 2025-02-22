@@ -71,6 +71,22 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       return;
     }
 
+    // Validate price ID matches one of the configured prices
+    const validPriceIds = [
+      process.env.STRIPE_OFFICIAL_TEST_PRICE_ID,
+      process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID,
+      process.env.STRIPE_PREMIUM_SUBSCRIPTION_PRICE_ID
+    ];
+
+    if (!validPriceIds.includes(priceId)) {
+      console.error('Invalid price ID:', {
+        providedPriceId: priceId,
+        validPriceIds: validPriceIds.map(id => id ? 'configured' : 'not configured')
+      });
+      res.status(400).json({ error: 'Invalid price ID' });
+      return;
+    }
+
     const userId = req.user?._id;
     if (!userId) {
       res.status(401).json({ error: 'Not authenticated' });
@@ -83,7 +99,12 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       return;
     }
 
-    const isOfficialTest = priceId === process.env.STRIPE_OFFICIAL_TEST_PRICE_ID;
+    console.log('Creating checkout session:', {
+      userId: userId.toString(),
+      priceId,
+      isOfficialTest: priceId === process.env.STRIPE_OFFICIAL_TEST_PRICE_ID
+    });
+
     const session = await (stripe as Stripe).checkout.sessions.create({
       customer_email: user.email,
       payment_method_types: ['card'],
@@ -100,10 +121,24 @@ export const createCheckoutSession = async (req: Request, res: Response): Promis
       }
     });
 
+    console.log('Checkout session created:', {
+      sessionId: session.id,
+      userId: userId.toString(),
+      priceId
+    });
+
     res.json({ sessionId: session.id });
   } catch (error) {
-    console.error('Error creating checkout session:', error);
-    res.status(500).json({ error: 'Failed to create checkout session' });
+    console.error('Error creating checkout session:', {
+      error,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      userId: req.user?._id,
+      priceId: req.body?.priceId
+    });
+    res.status(500).json({ 
+      error: 'Failed to create checkout session',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
@@ -122,13 +157,27 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
       process.env.STRIPE_WEBHOOK_SECRET
     );
 
+    console.log('Processing webhook event:', {
+      type: event.type,
+      timestamp: new Date().toISOString()
+    });
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.metadata?.userId;
         const priceId = session.metadata?.priceId;
         
-        if (!userId) break;
+        if (!userId) {
+          console.error('Missing userId in session metadata');
+          break;
+        }
+
+        console.log('Processing completed checkout:', {
+          userId,
+          priceId,
+          mode: session.mode
+        });
 
         if (session.mode === 'subscription') {
           await User.findByIdAndUpdate(userId, {
@@ -137,11 +186,13 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
             'subscription.stripeSubscriptionId': session.subscription,
             'subscription.planId': priceId === process.env.STRIPE_BASIC_SUBSCRIPTION_PRICE_ID ? 'basic' : 'premium'
           });
+          console.log('Subscription activated:', { userId, subscriptionId: session.subscription });
         } else if (session.mode === 'payment') {
           // Handle one-time payment for official test
           await User.findByIdAndUpdate(userId, {
             $inc: { 'officialTestCredits': 1 }
           });
+          console.log('Official test credit added:', { userId });
         }
         break;
       }
@@ -151,14 +202,22 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
           { 'subscription.stripeSubscriptionId': subscription.id },
           { 'subscription.active': false }
         );
+        console.log('Subscription deactivated:', { subscriptionId: subscription.id });
         break;
       }
     }
 
     res.json({ received: true });
   } catch (error) {
-    console.error('Webhook error:', error);
-    res.status(400).json({ error: 'Webhook error' });
+    console.error('Webhook error:', {
+      error,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      headers: req.headers
+    });
+    res.status(400).json({ 
+      error: 'Webhook error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
@@ -190,8 +249,30 @@ export const cancelSubscription = async (req: Request, res: Response): Promise<v
 export const verifySession = async (req: Request, res: Response): Promise<void> => {
   try {
     if (!checkStripeAvailable(res)) return;
+    
     const { sessionId } = req.params;
+    if (!sessionId) {
+      res.status(400).json({ error: 'Session ID is required' });
+      return;
+    }
+
+    console.log('Verifying session:', { sessionId });
+
     const session = await (stripe as Stripe).checkout.sessions.retrieve(sessionId);
+    if (!session) {
+      console.error('Session not found:', { sessionId });
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    console.log('Session retrieved:', {
+      sessionId,
+      paymentStatus: session.payment_status,
+      status: session.status,
+      customerId: session.customer,
+      subscriptionId: session.subscription
+    });
+
     res.json({ 
       paymentStatus: session.payment_status,
       status: session.status,
@@ -199,8 +280,16 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
       subscriptionId: session.subscription
     });
   } catch (error) {
-    console.error('Error verifying session:', error);
-    res.status(500).json({ error: 'Failed to verify session' });
+    console.error('Error verifying session:', {
+      error,
+      sessionId: req.params.sessionId,
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to verify session',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
