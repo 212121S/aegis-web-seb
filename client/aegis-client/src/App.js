@@ -1,10 +1,18 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import theme from './theme';
-import { CircularProgress, Box } from '@mui/material';
+import {
+  AppBar,
+  Box,
+  Button,
+  CircularProgress,
+  Container,
+  CssBaseline,
+  Toolbar,
+  Typography
+} from '@mui/material';
 
 // Components
 import LoginPage from './components/LoginPage';
@@ -29,6 +37,49 @@ const LoadingScreen = () => (
     <CircularProgress />
   </Box>
 );
+
+// Navigation Bar Component
+const NavigationBar = () => {
+  const { user, logout } = useAuth();
+
+  return (
+    <AppBar position="static">
+      <Toolbar>
+        <Typography variant="h6" component={Link} to="/" sx={{ flexGrow: 1, textDecoration: 'none', color: 'inherit' }}>
+          Aegis Testing
+        </Typography>
+        {user ? (
+          <Box>
+            <Button color="inherit" component={Link} to="/dashboard">
+              Dashboard
+            </Button>
+            <Button color="inherit" component={Link} to="/practice">
+              Practice Tests
+            </Button>
+            <Button color="inherit" component={Link} to="/settings">
+              Settings
+            </Button>
+            <Button color="inherit" onClick={logout}>
+              Logout
+            </Button>
+          </Box>
+        ) : (
+          <Box>
+            <Button color="inherit" component={Link} to="/about">
+              About
+            </Button>
+            <Button color="inherit" component={Link} to="/login">
+              Login
+            </Button>
+            <Button color="inherit" component={Link} to="/register">
+              Register
+            </Button>
+          </Box>
+        )}
+      </Toolbar>
+    </AppBar>
+  );
+};
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -57,66 +108,73 @@ const AppRoutes = () => {
   }
 
   return (
-    <Routes>
-      {/* Public Routes */}
-      <Route path="/" element={<HomePage />} />
-      <Route path="/about" element={<AboutPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<Register />} />
+    <>
+      <NavigationBar />
+      <Container>
+        <Box mt={3}>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<HomePage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<Register />} />
 
-      {/* Protected Routes */}
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <UserDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/practice"
-        element={
-          <ProtectedRoute>
-            <PracticeTest />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/official"
-        element={
-          <ProtectedRoute>
-            <OfficialTest />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/payment"
-        element={
-          <ProtectedRoute>
-            <PaymentPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/payment/success"
-        element={
-          <ProtectedRoute>
-            <PaymentSuccess />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <AccountSettings />
-          </ProtectedRoute>
-        }
-      />
+            {/* Protected Routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <UserDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/practice"
+              element={
+                <ProtectedRoute>
+                  <PracticeTest />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/official"
+              element={
+                <ProtectedRoute>
+                  <OfficialTest />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment"
+              element={
+                <ProtectedRoute>
+                  <PaymentPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment/success"
+              element={
+                <ProtectedRoute>
+                  <PaymentSuccess />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <AccountSettings />
+                </ProtectedRoute>
+              }
+            />
 
-      {/* Fallback Route */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+            {/* Fallback Route */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Box>
+      </Container>
+    </>
   );
 };
 

@@ -19,7 +19,7 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 // Configure CORS with proper options
 const defaultAllowedOrigins = isDevelopment 
   ? ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002']
-  : ['https://www.aegistestingtech.com', 'https://aegistestingtech.com'];
+  : ['https://aegistestingtech.com', 'https://www.aegistestingtech.com'];
 
 const allowedOrigins = [
   ...defaultAllowedOrigins,
@@ -44,7 +44,10 @@ const corsOptions: CorsOptions = {
       return callback(null, true);
     }
 
-    if (allowedOrigins.includes(origin)) {
+    // Log CORS check
+    console.log('CORS Check:', { origin, allowedOrigins });
+
+    if (allowedOrigins.some(allowed => origin.includes(allowed))) {
       callback(null, true);
     } else {
       console.warn(`[CORS] Rejected request from origin: ${origin}`);

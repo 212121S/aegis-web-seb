@@ -74,6 +74,8 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     setUser(null);
     setError(null);
+    // Force reload to clear any cached state
+    window.location.href = '/';
   };
 
   const register = async (userData) => {
@@ -128,6 +130,8 @@ export const AuthProvider = ({ children }) => {
     updateProfile,
     verifyAuth
   };
+
+  console.log('AuthContext state:', { user, loading, error });
 
   return (
     <AuthContext.Provider value={value}>
