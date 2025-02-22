@@ -25,7 +25,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2023-10-16' as Stripe.LatestApiVersion
 });
 
-const DOMAIN = process.env.DOMAIN || 'http://localhost:3000';
+const DOMAIN = process.env.DOMAIN || 'http://localhost:3002';
 
 const plans = {
   'practice-basic': {
