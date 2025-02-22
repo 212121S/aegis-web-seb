@@ -7,8 +7,18 @@ console.log('Environment Variables:', {
   REACT_APP_STRIPE_PUBLISHABLE_KEY: process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY ? 'configured' : 'not configured'
 });
 
+const getApiUrl = () => {
+  const apiUrl = process.env.REACT_APP_API_URL;
+  if (!apiUrl) {
+    console.error('API URL not configured!');
+    return isDevelopment ? 'http://localhost:10001' : 'https://aegis-web-seb.onrender.com';
+  }
+  console.log('Using API URL:', apiUrl);
+  return apiUrl;
+};
+
 const config = {
-  apiUrl: process.env.REACT_APP_API_URL || (isDevelopment ? 'http://localhost:10001' : 'https://aegis-web-seb.onrender.com'),
+  apiUrl: getApiUrl(),
   stripe: {
     publicKey: process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY
   },

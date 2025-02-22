@@ -1,183 +1,185 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { examAPI } from '../utils/axios';
 import {
   Box,
-  Container,
-  Paper,
-  Typography,
   Button,
+  Container,
+  Typography,
+  CircularProgress,
+  Paper,
+  Radio,
   RadioGroup,
   FormControlLabel,
-  Radio,
-  CircularProgress,
+  FormControl,
   Alert,
-  LinearProgress,
-  useTheme
+  LinearProgress
 } from '@mui/material';
-import { examAPI } from '../utils/axios';
 
 const PracticeTest = () => {
-  const theme = useTheme();
-  const navigate = useNavigate();
+  const [questions, setQuestions] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [answers, setAnswers] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [session, setSession] = useState(null);
-  const [question, setQuestion] = useState(null);
-  const [selectedAnswer, setSelectedAnswer] = useState('');
-  const [score, setScore] = useState(0);
-  const [incorrectAnswers, setIncorrectAnswers] = useState(0);
-  const [startTime, setStartTime] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    initializeTest();
+    loadQuestions();
   }, []);
 
-  const initializeTest = async () => {
-    try {
-      const response = await examAPI.initialize('practice');
-      
-      setSession(response.data.sessionId);
-      setStartTime(Date.now());
-      await fetchNextQuestion(response.data.sessionId);
-    } catch (err) {
-      setError('Failed to initialize test');
-      console.error(err);
-    }
-  };
-
-  const fetchNextQuestion = async (sessionId) => {
+  const loadQuestions = async () => {
     try {
       setLoading(true);
-      const response = await examAPI.getNextQuestion(sessionId || session);
-      
-      if (response.data.completed) {
-        await finalizeTest();
-        return;
-      }
-
-      setQuestion(response.data);
-      setSelectedAnswer('');
+      setError(null);
+      console.log('Fetching practice questions...');
+      const response = await examAPI.getPracticeQuestions();
+      console.log('Practice questions response:', response.data);
+      setQuestions(response.data);
     } catch (err) {
-      setError('Failed to fetch question');
-      console.error(err);
+      console.error('Failed to load questions:', err);
+      setError('Failed to load practice questions. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async () => {
-    if (!selectedAnswer) return;
+  const handleAnswer = (value) => {
+    setAnswers(prev => ({
+      ...prev,
+      [currentIndex]: value
+    }));
+  };
 
+  const handleNext = () => {
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1);
+    }
+  };
+
+  const handleSubmit = async () => {
     try {
-      setLoading(true);
-      const timeSpent = Math.round((Date.now() - startTime) / 1000);
-      
-      const response = await examAPI.submitAnswer(session, {
-        questionId: question._id,
-        answer: selectedAnswer,
-        timeSpent
+      setSubmitting(true);
+      setError(null);
+
+      const response = await examAPI.submitPracticeTest({
+        answers: Object.entries(answers).map(([index, answer]) => ({
+          questionId: questions[parseInt(index)]._id,
+          answer
+        }))
       });
 
-      setScore(response.data.currentScore);
-      setIncorrectAnswers(response.data.incorrectAnswers);
-      setStartTime(Date.now());
-      
-      if (response.data.incorrectAnswers >= 5) {
-        await finalizeTest();
-      } else {
-        await fetchNextQuestion();
-      }
+      navigate('/dashboard', { state: { testResults: response.data } });
     } catch (err) {
-      setError('Failed to submit answer');
-      console.error(err);
+      console.error('Failed to submit test:', err);
+      setError('Failed to submit test. Please try again.');
+      setSubmitting(false);
     }
   };
 
-  const finalizeTest = async () => {
-    try {
-      const response = await examAPI.finalizeTest(session);
-      navigate(`/test/results/${response.data._id}`);
-    } catch (err) {
-      setError('Failed to finalize test');
-      console.error(err);
-    }
-  };
-
-  if (loading && !question) {
+  if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
         <CircularProgress />
       </Box>
     );
   }
 
-  return (
-    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
+  if (error) {
+    return (
+      <Container maxWidth="sm" sx={{ mt: 4 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
-      )}
+        <Button variant="contained" onClick={loadQuestions}>
+          Try Again
+        </Button>
+      </Container>
+    );
+  }
 
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-          <Typography variant="h6">
-            Score: {score.toFixed(2)}%
-          </Typography>
-          <Typography variant="h6" color="error">
-            Incorrect: {incorrectAnswers}/5
+  if (!questions.length) {
+    return (
+      <Container maxWidth="sm" sx={{ mt: 4 }}>
+        <Alert severity="info">
+          No practice questions available at this time.
+        </Alert>
+      </Container>
+    );
+  }
+
+  const currentQuestion = questions[currentIndex];
+  const progress = (Object.keys(answers).length / questions.length) * 100;
+
+  return (
+    <Container maxWidth="md" sx={{ mt: 4 }}>
+      <Paper elevation={2} sx={{ p: 3 }}>
+        <Box mb={2}>
+          <LinearProgress variant="determinate" value={progress} sx={{ mb: 1 }} />
+          <Typography variant="body2" color="text.secondary">
+            Question {currentIndex + 1} of {questions.length}
           </Typography>
         </Box>
-        <LinearProgress 
-          variant="determinate" 
-          value={(incorrectAnswers / 5) * 100}
-          sx={{ 
-            height: 8, 
-            borderRadius: 4,
-            mb: 3,
-            '& .MuiLinearProgress-bar': {
-              backgroundColor: theme.palette.error.main
-            }
-          }}
-        />
-      </Paper>
 
-      {question && (
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            {question.prompt}
-          </Typography>
+        <Typography variant="h6" gutterBottom>
+          {currentQuestion.text}
+        </Typography>
 
+        <FormControl component="fieldset" sx={{ width: '100%', my: 2 }}>
           <RadioGroup
-            value={selectedAnswer}
-            onChange={(e) => setSelectedAnswer(e.target.value)}
+            value={answers[currentIndex] || ''}
+            onChange={(e) => handleAnswer(e.target.value)}
           >
-            {question.choices.map((choice, index) => (
+            {currentQuestion.options.map((option, idx) => (
               <FormControlLabel
-                key={index}
-                value={choice}
+                key={idx}
+                value={option}
                 control={<Radio />}
-                label={choice}
+                label={option}
                 sx={{ mb: 1 }}
               />
             ))}
           </RadioGroup>
+        </FormControl>
 
-          <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
-            <Typography variant="body2" color="text.secondary">
-              Difficulty: {question.difficulty}
-            </Typography>
+        <Box display="flex" justifyContent="space-between" mt={3}>
+          <Button
+            variant="outlined"
+            onClick={handlePrevious}
+            disabled={currentIndex === 0}
+          >
+            Previous
+          </Button>
+          
+          {currentIndex === questions.length - 1 ? (
             <Button
               variant="contained"
               color="primary"
               onClick={handleSubmit}
-              disabled={!selectedAnswer}
+              disabled={submitting || Object.keys(answers).length !== questions.length}
             >
-              Submit Answer
+              {submitting ? <CircularProgress size={24} /> : 'Submit'}
             </Button>
-          </Box>
-        </Paper>
-      )}
+          ) : (
+            <Button
+              variant="contained"
+              onClick={handleNext}
+              disabled={!answers[currentIndex]}
+            >
+              Next
+            </Button>
+          )}
+        </Box>
+      </Paper>
     </Container>
   );
 };

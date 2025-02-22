@@ -1,40 +1,43 @@
-import { Document, Schema, model } from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
-export interface IQuestion {
+export interface IQuestion extends Document {
   text: string;
   options: string[];
   correctAnswer: string;
-  explanation: string;
-  category?: string;
-  difficulty?: 'easy' | 'medium' | 'hard';
+  type: 'practice' | 'official';
+  _id: mongoose.Types.ObjectId;
 }
 
-export interface IQuestionDocument extends Document, IQuestion {}
-
-const questionSchema = new Schema<IQuestionDocument>({
+const questionSchema = new Schema<IQuestion>({
   text: {
     type: String,
     required: true
   },
-  options: [{
-    type: String,
-    required: true
-  }],
+  options: {
+    type: [String],
+    required: true,
+    validate: [(val: string[]) => val.length > 0, 'At least one option is required']
+  },
   correctAnswer: {
     type: String,
-    required: true
+    required: true,
+    validate: [
+      function(this: IQuestion, val: string) {
+        return this.options.includes(val);
+      },
+      'Correct answer must be one of the options'
+    ]
   },
-  explanation: {
+  type: {
     type: String,
+    enum: ['practice', 'official'],
     required: true
-  },
-  category: {
-    type: String
-  },
-  difficulty: {
-    type: String,
-    enum: ['easy', 'medium', 'hard']
   }
+}, {
+  timestamps: true
 });
 
-export const Question = model<IQuestionDocument>('Question', questionSchema);
+// Indexes
+questionSchema.index({ type: 1 });
+
+export const Question = mongoose.model<IQuestion>('Question', questionSchema);

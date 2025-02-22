@@ -1,20 +1,18 @@
 import { Request, Response } from "express";
 import { Types } from "mongoose";
 import { User } from "../models/User";
+import { Question, IQuestion } from "../models/Question";
 
 interface UserDocument {
   _id: Types.ObjectId;
-  testHistory: Array<{
-    score: number;
-    date: Date;
-  }>;
-  testResults: Array<{
-    score: number;
-    date: Date;
-  }>;
   subscription: {
     active: boolean;
   };
+}
+
+interface AnswerSubmission {
+  questionId: string;
+  answer: string;
 }
 
 export const getPracticeQuestions = async (req: Request, res: Response): Promise<void> => {
@@ -26,7 +24,24 @@ export const getPracticeQuestions = async (req: Request, res: Response): Promise
     }
 
     // Get practice questions from database
-    const questions = []; // TODO: Implement question retrieval
+    const questions = await Question.aggregate<IQuestion>([
+      { $match: { type: 'practice' } },
+      { $sample: { size: 10 } },
+      {
+        $project: {
+          text: 1,
+          options: 1,
+          type: 1,
+          _id: 1
+        }
+      }
+    ]);
+
+    if (!questions.length) {
+      res.status(404).json({ error: 'No practice questions available' });
+      return;
+    }
+
     res.json(questions);
   } catch (error) {
     console.error('Get practice questions error:', error);
@@ -48,7 +63,24 @@ export const getOfficialQuestions = async (req: Request, res: Response): Promise
     }
 
     // Get official questions from database
-    const questions = []; // TODO: Implement question retrieval
+    const questions = await Question.aggregate<IQuestion>([
+      { $match: { type: 'official' } },
+      { $sample: { size: 10 } },
+      {
+        $project: {
+          text: 1,
+          options: 1,
+          type: 1,
+          _id: 1
+        }
+      }
+    ]);
+
+    if (!questions.length) {
+      res.status(404).json({ error: 'No official questions available' });
+      return;
+    }
+
     res.json(questions);
   } catch (error) {
     console.error('Get official questions error:', error);
@@ -64,19 +96,39 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    const { answers, score } = req.body;
+    const { answers } = req.body as { answers: AnswerSubmission[] };
+    if (!Array.isArray(answers)) {
+      res.status(400).json({ error: 'Invalid answers format' });
+      return;
+    }
+
+    // Get correct answers and calculate score
+    const questionIds = answers.map(a => new Types.ObjectId(a.questionId));
+    const questions = await Question.find({ _id: { $in: questionIds } });
+
+    const score = answers.reduce((total, answer) => {
+      const question = questions.find(q => q._id.toString() === answer.questionId);
+      if (question && question.correctAnswer === answer.answer) {
+        return total + 1;
+      }
+      return total;
+    }, 0);
 
     // Save test result
-    const testResult = {
-      score,
-      date: new Date()
-    };
-
     await User.findByIdAndUpdate(user._id, {
-      $push: { testResults: testResult }
+      $push: {
+        testResults: {
+          score: (score / answers.length) * 100,
+          date: new Date()
+        }
+      }
     });
 
-    res.json({ message: 'Practice test submitted successfully' });
+    res.json({
+      score: (score / answers.length) * 100,
+      totalQuestions: answers.length,
+      correctAnswers: score
+    });
   } catch (error) {
     console.error('Submit practice test error:', error);
     res.status(500).json({ error: 'Failed to submit practice test' });
@@ -96,19 +148,40 @@ export const submitOfficialTest = async (req: Request, res: Response): Promise<v
       return;
     }
 
-    const { answers, score } = req.body;
+    const { answers } = req.body as { answers: AnswerSubmission[] };
+    if (!Array.isArray(answers)) {
+      res.status(400).json({ error: 'Invalid answers format' });
+      return;
+    }
+
+    // Get correct answers and calculate score
+    const questionIds = answers.map(a => new Types.ObjectId(a.questionId));
+    const questions = await Question.find({ _id: { $in: questionIds } });
+
+    const score = answers.reduce((total, answer) => {
+      const question = questions.find(q => q._id.toString() === answer.questionId);
+      if (question && question.correctAnswer === answer.answer) {
+        return total + 1;
+      }
+      return total;
+    }, 0);
 
     // Save test result
-    const testResult = {
-      score,
-      date: new Date()
-    };
-
     await User.findByIdAndUpdate(user._id, {
-      $push: { testResults: testResult }
+      $push: {
+        testResults: {
+          score: (score / answers.length) * 100,
+          date: new Date(),
+          type: 'official'
+        }
+      }
     });
 
-    res.json({ message: 'Official test submitted successfully' });
+    res.json({
+      score: (score / answers.length) * 100,
+      totalQuestions: answers.length,
+      correctAnswers: score
+    });
   } catch (error) {
     console.error('Submit official test error:', error);
     res.status(500).json({ error: 'Failed to submit official test' });
@@ -123,8 +196,13 @@ export const getTestHistory = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const testResults = user.testResults || [];
-    res.json(testResults);
+    const userWithHistory = await User.findById(user._id).select('testResults');
+    if (!userWithHistory) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    res.json(userWithHistory.testResults || []);
   } catch (error) {
     console.error('Get test history error:', error);
     res.status(500).json({ error: 'Failed to get test history' });
@@ -139,7 +217,13 @@ export const getTestResults = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const testResults = user.testResults || [];
+    const userWithResults = await User.findById(user._id).select('testResults');
+    if (!userWithResults) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const testResults = userWithResults.testResults || [];
     const stats = {
       totalTests: testResults.length,
       averageScore: testResults.length > 0

@@ -23,4 +23,14 @@ router.post('/official/submit', auth, submitOfficialTest);
 router.get('/history', auth, getTestHistory);
 router.get('/results', auth, getTestResults);
 
+// Log all routes for debugging
+console.log('Exam Routes:', {
+  practice: '/api/exam/practice',
+  practiceSubmit: '/api/exam/practice/submit',
+  official: '/api/exam/official',
+  officialSubmit: '/api/exam/official/submit',
+  history: '/api/exam/history',
+  results: '/api/exam/results'
+});
+
 export default router;
