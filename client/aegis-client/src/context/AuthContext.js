@@ -50,7 +50,7 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.login(credentials);
       console.log('Login response:', response.data);
       
-      const { token, user: userData } = response.data;
+      const { token, user: userData } = response;
       
       if (!token) {
         console.error('No token received from server');

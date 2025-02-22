@@ -82,6 +82,13 @@ instance.interceptors.response.use(
         type: response.config.metadata.type
       });
     }
+    
+    // Special handling for auth endpoints to maintain expected response structure
+    if (response.config.url?.startsWith('/auth/')) {
+      return response.data;
+    }
+    
+    // For non-auth endpoints, return just the data
     return response.data;
   },
   async (error) => {
