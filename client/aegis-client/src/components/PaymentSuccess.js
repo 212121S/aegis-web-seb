@@ -8,7 +8,8 @@ import {
   CircularProgress,
   Paper,
   Alert,
-  useTheme
+  useTheme,
+  LinearProgress
 } from '@mui/material';
 import { CheckCircle } from '@mui/icons-material';
 import { paymentAPI } from '../utils/axios';
@@ -19,6 +20,12 @@ function PaymentSuccess() {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [verificationProgress, setVerificationProgress] = useState({
+    attempt: 0,
+    maxAttempts: 20,
+    stage: 'initializing',
+    message: 'Starting verification...'
+  });
   const navigate = useNavigate();
   const theme = useTheme();
   const { refreshSubscription } = useSubscription();
@@ -35,39 +42,122 @@ function PaymentSuccess() {
         console.log('Starting payment verification process...');
         
         let retries = 0;
-        const maxRetries = 15; // Increased retries for webhook processing
-        const retryDelay = 2000; // 2 seconds between retries
+        const maxRetries = 20; // Increased max retries
+        const initialRetryDelay = 2000; // Initial delay of 2 seconds
+        const maxRetryDelay = 8000; // Max delay of 8 seconds
+        
+        // Exponential backoff with jitter
+        const getRetryDelay = (attempt) => {
+          const exponentialDelay = Math.min(initialRetryDelay * Math.pow(1.5, attempt), maxRetryDelay);
+          const jitter = Math.random() * 1000; // Add up to 1 second of random jitter
+          return exponentialDelay + jitter;
+        };
 
         while (retries < maxRetries) {
+          const currentDelay = getRetryDelay(retries);
           try {
-            console.log('Verification attempt', retries + 1);
+            setVerificationProgress(prev => ({
+              ...prev,
+              attempt: retries + 1,
+              stage: 'verifying',
+              message: `Verifying payment (Attempt ${retries + 1}/${maxRetries})...`
+            }));
+
+            console.log('Verification attempt', {
+              attempt: retries + 1,
+              maxAttempts: maxRetries,
+              delay: Math.round(currentDelay),
+              sessionId
+            });
             
-            // First verify auth token is still valid
-            const isAuthValid = await verifyAuth();
-            if (!isAuthValid) {
-              console.log('Auth token invalid, attempting to refresh...');
-              const token = localStorage.getItem('token');
-              if (token) {
-                // Try to reuse existing token
-                await login(token);
-                console.log('Successfully refreshed auth token');
-              } else {
-                throw new Error('No token available for refresh');
+            // First ensure we have a valid auth token
+            try {
+              setVerificationProgress(prev => ({
+                ...prev,
+                stage: 'auth',
+                message: 'Validating authentication...'
+              }));
+
+              const isAuthValid = await verifyAuth();
+              if (!isAuthValid) {
+                console.log('Auth validation failed, attempting token refresh...', {
+                  attempt: retries + 1,
+                  hasToken: !!localStorage.getItem('token')
+                });
+                const token = localStorage.getItem('token');
+                if (token) {
+                  await login(token);
+                  console.log('Successfully refreshed auth token');
+                } else {
+                  throw new Error('No token available for refresh');
+                }
               }
+            } catch (authError) {
+              console.error('Auth verification failed:', authError);
+              // Continue anyway - the payment verification might still work
             }
             
-            // Then verify the payment session
-            const sessionResponse = await paymentAPI.verifySession(sessionId);
-            console.log('Payment session verification:', sessionResponse);
+            // Verify the payment session with timeout
+            let sessionResponse;
+            try {
+              setVerificationProgress(prev => ({
+                ...prev,
+                stage: 'payment',
+                message: 'Verifying payment status...'
+              }));
+
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Verification request timeout')), 30000)
+              );
+              sessionResponse = await Promise.race([
+                paymentAPI.verifySession(sessionId),
+                timeoutPromise
+              ]);
+            } catch (verifyError) {
+              console.error('Session verification failed:', {
+                error: verifyError,
+                attempt: retries + 1,
+                status: verifyError.response?.status,
+                isTimeout: verifyError.message === 'Verification request timeout'
+              });
+              
+              // Retry on server errors or timeouts
+              if (verifyError.response?.status === 500 || verifyError.message === 'Verification request timeout') {
+                await new Promise(resolve => setTimeout(resolve, currentDelay));
+                continue;
+              }
+              throw verifyError;
+            }
+            console.log('Payment session verification:', {
+              status: sessionResponse?.paymentStatus,
+              attempt: retries + 1
+            });
             
             if (sessionResponse?.paymentStatus === 'paid') {
+              setVerificationProgress(prev => ({
+                ...prev,
+                stage: 'subscription',
+                message: 'Activating subscription...'
+              }));
+
               console.log('Payment confirmed, checking subscription...');
               
               // Give webhook a moment to process
-              await new Promise(resolve => setTimeout(resolve, 1000));
+              await new Promise(resolve => setTimeout(resolve, 2000));
               
               // Check subscription status
-              const subscriptionResponse = await refreshSubscription();
+              let subscriptionResponse;
+              try {
+                subscriptionResponse = await refreshSubscription();
+              } catch (subError) {
+                console.error('Subscription check failed:', subError);
+                if (subError.response?.status === 500) {
+                  // If server error, wait and retry
+                  await new Promise(resolve => setTimeout(resolve, currentDelay));
+                  continue;
+                }
+                throw subError;
+              }
               console.log('Subscription status:', subscriptionResponse);
               
               if (subscriptionResponse?.active) {
@@ -77,14 +167,19 @@ function PaymentSuccess() {
               }
             }
 
-            console.log(`Attempt ${retries + 1}/${maxRetries}: Waiting for subscription activation...`);
+            console.log('Subscription activation pending:', {
+              attempt: retries + 1,
+              maxAttempts: maxRetries,
+              nextDelay: Math.round(getRetryDelay(retries + 1)),
+              sessionId
+            });
             retries++;
             
             if (retries === maxRetries) {
               throw new Error('Payment verified but subscription activation timed out');
             }
             
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            await new Promise(resolve => setTimeout(resolve, currentDelay));
           } catch (err) {
             console.error('Verification attempt error:', {
               error: err,
@@ -111,7 +206,7 @@ function PaymentSuccess() {
               throw err;
             }
             
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            await new Promise(resolve => setTimeout(resolve, currentDelay));
           }
         }
       } catch (err) {
@@ -122,14 +217,21 @@ function PaymentSuccess() {
         });
         
         const isPaymentConfirmed = err.message?.includes('subscription activation timed out');
+        const isTimeout = err.message === 'Verification request timeout';
         
-        setError(
-          isPaymentConfirmed
-            ? 'Your payment was successful but subscription activation is taking longer than expected. ' +
-              'Please refresh the page in a few moments or check your account page.'
-            : 'There was an issue verifying your payment. If you completed the payment, ' +
-              'please check your account page or contact support.'
-        );
+        let errorMessage;
+        if (isPaymentConfirmed) {
+          errorMessage = 'Your payment was successful but subscription activation is taking longer than expected. ' +
+                        'Please refresh the page in a few moments or check your account page.';
+        } else if (isTimeout) {
+          errorMessage = 'The verification request is taking longer than expected. ' +
+                        'Your payment may still be processing. Please refresh or check your account page.';
+        } else {
+          errorMessage = 'There was an issue verifying your payment. If you completed the payment, ' +
+                        'please check your account page or contact support if the issue persists.';
+        }
+        
+        setError(errorMessage);
         setLoading(false);
       }
     };
@@ -138,6 +240,8 @@ function PaymentSuccess() {
   }, [searchParams, refreshSubscription, verifyAuth, login]);
 
   if (loading) {
+    const progress = (verificationProgress.attempt / verificationProgress.maxAttempts) * 100;
+    
     return (
       <Container maxWidth="sm">
         <Box
@@ -151,6 +255,23 @@ function PaymentSuccess() {
         >
           <CircularProgress size={60} />
           <Typography variant="h6">Verifying your payment...</Typography>
+          <Box sx={{ width: '100%', mt: 2 }}>
+            <LinearProgress 
+              variant="determinate" 
+              value={progress} 
+              sx={{ 
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: theme.palette.grey[200],
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: 4
+                }
+              }}
+            />
+          </Box>
+          <Typography variant="body1" color="primary" align="center" sx={{ fontWeight: 500 }}>
+            {verificationProgress.message}
+          </Typography>
           <Typography variant="body2" color="text.secondary" align="center">
             This may take a few moments. Please do not close this page.
           </Typography>

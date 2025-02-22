@@ -44,21 +44,25 @@ instance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Handle network errors
-    if (!error.response) {
-      console.error('Network error:', error);
+    // Handle network errors or server errors for payment verification
+    if (!error.response || (error.response.status === 500 && originalRequest.url.includes('/api/payment/verify-session'))) {
+      const isPaymentVerification = originalRequest.url.includes('/api/payment/verify-session');
+      console.error(isPaymentVerification ? 'Payment verification error:' : 'Network error:', error);
+      
+      // For payment verification, include additional context
       return Promise.reject({
-        message: 'Network Error',
-        data: undefined,
-        status: undefined,
+        message: isPaymentVerification ? 'Payment verification temporarily unavailable' : 'Network Error',
+        data: error.response?.data,
+        status: error.response?.status,
         headers: originalRequest?.headers,
         method: originalRequest?.method,
-        url: originalRequest?.url
+        url: originalRequest?.url,
+        isPaymentVerification
       });
     }
 
-    // Handle unauthorized errors
-    if (error.response.status === 401) {
+    // Handle unauthorized errors (but skip for payment verification)
+    if (error.response.status === 401 && !originalRequest.url.includes('/api/payment/verify-session')) {
       console.error('Unauthorized error:', {
         url: originalRequest.url,
         error: error.response.data
@@ -84,19 +88,28 @@ instance.interceptors.response.use(
       });
     }
 
-    // Log all errors
+    // Log all errors with enhanced context
     console.error('API Error:', {
       url: originalRequest.url,
       method: originalRequest.method,
       status: error.response?.status,
-      data: error.response?.data
+      data: error.response?.data,
+      isPaymentEndpoint: originalRequest.url.includes('/api/payment'),
+      isAuthEndpoint: originalRequest.url.includes('/api/auth')
     });
 
-    // Handle other errors
-    return Promise.reject({
+    // Handle other errors with improved context
+    const errorResponse = {
       message: error.response?.data?.error || error.message,
-      ...error.response
-    });
+      ...error.response,
+      endpoint: {
+        type: originalRequest.url.includes('/api/payment') ? 'payment' :
+              originalRequest.url.includes('/api/auth') ? 'auth' : 'other',
+        path: originalRequest.url
+      }
+    };
+
+    return Promise.reject(errorResponse);
   }
 );
 

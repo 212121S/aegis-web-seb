@@ -174,7 +174,12 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
     if (!checkStripeAvailable(res)) return;
     const { sessionId } = req.params;
     const session = await (stripe as Stripe).checkout.sessions.retrieve(sessionId);
-    res.json({ status: session.payment_status });
+    res.json({ 
+      paymentStatus: session.payment_status,
+      status: session.status,
+      customerId: session.customer,
+      subscriptionId: session.subscription
+    });
   } catch (error) {
     console.error('Error verifying session:', error);
     res.status(500).json({ error: 'Failed to verify session' });
