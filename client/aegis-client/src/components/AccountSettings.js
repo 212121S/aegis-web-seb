@@ -31,6 +31,7 @@ import {
   Link as LinkIcon
 } from '@mui/icons-material';
 import { authAPI, paymentAPI } from '../utils/axios';
+import { useAuth } from '../context/AuthContext';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -47,6 +48,7 @@ function TabPanel({ children, value, index, ...other }) {
 
 function AccountSettings() {
   const theme = useTheme();
+  const { updateProfile } = useAuth();
   const [value, setValue] = useState(0);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
@@ -114,13 +116,23 @@ function AccountSettings() {
     setSuccess('');
 
     try {
-      await authAPI.updateProfile({
+      // Use the context's updateProfile function which handles token verification
+      const success = await updateProfile({
         name: userData.name,
         email: userData.email
       });
-      setSuccess('Profile updated successfully');
+
+      if (success) {
+        setSuccess('Profile updated successfully');
+        // Refresh user data to ensure we have the latest
+        await fetchUserData();
+      } else {
+        setError('Failed to update profile. Please try again.');
+      }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update profile');
+      console.error('Profile update error:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to update profile';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

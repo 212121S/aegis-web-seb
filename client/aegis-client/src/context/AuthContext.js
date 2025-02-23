@@ -156,6 +156,26 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       console.log('Updating profile...');
+
+      // First verify the token is still valid
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      try {
+        const verifyResponse = await authAPI.verifyToken();
+        if (!verifyResponse?.valid) {
+          throw new Error('Invalid authentication token');
+        }
+      } catch (verifyError) {
+        // If token verification fails due to network error, still try to update
+        if (!verifyError.message?.includes('Network error')) {
+          throw verifyError;
+        }
+        console.warn('Token verification failed, attempting update anyway:', verifyError);
+      }
+
       const response = await authAPI.updateProfile(data);
       console.log('Update profile response:', response);
       
@@ -163,7 +183,14 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Invalid response format');
       }
       
-      setUser(response);
+      // Update the user data with the response
+      const userData = {
+        ...response,
+        username: response.username || response.name || '',
+        email: response.email || ''
+      };
+      
+      setUser(userData);
       return true;
     } catch (error) {
       console.error('Update profile error:', error);
