@@ -86,8 +86,10 @@ const PracticeTestBuilder = () => {
       const roles = selectedRoles.includes('All') ? config.roles : selectedRoles;
       const topics = selectedTopics.includes('All') ? config.topics : selectedTopics;
 
-      // For question type, if "all" is selected, use "mixed"
-      const finalQuestionType = questionType === 'all' ? 'mixed' : questionType;
+      // For question type, if "all" is selected, randomly choose between multiple-choice and written-answer
+      const finalQuestionType = questionType === 'all' 
+        ? Math.random() < 0.5 ? 'multiple-choice' : 'written-answer'
+        : questionType;
 
       const testSession = await examAPI.generatePracticeTest({
         verticals: verticals.filter(v => v !== 'All'),  // Filter out "All" from the arrays
