@@ -20,7 +20,7 @@ export class GradingService {
       }
 
       const response = await openai.chat.completions.create({
-        model: "chatgpt-4o-latest",
+        model: "GPT-4o-2024-08-06",
         messages: [
           {
             role: "system",
