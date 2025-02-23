@@ -43,6 +43,7 @@
         "dev": "nodemon src/app.ts",
         "build": "rm -rf build && tsc && cp -r src/data build/src/ && cp package*.json start.sh build/ && chmod +x build/start.sh",
         "test": "jest",
-        "postinstall": "npm run build"
+        "postinstall": "npm run build",
+        "seed:practice": "ts-node src/scripts/seedPracticeQuestions.ts"
     }
 }

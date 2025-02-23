@@ -1,14 +1,17 @@
 import { Configuration, OpenAIApi } from 'openai';
 
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error('OPENAI_API_KEY environment variable is required');
-}
+const configuration = process.env.OPENAI_API_KEY 
+  ? new Configuration({ apiKey: process.env.OPENAI_API_KEY })
+  : null;
 
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+export const openai = configuration ? new OpenAIApi(configuration) : null;
 
-export const openai = new OpenAIApi(configuration);
+// Helper to check if OpenAI is configured
+export const isOpenAIConfigured = () => !!configuration;
+
+console.log(process.env.OPENAI_API_KEY 
+  ? '✓ OpenAI API configured'
+  : '⚠️  OpenAI API key not configured - AI question generation will be disabled');
 
 // Cache duration in hours
 export const CACHE_DURATION_HOURS = 24;

@@ -1,73 +1,68 @@
-import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { examAPI } from '../utils/axios';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Button,
   Container,
-  Typography,
-  CircularProgress,
   Paper,
-  Radio,
+  Typography,
+  Button,
+  TextField,
   RadioGroup,
   FormControlLabel,
-  FormControl,
+  Radio,
+  CircularProgress,
   Alert,
   LinearProgress,
-  TextField,
   Chip,
-  Stack,
-  Divider
+  useTheme
 } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { examAPI } from '../utils/axios';
 
 const PracticeTest = () => {
-  const location = useLocation();
+  const theme = useTheme();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  
-  const testSession = location.state?.testSession;
-  const testConfig = location.state?.config;
-
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState({});
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [testSession, setTestSession] = useState(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [answers, setAnswers] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
-  if (!testSession || !testSession.questions) {
-    return (
-      <Container maxWidth="sm" sx={{ mt: 4 }}>
-        <Alert severity="error">
-          No test session found. Please return to the test builder to create a new test.
-        </Alert>
-        <Button
-          variant="contained"
-          onClick={() => navigate('/practice-builder')}
-          sx={{ mt: 2 }}
-        >
-          Go to Test Builder
-        </Button>
-      </Container>
-    );
-  }
+  useEffect(() => {
+    loadTestSession();
+  }, []);
 
-  const handleAnswer = (value) => {
+  const loadTestSession = () => {
+    try {
+      const savedSession = localStorage.getItem('currentPracticeTest');
+      if (!savedSession) {
+        navigate('/practice-builder');
+        return;
+      }
+
+      const session = JSON.parse(savedSession);
+      setTestSession(session);
+      
+      // Initialize answers object
+      const initialAnswers = {};
+      session.questions.forEach(q => {
+        initialAnswers[q.questionId] = '';
+      });
+      setAnswers(initialAnswers);
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to load test session:', error);
+      setError('Failed to load test session. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const handleAnswerChange = (questionId, value) => {
     setAnswers(prev => ({
       ...prev,
-      [currentIndex]: value
+      [questionId]: value
     }));
-  };
-
-  const handleNext = () => {
-    if (currentIndex < testSession.questions.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-    }
   };
 
   const handleSubmit = async () => {
@@ -75,146 +70,156 @@ const PracticeTest = () => {
       setSubmitting(true);
       setError(null);
 
-      const response = await examAPI.post('/practice/submit', {
-        answers: Object.entries(answers).map(([index, answer]) => ({
-          questionId: testSession.questions[parseInt(index)].questionId,
-          answer
-        }))
-      });
+      // Format answers for submission
+      const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => ({
+        questionId,
+        answer
+      }));
 
-      navigate('/test-results', { 
-        state: { 
-          results: response.data,
-          config: testConfig
-        }
-      });
-    } catch (err) {
-      console.error('Failed to submit test:', err);
-      setError('Failed to submit test. Please try again.');
+      const results = await examAPI.submitPracticeTest({ answers: formattedAnswers });
+
+      // Store results for the results page
+      localStorage.setItem('lastTestResults', JSON.stringify(results));
+      localStorage.removeItem('currentPracticeTest'); // Clear the test session
+
+      navigate('/test-results');
+    } catch (error) {
+      console.error('Failed to submit test:', error);
+      setError(error.message || 'Failed to submit test. Please try again.');
+    } finally {
       setSubmitting(false);
     }
   };
 
-  const currentQuestion = testSession.questions[currentIndex];
-  const progress = (Object.keys(answers).length / testSession.questions.length) * 100;
+  const currentQuestion = testSession?.questions[currentQuestionIndex];
+  const progress = ((currentQuestionIndex + 1) / (testSession?.questions.length || 1)) * 100;
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="50vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4 }}>
-      {/* Test Configuration Summary */}
-      <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
-        <Stack direction="row" spacing={2} flexWrap="wrap">
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Verticals:
+    <Container maxWidth="md">
+      <Box my={4}>
+        <Paper sx={{ p: 3 }}>
+          {/* Progress Bar */}
+          <Box sx={{ mb: 3 }}>
+            <LinearProgress variant="determinate" value={progress} sx={{ mb: 1 }} />
+            <Typography variant="body2" color="textSecondary">
+              Question {currentQuestionIndex + 1} of {testSession?.questions.length}
             </Typography>
-            <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
-              {testConfig.verticals.map(vertical => (
-                <Chip key={vertical} label={vertical} size="small" />
-              ))}
-            </Stack>
           </Box>
-          <Divider orientation="vertical" flexItem />
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Roles:
-            </Typography>
-            <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
-              {testConfig.roles.map(role => (
-                <Chip key={role} label={role} size="small" />
-              ))}
-            </Stack>
-          </Box>
-          <Divider orientation="vertical" flexItem />
-          <Box>
-            <Typography variant="caption" color="text.secondary">
-              Topics:
-            </Typography>
-            <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
-              {testConfig.topics.map(topic => (
-                <Chip key={topic} label={topic} size="small" />
-              ))}
-            </Stack>
-          </Box>
-        </Stack>
-      </Paper>
 
-      {/* Question Display */}
-      <Paper elevation={2} sx={{ p: 3 }}>
-        <Box mb={2}>
-          <LinearProgress variant="determinate" value={progress} sx={{ mb: 1 }} />
-          <Typography variant="body2" color="text.secondary">
-            Question {currentIndex + 1} of {testSession.questions.length}
-          </Typography>
-        </Box>
-
-        <Typography variant="h6" gutterBottom>
-          {currentQuestion.text}
-        </Typography>
-
-        {currentQuestion.type === 'multiple_choice' ? (
-          <FormControl component="fieldset" sx={{ width: '100%', my: 2 }}>
-            <RadioGroup
-              value={answers[currentIndex] || ''}
-              onChange={(e) => handleAnswer(e.target.value)}
-            >
-              {currentQuestion.options.map((option, idx) => (
-                <FormControlLabel
-                  key={idx}
-                  value={option}
-                  control={<Radio />}
-                  label={option}
-                  sx={{ mb: 1 }}
-                />
-              ))}
-            </RadioGroup>
-          </FormControl>
-        ) : (
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            value={answers[currentIndex] || ''}
-            onChange={(e) => handleAnswer(e.target.value)}
-            placeholder="Type your answer here..."
-            sx={{ my: 2 }}
-          />
-        )}
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        <Box display="flex" justifyContent="space-between" mt={3}>
-          <Button
-            variant="outlined"
-            onClick={handlePrevious}
-            disabled={currentIndex === 0}
-          >
-            Previous
-          </Button>
-          
-          {currentIndex === testSession.questions.length - 1 ? (
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleSubmit}
-              disabled={submitting || Object.keys(answers).length !== testSession.questions.length}
-            >
-              {submitting ? <CircularProgress size={24} /> : 'Submit'}
-            </Button>
-          ) : (
-            <Button
-              variant="contained"
-              onClick={handleNext}
-              disabled={!answers[currentIndex]}
-            >
-              Next
-            </Button>
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {error}
+            </Alert>
           )}
-        </Box>
-      </Paper>
+
+          {/* Question Tags */}
+          <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {currentQuestion?.industryVerticals.map(vertical => (
+              <Chip
+                key={vertical}
+                label={vertical}
+                size="small"
+                color="primary"
+                variant="outlined"
+              />
+            ))}
+            {currentQuestion?.topics.map(topic => (
+              <Chip
+                key={topic}
+                label={topic}
+                size="small"
+                color="secondary"
+                variant="outlined"
+              />
+            ))}
+            <Chip
+              label={`Difficulty: ${currentQuestion?.difficulty}`}
+              size="small"
+              color="default"
+              variant="outlined"
+            />
+          </Box>
+
+          {/* Question Text */}
+          <Typography variant="h6" gutterBottom>
+            {currentQuestion?.text}
+          </Typography>
+
+          {/* Answer Input */}
+          <Box sx={{ my: 3 }}>
+            {currentQuestion?.type === 'multiple_choice' ? (
+              <RadioGroup
+                value={answers[currentQuestion.questionId] || ''}
+                onChange={(e) => handleAnswerChange(currentQuestion.questionId, e.target.value)}
+              >
+                {currentQuestion.options.map((option) => (
+                  <FormControlLabel
+                    key={option}
+                    value={option}
+                    control={<Radio />}
+                    label={option}
+                  />
+                ))}
+              </RadioGroup>
+            ) : (
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                variant="outlined"
+                placeholder="Type your answer here..."
+                value={answers[currentQuestion.questionId] || ''}
+                onChange={(e) => handleAnswerChange(currentQuestion.questionId, e.target.value)}
+              />
+            )}
+          </Box>
+
+          {/* Navigation Buttons */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
+            <Button
+              variant="outlined"
+              onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
+              disabled={currentQuestionIndex === 0}
+            >
+              Previous
+            </Button>
+
+            {currentQuestionIndex < testSession.questions.length - 1 ? (
+              <Button
+                variant="contained"
+                onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
+                disabled={!answers[currentQuestion.questionId]}
+              >
+                Next
+              </Button>
+            ) : (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleSubmit}
+                disabled={submitting || !Object.values(answers).every(a => a)}
+              >
+                {submitting ? (
+                  <>
+                    <CircularProgress size={24} sx={{ mr: 1 }} color="inherit" />
+                    Submitting...
+                  </>
+                ) : (
+                  'Submit Test'
+                )}
+              </Button>
+            )}
+          </Box>
+        </Paper>
+      </Box>
     </Container>
   );
 };

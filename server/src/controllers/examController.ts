@@ -108,7 +108,10 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
 
     const score = answers.reduce((total, answer) => {
       const question = questions.find(q => q._id.toString() === answer.questionId);
-      if (question && question.correctAnswer === answer.answer) {
+      if (question && (
+        (question.type === 'multiple_choice' && question.correctOption === answer.answer) ||
+        (question.type === 'open_ended' && question.answer.toLowerCase().trim() === answer.answer.toLowerCase().trim())
+      )) {
         return total + 1;
       }
       return total;
@@ -160,7 +163,10 @@ export const submitOfficialTest = async (req: Request, res: Response): Promise<v
 
     const score = answers.reduce((total, answer) => {
       const question = questions.find(q => q._id.toString() === answer.questionId);
-      if (question && question.correctAnswer === answer.answer) {
+      if (question && (
+        (question.type === 'multiple_choice' && question.correctOption === answer.answer) ||
+        (question.type === 'open_ended' && question.answer.toLowerCase().trim() === answer.answer.toLowerCase().trim())
+      )) {
         return total + 1;
       }
       return total;

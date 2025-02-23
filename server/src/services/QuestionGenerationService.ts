@@ -1,4 +1,4 @@
-import { openai, SYSTEM_MESSAGE, generateUserMessage, CACHE_DURATION_HOURS } from '../config/openai';
+import { openai, SYSTEM_MESSAGE, generateUserMessage, CACHE_DURATION_HOURS, isOpenAIConfigured } from '../config/openai';
 import { Question, IQuestion, QuestionConstants } from '../models/Question';
 import { QuestionCache, IQuestionCache } from '../models/QuestionCache';
 import { ChatCompletionRequestMessage } from 'openai';
@@ -10,6 +10,7 @@ interface GenerationParams {
   difficulty: number[];
   count: number;
   useCache?: boolean;
+  useAI?: boolean;
 }
 
 interface GeneratedQuestion {
@@ -34,17 +35,28 @@ export class QuestionGenerationService {
   }
 
   public async generateQuestions(params: GenerationParams): Promise<IQuestion[]> {
-    const { verticals, roles, topics, difficulty, count, useCache = true } = params;
+    const { verticals, roles, topics, difficulty, count, useCache = true, useAI = true } = params;
 
     // Validate parameters
     this.validateParams(params);
 
+    // Check if AI generation is requested but not available
+    if (useAI && !isOpenAIConfigured()) {
+      console.warn('AI generation requested but OpenAI is not configured. Falling back to database questions.');
+      return this.getQuestionsFromDatabase(params);
+    }
+
     // Check cache if enabled
-    if (useCache) {
+    if (useCache && useAI) {
       const cachedQuestions = await this.findCachedQuestions(params);
       if (cachedQuestions.length >= count) {
         return cachedQuestions.slice(0, count);
       }
+    }
+
+    // If AI is not requested or not available, get questions from database
+    if (!useAI) {
+      return this.getQuestionsFromDatabase(params);
     }
 
     // Get sample questions for context
@@ -64,6 +76,29 @@ export class QuestionGenerationService {
     }
 
     return savedQuestions;
+  }
+
+  private async getQuestionsFromDatabase(params: GenerationParams): Promise<IQuestion[]> {
+    const { verticals, roles, topics, difficulty, count } = params;
+
+    const questions = await Question.aggregate([
+      {
+        $match: {
+          industryVerticals: { $in: verticals },
+          roles: { $in: roles },
+          topics: { $in: topics },
+          difficulty: { $in: difficulty },
+          'source.type': 'base'
+        }
+      },
+      { $sample: { size: count } }
+    ]);
+
+    if (questions.length === 0) {
+      throw new Error('No questions available for the selected criteria');
+    }
+
+    return questions;
   }
 
   private validateParams(params: GenerationParams): void {
@@ -117,6 +152,10 @@ export class QuestionGenerationService {
   }
 
   private async callOpenAI(params: GenerationParams & { sampleQuestions: IQuestion[] }): Promise<GeneratedQuestion[]> {
+    if (!openai || !isOpenAIConfigured()) {
+      throw new Error('OpenAI is not configured. Please set OPENAI_API_KEY environment variable.');
+    }
+
     const messages: ChatCompletionRequestMessage[] = [
       { role: 'system', content: SYSTEM_MESSAGE },
       { 
@@ -194,7 +233,10 @@ export class QuestionGenerationService {
     expiresAt.setHours(expiresAt.getHours() + CACHE_DURATION_HOURS);
 
     const cache = new QuestionCache({
-      prompt: generateUserMessage(params),
+      prompt: generateUserMessage({
+        ...params,
+        count: questions.length
+      }),
       questions: questions.map(q => q._id),
       expiresAt,
       metadata: {

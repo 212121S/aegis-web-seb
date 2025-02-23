@@ -2,14 +2,13 @@ import { Request, Response } from 'express';
 import { QuestionGenerationService } from '../services/QuestionGenerationService';
 import { Question, QuestionConstants } from '../models/Question';
 import { User } from '../models/User';
+import { Types } from 'mongoose';
 
-interface GenerateQuestionsRequest {
-  verticals: string[];
-  roles: string[];
-  topics: string[];
-  difficulty: number[];
-  count: number;
-  useAI: boolean;
+interface UserDocument {
+  _id: Types.ObjectId;
+  subscription: {
+    active: boolean;
+  };
 }
 
 export const getTestConfiguration = async (_req: Request, res: Response): Promise<void> => {
@@ -29,61 +28,47 @@ export const getTestConfiguration = async (_req: Request, res: Response): Promis
 
 export const generatePracticeTest = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = req.user as { _id: string };
+    const user = req.user as UserDocument;
     if (!user) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
     }
 
-    const params = req.body as GenerateQuestionsRequest;
-    
+    const {
+      verticals,
+      roles,
+      topics,
+      difficulty,
+      count,
+      useAI = true
+    } = req.body;
+
     // Validate request body
-    if (!params.verticals?.length || !params.roles?.length || !params.topics?.length) {
+    if (!verticals?.length || !roles?.length || !topics?.length) {
       res.status(400).json({ error: 'Missing required parameters' });
       return;
     }
 
-    if (!params.difficulty?.length || !params.difficulty.every(d => d >= 1 && d <= 8)) {
+    if (!difficulty?.length || !difficulty.every(d => d >= 1 && d <= 8)) {
       res.status(400).json({ error: 'Invalid difficulty range' });
       return;
     }
 
-    if (!params.count || params.count < 1 || params.count > 20) {
+    if (!count || count < 1 || count > 20) {
       res.status(400).json({ error: 'Invalid question count (1-20)' });
       return;
     }
 
-    let questions;
-    if (params.useAI) {
-      // Use AI to generate questions
-      const questionService = QuestionGenerationService.getInstance();
-      questions = await questionService.generateQuestions({
-        verticals: params.verticals,
-        roles: params.roles,
-        topics: params.topics,
-        difficulty: params.difficulty,
-        count: params.count
-      });
-    } else {
-      // Get questions from the database
-      questions = await Question.aggregate([
-        {
-          $match: {
-            industryVerticals: { $in: params.verticals },
-            roles: { $in: params.roles },
-            topics: { $in: params.topics },
-            difficulty: { $in: params.difficulty },
-            'source.type': 'base'
-          }
-        },
-        { $sample: { size: params.count } }
-      ]);
-    }
-
-    if (!questions.length) {
-      res.status(404).json({ error: 'No questions available for the selected criteria' });
-      return;
-    }
+    // Generate questions
+    const questionService = QuestionGenerationService.getInstance();
+    const questions = await questionService.generateQuestions({
+      verticals,
+      roles,
+      topics,
+      difficulty,
+      count,
+      useAI
+    });
 
     // Create a test session
     const testSession = {
@@ -92,31 +77,32 @@ export const generatePracticeTest = async (req: Request, res: Response): Promise
         text: q.text,
         type: q.type,
         options: q.options,
-        // Don't send correct answers/explanations yet
         difficulty: q.difficulty,
         topics: q.topics,
         industryVerticals: q.industryVerticals,
         roles: q.roles
       })),
       config: {
-        verticals: params.verticals,
-        roles: params.roles,
-        topics: params.topics,
-        difficulty: params.difficulty,
-        useAI: params.useAI
+        verticals,
+        roles,
+        topics,
+        difficulty,
+        useAI
       }
     };
 
     res.json(testSession);
   } catch (error) {
     console.error('Generate practice test error:', error);
-    res.status(500).json({ error: 'Failed to generate practice test' });
+    res.status(500).json({ 
+      error: error instanceof Error ? error.message : 'Failed to generate practice test' 
+    });
   }
 };
 
 export const submitPracticeTest = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = req.user as { _id: string };
+    const user = req.user as UserDocument;
     if (!user) {
       res.status(401).json({ error: 'Not authenticated' });
       return;
@@ -135,7 +121,7 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
     }
 
     // Get questions with correct answers
-    const questionIds = answers.map(a => a.questionId);
+    const questionIds = answers.map(a => new Types.ObjectId(a.questionId));
     const questions = await Question.find({ _id: { $in: questionIds } });
 
     // Calculate scores by topic and vertical
