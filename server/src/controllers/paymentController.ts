@@ -246,13 +246,16 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
             timestamp: new Date().toISOString()
           });
 
-          // First update subscription record in database
+          // Update subscription record in database with all fields in one atomic operation
           const updateResult = await User.findByIdAndUpdate(
             userId,
             {
               'subscription.stripeCustomerId': session.customer,
               'subscription.stripeSubscriptionId': session.subscription,
-              'subscription.plan': priceId === STRIPE_PRICE_IDS.basicSubscription ? 'basic' : 'premium'
+              'subscription.plan': priceId === STRIPE_PRICE_IDS.basicSubscription ? 'basic' : 'premium',
+              'subscription.active': true,
+              'subscription.startDate': new Date(),
+              'subscription.endDate': new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
             },
             { new: true }
           );
@@ -264,33 +267,16 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
               timestamp: new Date().toISOString()
             });
           } else {
-            console.log('Initial subscription record created:', {
+            console.log('Subscription activated:', {
               userId,
               subscriptionId: session.subscription,
               plan: updateResult.subscription?.plan,
+              active: updateResult.subscription?.active,
+              startDate: updateResult.subscription?.startDate,
+              endDate: updateResult.subscription?.endDate,
               timestamp: new Date().toISOString()
             });
           }
-
-          // For testing purposes, we'll activate the subscription immediately
-          const activateResult = await User.findByIdAndUpdate(
-            userId,
-            {
-              'subscription.active': true,
-              'subscription.startDate': new Date(),
-              'subscription.endDate': new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
-            },
-            { new: true }
-          );
-
-          console.log('Subscription activated:', {
-            userId,
-            subscriptionId: session.subscription,
-            active: activateResult?.subscription?.active,
-            startDate: activateResult?.subscription?.startDate,
-            endDate: activateResult?.subscription?.endDate,
-            timestamp: new Date().toISOString()
-          });
         } else if (session.mode === 'payment') {
           // Handle one-time payment for official test
           await User.findByIdAndUpdate(userId, {
@@ -366,9 +352,6 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
 
     console.log('Verifying session:', { sessionId });
 
-    // Add delay to allow webhook processing
-    await new Promise(resolve => setTimeout(resolve, 5000));
-
     try {
       // Retrieve session
       const session = await (stripe as Stripe).checkout.sessions.retrieve(sessionId);
@@ -379,20 +362,19 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
         return;
       }
 
-    // Validate session status and payment
-    if (session.status !== 'complete' || session.payment_status !== 'paid') {
-      console.error('Session validation failed:', { 
-        sessionId,
-        status: session.status,
-        paymentStatus: session.payment_status
-      });
-      res.status(400).json({ error: 'Payment not completed' });
-      return;
-    }
+      // Validate session status and payment
+      if (session.status !== 'complete' || session.payment_status !== 'paid') {
+        console.error('Session validation failed:', { 
+          sessionId,
+          status: session.status,
+          paymentStatus: session.payment_status
+        });
+        res.status(400).json({ error: 'Payment not completed' });
+        return;
+      }
 
-    // For subscription mode, check if subscription is ready
-    if (session.mode === 'subscription') {
-      try {
+      // For subscription mode, check if subscription is ready
+      if (session.mode === 'subscription') {
         // Get subscription ID from session
         if (!session.subscription) {
           console.log('No subscription ID in session:', {
@@ -407,58 +389,16 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
           return;
         }
 
-        // Get subscription details from Stripe
-        const subscription = await (stripe as Stripe).subscriptions.retrieve(session.subscription as string);
-
-        if (!subscription) {
-          console.log('Subscription not yet available:', {
-            sessionId,
-            timestamp: new Date().toISOString()
-          });
-          res.status(202).json({ 
-            status: 'processing',
-            message: 'Subscription is being processed',
-            verifiedAt: new Date().toISOString()
-          });
-          return;
-        }
-        
-        console.log('Subscription details:', {
-          sessionId,
-          subscriptionId: subscription.id,
-          status: subscription.status,
-          customer: subscription.customer,
-          currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-          timestamp: new Date().toISOString(),
-          retrieved: true
-        });
-
-        // Check subscription status
-        if (subscription.status !== 'active') {
-          console.log('Subscription pending activation:', {
-            sessionId,
-            subscriptionId: subscription.id,
-            status: subscription.status,
-            timestamp: new Date().toISOString()
-          });
-          res.status(202).json({ 
-            status: 'processing',
-            message: 'Subscription is being activated',
-            verifiedAt: new Date().toISOString()
-          });
-          return;
-        }
-
         // Check if user's subscription is updated in our database
         const user = await User.findOne({
-          'subscription.stripeSubscriptionId': subscription.id,
+          'subscription.stripeSubscriptionId': session.subscription,
           'subscription.active': true
         });
 
         if (!user) {
           console.log('Subscription not yet updated in database:', {
             sessionId,
-            subscriptionId: subscription.id,
+            subscriptionId: session.subscription,
             timestamp: new Date().toISOString()
           });
           res.status(202).json({ 
@@ -468,24 +408,16 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
           });
           return;
         }
-      } catch (err) {
-        if (err instanceof Stripe.errors.StripeError) {
-          console.log('Stripe error during subscription verification:', {
-            sessionId,
-            error: err.message,
-            type: err.type,
-            timestamp: new Date().toISOString()
-          });
-          res.status(202).json({ 
-            status: 'processing',
-            message: 'Processing subscription details',
-            verifiedAt: new Date().toISOString()
-          });
-          return;
-        }
-        throw err;
+
+        console.log('Subscription verified in database:', {
+          sessionId,
+          subscriptionId: session.subscription,
+          userId: user._id,
+          active: user.subscription?.active,
+          plan: user.subscription?.plan,
+          timestamp: new Date().toISOString()
+        });
       }
-    }
 
       console.log('Session verified successfully:', {
         sessionId,

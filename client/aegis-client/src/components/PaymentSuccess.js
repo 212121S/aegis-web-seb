@@ -74,12 +74,10 @@ function PaymentSuccess() {
           attempt: 1
         }));
 
-          // Initial delay to allow webhook processing
-          await new Promise(resolve => setTimeout(resolve, 8000));
-
           let attempt = 1;
-          const maxAttempts = 15;
-          const baseDelay = 4000;
+          const maxAttempts = 30; // Increased max attempts
+          const baseDelay = 2000; // Reduced base delay
+          const backoffMultiplier = 1.2; // Reduced backoff multiplier
 
           while (attempt <= maxAttempts) {
             setVerificationProgress(prev => ({
@@ -135,7 +133,7 @@ function PaymentSuccess() {
               // If we get here, we need to retry
               attempt++;
               if (attempt <= maxAttempts) {
-                const delay = Math.min(baseDelay * Math.pow(1.5, attempt - 1), 15000);
+                const delay = Math.min(baseDelay * Math.pow(backoffMultiplier, attempt - 1), 8000);
                 console.log(`Retrying verification in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
                 await new Promise(resolve => setTimeout(resolve, delay));
               }
@@ -163,7 +161,7 @@ function PaymentSuccess() {
               // Otherwise retry
               attempt++;
               if (attempt <= maxAttempts) {
-                const delay = Math.min(baseDelay * Math.pow(1.5, attempt - 1), 15000);
+                const delay = Math.min(baseDelay * Math.pow(backoffMultiplier, attempt - 1), 8000);
                 console.log(`Retrying after error in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
                 await new Promise(resolve => setTimeout(resolve, delay));
               }
