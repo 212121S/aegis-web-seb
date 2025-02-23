@@ -193,6 +193,13 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
+    console.log('Received webhook request:', {
+      signature: !!sig,
+      hasSecret: !!stripeConfig.webhookSecret,
+      body: !!req.body,
+      timestamp: new Date().toISOString()
+    });
+
     const event = (stripe as Stripe).webhooks.constructEvent(
       req.body,
       sig,
@@ -201,6 +208,9 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
 
     console.log('Processing webhook event:', {
       type: event.type,
+      objectType: (event.data.object as any).object,
+      objectId: (event.data.object as any).id,
+      hasMetadata: !!(event.data.object as any).metadata,
       timestamp: new Date().toISOString()
     });
 
@@ -227,11 +237,40 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
             customerId: session.customer,
             subscriptionId: session.subscription,
             planId: priceId === STRIPE_PRICE_IDS.basicSubscription ? 'basic' : 'premium',
+            metadata: session.metadata,
+            paymentStatus: session.payment_status,
+            status: session.status,
             timestamp: new Date().toISOString()
           });
 
+          // First update subscription record in database
+          const updateResult = await User.findByIdAndUpdate(
+            userId,
+            {
+              'subscription.stripeCustomerId': session.customer,
+              'subscription.stripeSubscriptionId': session.subscription,
+              'subscription.plan': priceId === STRIPE_PRICE_IDS.basicSubscription ? 'basic' : 'premium'
+            },
+            { new: true }
+          );
+
+          if (!updateResult) {
+            console.error('Failed to update user subscription:', {
+              userId,
+              subscriptionId: session.subscription,
+              timestamp: new Date().toISOString()
+            });
+          } else {
+            console.log('Initial subscription record created:', {
+              userId,
+              subscriptionId: session.subscription,
+              plan: updateResult.subscription?.plan,
+              timestamp: new Date().toISOString()
+            });
+          }
+
+          // Then verify subscription status with Stripe
           try {
-            // Verify subscription status with Stripe
             const stripeSubscription = await (stripe as Stripe).subscriptions.retrieve(
               session.subscription as string
             );
@@ -242,45 +281,36 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
               timestamp: new Date().toISOString()
             });
 
-            // Always update the subscription in database, even if not active yet
-            const updateResult = await User.findByIdAndUpdate(
-              userId,
-              {
-                'subscription.stripeCustomerId': session.customer,
-                'subscription.stripeSubscriptionId': session.subscription,
-                'subscription.plan': priceId === STRIPE_PRICE_IDS.basicSubscription ? 'basic' : 'premium',
-                'subscription.startDate': new Date(stripeSubscription.start_date * 1000),
-                'subscription.endDate': new Date(stripeSubscription.current_period_end * 1000),
-                'subscription.active': stripeSubscription.status === 'active'
-              },
-              { new: true }
-            );
-
-            if (!updateResult) {
-              console.error('Failed to update user subscription:', {
+            // Update subscription status if active
+            if (stripeSubscription.status === 'active') {
+              const activateResult = await User.findByIdAndUpdate(
                 userId,
-                subscriptionId: session.subscription,
-                timestamp: new Date().toISOString()
-              });
-            } else {
-              console.log('Subscription updated:', {
+                {
+                  'subscription.active': true,
+                  'subscription.startDate': new Date(stripeSubscription.start_date * 1000),
+                  'subscription.endDate': new Date(stripeSubscription.current_period_end * 1000)
+                },
+                { new: true }
+              );
+
+              console.log('Subscription activated:', {
                 userId,
                 subscriptionId: session.subscription,
                 status: stripeSubscription.status,
-                plan: updateResult.subscription?.plan,
-                active: updateResult.subscription?.active,
-                startDate: updateResult.subscription?.startDate,
-                endDate: updateResult.subscription?.endDate,
+                active: activateResult?.subscription?.active,
+                startDate: activateResult?.subscription?.startDate,
+                endDate: activateResult?.subscription?.endDate,
                 timestamp: new Date().toISOString()
               });
             }
           } catch (err) {
-            console.error('Error processing subscription webhook:', {
+            console.error('Error checking subscription status:', {
               error: err,
               userId,
               subscriptionId: session.subscription,
               timestamp: new Date().toISOString()
             });
+            // Don't throw - we've already created the subscription record
           }
         } else if (session.mode === 'payment') {
           // Handle one-time payment for official test
@@ -302,7 +332,11 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
       }
     }
 
-    res.json({ received: true });
+    res.json({ 
+      received: true,
+      type: event.type,
+      timestamp: new Date().toISOString()
+    });
   } catch (error) {
     console.error('Webhook error:', {
       error,
