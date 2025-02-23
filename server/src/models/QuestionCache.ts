@@ -76,6 +76,5 @@ questionCacheSchema.index({ 'metadata.verticals': 1 });
 questionCacheSchema.index({ 'metadata.roles': 1 });
 questionCacheSchema.index({ 'metadata.topics': 1 });
 questionCacheSchema.index({ created: 1 });
-questionCacheSchema.index({ expiresAt: 1 });
 
 export const QuestionCache = mongoose.model<IQuestionCache>('QuestionCache', questionCacheSchema);
