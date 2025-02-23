@@ -40,7 +40,7 @@ const UserDashboard = () => {
   const [error, setError] = useState(null);
   const [testHistory, setTestHistory] = useState([]);
   const [analytics, setAnalytics] = useState(null);
-  const { subscription, isSubscriptionActive } = useSubscription();
+  const { subscription, isSubscriptionActive, loading: subscriptionLoading } = useSubscription();
 
   useEffect(() => {
     fetchUserData();
@@ -75,7 +75,7 @@ const UserDashboard = () => {
     }
   };
 
-  if (loading) {
+  if (loading || subscriptionLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
         <CircularProgress />

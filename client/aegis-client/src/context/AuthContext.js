@@ -189,7 +189,8 @@ export const AuthProvider = ({ children }) => {
     logout,
     register,
     updateProfile,
-    verifyAuth
+    verifyAuth,
+    isAuthenticated: !!user
   };
 
   console.log('AuthContext state:', { user, loading, error });

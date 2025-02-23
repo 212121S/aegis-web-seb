@@ -155,18 +155,10 @@ export const useSubscription = () => {
           return;
         }
 
-        // Verify auth token before checking subscription
-        const isValid = await verifyAuth();
-        if (!isValid) {
-          console.warn('Auth token invalid, clearing subscription state');
-          setSubscription(null);
-          setLoading(false);
-          return;
-        }
-
         console.log('Auth verified, checking subscription');
         if (mounted) {
-          await checkSubscription();
+          const result = await checkSubscription();
+          console.log('Initial subscription check result:', result);
         }
       } catch (err) {
         console.error('Subscription initialization error:', {
@@ -200,7 +192,15 @@ export const useSubscription = () => {
         clearInterval(intervalId);
       }
     };
-  }, [isAuthenticated, verifyAuth, checkSubscription]);
+  }, [isAuthenticated]);
+
+  // Re-run subscription check when auth state changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log('Auth state changed, refreshing subscription');
+      checkSubscription();
+    }
+  }, [isAuthenticated, checkSubscription]);
 
   // Log subscription state changes
   useEffect(() => {
