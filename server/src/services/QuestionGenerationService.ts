@@ -255,12 +255,12 @@ export class QuestionGenerationService {
       console.log('OpenAI Configuration:', {
         isConfigured: isOpenAIConfigured(),
         apiKeyLength: process.env.OPENAI_API_KEY?.length,
-        model: 'gpt-4o'
+        model: 'gpt-4o-mini'
       });
 
       const completion = await openai.chat.completions.create(
         {
-          model: 'gpt-4o',
+          model: 'gpt-4o-mini',
           messages,
           temperature: 0.7,
           max_tokens: 2000,
