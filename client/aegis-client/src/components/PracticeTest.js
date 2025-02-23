@@ -120,34 +120,6 @@ const PracticeTest = () => {
             </Alert>
           )}
 
-          {/* Question Tags */}
-          <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {currentQuestion?.industryVerticals.map(vertical => (
-              <Chip
-                key={vertical}
-                label={vertical}
-                size="small"
-                color="primary"
-                variant="outlined"
-              />
-            ))}
-            {currentQuestion?.topics.map(topic => (
-              <Chip
-                key={topic}
-                label={topic}
-                size="small"
-                color="secondary"
-                variant="outlined"
-              />
-            ))}
-            <Chip
-              label={`Difficulty: ${currentQuestion?.difficulty}`}
-              size="small"
-              color="default"
-              variant="outlined"
-            />
-          </Box>
-
           {/* Question Text */}
           <Typography variant="h6" gutterBottom>
             {currentQuestion?.text}
