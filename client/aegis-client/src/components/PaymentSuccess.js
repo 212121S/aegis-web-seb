@@ -91,24 +91,41 @@ function PaymentSuccess() {
             message: 'Activating subscription...'
           }));
 
-          // Give webhook time to process
-          await new Promise(resolve => setTimeout(resolve, 3000));
+          // Give webhook more time to process and implement retry logic
+          await new Promise(resolve => setTimeout(resolve, 5000));
           
-          // Refresh auth token and subscription status
+          // Refresh auth token and subscription status with retries
           await verifyAuth();
-          const subscriptionResponse = await refreshSubscription();
           
-          if (subscriptionResponse?.active) {
-            console.log('Payment verification successful:', {
-              sessionId,
-              duration: new Date() - new Date(verificationProgress.startTime),
-              timestamp: new Date().toISOString()
-            });
-            setLoading(false);
-            return;
+          let retryCount = 0;
+          const maxRetries = 3;
+          const baseDelay = 3000;
+          
+          while (retryCount < maxRetries) {
+            console.log(`Attempting subscription verification (attempt ${retryCount + 1}/${maxRetries})`);
+            
+            const subscriptionResponse = await refreshSubscription();
+            
+            if (subscriptionResponse?.active) {
+              console.log('Payment verification successful:', {
+                sessionId,
+                attempt: retryCount + 1,
+                duration: new Date() - new Date(verificationProgress.startTime),
+                timestamp: new Date().toISOString()
+              });
+              setLoading(false);
+              return;
+            }
+            
+            retryCount++;
+            if (retryCount < maxRetries) {
+              const delay = baseDelay * Math.pow(2, retryCount); // Exponential backoff
+              console.log(`Subscription not active yet, retrying in ${delay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
           }
 
-          throw new Error('Subscription not activated after payment verification');
+          throw new Error('Subscription not activated after multiple verification attempts');
         } else {
           throw new Error('Payment verification failed');
         }

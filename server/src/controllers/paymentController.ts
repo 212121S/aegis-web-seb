@@ -222,13 +222,40 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
         });
 
         if (session.mode === 'subscription') {
-          await User.findByIdAndUpdate(userId, {
-            'subscription.active': true,
-            'subscription.stripeCustomerId': session.customer,
-            'subscription.stripeSubscriptionId': session.subscription,
-            'subscription.planId': priceId === STRIPE_PRICE_IDS.basicSubscription ? 'basic' : 'premium'
+          console.log('Processing subscription checkout:', {
+            userId,
+            customerId: session.customer,
+            subscriptionId: session.subscription,
+            planId: priceId === STRIPE_PRICE_IDS.basicSubscription ? 'basic' : 'premium',
+            timestamp: new Date().toISOString()
           });
-          console.log('Subscription activated:', { userId, subscriptionId: session.subscription });
+
+          const updateResult = await User.findByIdAndUpdate(
+            userId,
+            {
+              'subscription.active': true,
+              'subscription.stripeCustomerId': session.customer,
+              'subscription.stripeSubscriptionId': session.subscription,
+              'subscription.plan': priceId === STRIPE_PRICE_IDS.basicSubscription ? 'basic' : 'premium',
+              'subscription.startDate': new Date()
+            },
+            { new: true }
+          );
+
+          if (!updateResult) {
+            console.error('Failed to update user subscription:', {
+              userId,
+              subscriptionId: session.subscription,
+              timestamp: new Date().toISOString()
+            });
+          } else {
+            console.log('Subscription activated successfully:', {
+              userId,
+              subscriptionId: session.subscription,
+              plan: updateResult.subscription?.plan,
+              timestamp: new Date().toISOString()
+            });
+          }
         } else if (session.mode === 'payment') {
           // Handle one-time payment for official test
           await User.findByIdAndUpdate(userId, {
