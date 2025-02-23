@@ -85,14 +85,20 @@ export class QuestionGenerationService {
       return savedQuestions;
     } catch (error) {
       console.error('Failed to generate AI questions:', error);
-      return this.getQuestionsFromDatabase(params);
+      try {
+        return await this.getQuestionsFromDatabase(params);
+      } catch (dbError) {
+        console.error('Failed to get database questions:', dbError);
+        throw new Error('Failed to generate questions from both AI and database');
+      }
     }
   }
 
   private async getQuestionsFromDatabase(params: GenerationParams): Promise<IQuestion[]> {
     const { verticals, roles, topics, difficulty, count, type = 'multiple_choice' } = params;
 
-    const questions = await Question.aggregate([
+    // Try to find questions with exact match first
+    let questions = await Question.aggregate([
       {
         $match: {
           industryVerticals: { $in: verticals },
@@ -105,6 +111,25 @@ export class QuestionGenerationService {
       },
       { $sample: { size: count } }
     ]);
+
+    // If no questions found, try with more relaxed criteria
+    if (questions.length === 0) {
+      questions = await Question.aggregate([
+        {
+          $match: {
+            $or: [
+              { industryVerticals: { $in: verticals } },
+              { roles: { $in: roles } },
+              { topics: { $in: topics } }
+            ],
+            difficulty: { $in: difficulty },
+            'source.type': 'base',
+            type
+          }
+        },
+        { $sample: { size: count } }
+      ]);
+    }
 
     if (questions.length === 0) {
       throw new Error('No questions available for the selected criteria');
@@ -191,11 +216,11 @@ export class QuestionGenerationService {
       console.log('OpenAI Configuration:', {
         isConfigured: isOpenAIConfigured(),
         apiKeyLength: process.env.OPENAI_API_KEY?.length,
-        model: 'gpt-4-0125-preview'
+        model: 'gpt-4-turbo-preview'
       });
 
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4-0125-preview',
+        model: 'gpt-4-turbo-preview',
         messages,
         temperature: 0.7,
         max_tokens: 2000,
