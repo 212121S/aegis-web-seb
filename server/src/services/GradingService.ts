@@ -14,10 +14,11 @@ export class GradingService {
 
   public async gradeWrittenAnswer(userAnswer: string, correctAnswer: string): Promise<number> {
     try {
+      // If OpenAI is not configured, fall back to exact matching
       if (!openai) {
-        throw new Error('OpenAI is not configured');
+        return userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim() ? 100 : 0;
       }
-      
+
       const response = await openai.chat.completions.create({
         model: "gpt-4-0125-preview",
         messages: [

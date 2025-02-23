@@ -138,107 +138,106 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
     const questionIds = answers.map(a => new Types.ObjectId(a.questionId));
     const questions = await Question.find({ _id: { $in: questionIds } });
 
-    // Initialize results object
-    const results = {
-      overall: { correct: 0, total: answers.length, percentage: 0 },
-      byTopic: {} as Record<string, { correct: number; total: number; percentage: number }>,
-      byVertical: {} as Record<string, { correct: number; total: number; percentage: number }>,
-      byRole: {} as Record<string, { correct: number; total: number; percentage: number }>,
-      questions: new Array<QuestionResult>()
-    };
+    try {
+      // Initialize results object
+      const results = {
+        overall: { correct: 0, total: answers.length, percentage: 0 },
+        byTopic: {} as Record<string, { correct: number; total: number; percentage: number }>,
+        byVertical: {} as Record<string, { correct: number; total: number; percentage: number }>,
+        byRole: {} as Record<string, { correct: number; total: number; percentage: number }>,
+        questions: new Array<QuestionResult>()
+      };
 
-    // Process answers sequentially
-    const processAnswer = async (answer: { questionId: string; answer: string }) => {
-      const question = questions.find(q => q._id.toString() === answer.questionId);
-      if (!question) return null;
+      // Process each answer
+      for (const answer of answers) {
+        const question = questions.find(q => q._id.toString() === answer.questionId);
+        if (!question) continue;
 
-      let score = 0;
-      if (question.type === 'multiple_choice') {
-        score = answer.answer === question.correctOption ? 100 : 0;
-      } else {
-        const gradingService = GradingService.getInstance();
-        score = await gradingService.gradeWrittenAnswer(answer.answer, question.answer);
+        let score = 0;
+        if (question.type === 'multiple_choice') {
+          score = answer.answer === question.correctOption ? 100 : 0;
+        } else {
+          try {
+            const gradingService = GradingService.getInstance();
+            score = await gradingService.gradeWrittenAnswer(answer.answer, question.answer);
+          } catch (error) {
+            console.error('Error grading written answer:', error);
+            score = 0; // Default to 0 if grading fails
+          }
+        }
+
+        results.overall.correct += score / 100;
+
+        // Add to question results
+        results.questions.push({
+          questionId: question._id.toString(),
+          questionText: question.text,
+          correct: score === 100,
+          score: score,
+          userAnswer: answer.answer,
+          correctAnswer: question.type === 'multiple_choice' ? question.correctOption! : question.answer,
+          explanation: question.explanation
+        });
+
+        // Update topic scores
+        question.topics.forEach(topic => {
+          if (!results.byTopic[topic]) {
+            results.byTopic[topic] = { correct: 0, total: 0, percentage: 0 };
+          }
+          results.byTopic[topic].total++;
+          results.byTopic[topic].correct += score / 100;
+        });
+
+        // Update vertical scores
+        question.industryVerticals.forEach(vertical => {
+          if (!results.byVertical[vertical]) {
+            results.byVertical[vertical] = { correct: 0, total: 0, percentage: 0 };
+          }
+          results.byVertical[vertical].total++;
+          results.byVertical[vertical].correct += score / 100;
+        });
+
+        // Update role scores
+        question.roles.forEach(role => {
+          if (!results.byRole[role]) {
+            results.byRole[role] = { correct: 0, total: 0, percentage: 0 };
+          }
+          results.byRole[role].total++;
+          results.byRole[role].correct += score / 100;
+        });
       }
 
-      return { question, score, answer };
-    };
+      // Calculate percentages
+      results.overall.percentage = (results.overall.correct / results.overall.total) * 100;
 
-    // Process all answers and wait for results
-    const processedAnswers = await Promise.all(answers.map(processAnswer));
-
-    // Update results with processed answers
-    processedAnswers.forEach(result => {
-      if (!result) return;
-      const { question, score, answer } = result;
-
-      results.overall.correct += score / 100;
-
-      // Add to question results
-      results.questions.push({
-        questionId: question._id.toString(),
-        questionText: question.text,
-        correct: score === 100,
-        score: score,
-        userAnswer: answer.answer,
-        correctAnswer: question.type === 'multiple_choice' ? question.correctOption! : question.answer,
-        explanation: question.explanation
+      Object.values(results.byTopic).forEach(score => {
+        score.percentage = (score.correct / score.total) * 100;
       });
 
-      // Update topic scores
-      question.topics.forEach(topic => {
-        if (!results.byTopic[topic]) {
-          results.byTopic[topic] = { correct: 0, total: 0, percentage: 0 };
-        }
-        results.byTopic[topic].total++;
-        results.byTopic[topic].correct += score / 100;
+      Object.values(results.byVertical).forEach(score => {
+        score.percentage = (score.correct / score.total) * 100;
       });
 
-      // Update vertical scores
-      question.industryVerticals.forEach(vertical => {
-        if (!results.byVertical[vertical]) {
-          results.byVertical[vertical] = { correct: 0, total: 0, percentage: 0 };
-        }
-        results.byVertical[vertical].total++;
-        results.byVertical[vertical].correct += score / 100;
+      Object.values(results.byRole).forEach(score => {
+        score.percentage = (score.correct / score.total) * 100;
       });
 
-      // Update role scores
-      question.roles.forEach(role => {
-        if (!results.byRole[role]) {
-          results.byRole[role] = { correct: 0, total: 0, percentage: 0 };
+      // Save results to user history
+      await User.findByIdAndUpdate(user._id, {
+        $push: {
+          testResults: {
+            score: results.overall.percentage,
+            date: new Date(),
+            details: results
+          }
         }
-        results.byRole[role].total++;
-        results.byRole[role].correct += score / 100;
       });
-    });
 
-    // Calculate percentages
-    results.overall.percentage = (results.overall.correct / results.overall.total) * 100;
-
-    Object.values(results.byTopic).forEach(score => {
-      score.percentage = (score.correct / score.total) * 100;
-    });
-
-    Object.values(results.byVertical).forEach(score => {
-      score.percentage = (score.correct / score.total) * 100;
-    });
-
-    Object.values(results.byRole).forEach(score => {
-      score.percentage = (score.correct / score.total) * 100;
-    });
-
-    // Save results to user history
-    await User.findByIdAndUpdate(user._id, {
-      $push: {
-        testResults: {
-          score: results.overall.percentage,
-          date: new Date(),
-          details: results
-        }
-      }
-    });
-
-    res.json(results);
+      res.json(results);
+    } catch (error) {
+      console.error('Error processing test results:', error);
+      res.status(500).json({ error: 'Failed to process test results' });
+    }
   } catch (error) {
     console.error('Submit practice test error:', error);
     res.status(500).json({ error: 'Failed to submit practice test' });
