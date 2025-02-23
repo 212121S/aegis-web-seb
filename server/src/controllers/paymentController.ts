@@ -230,29 +230,51 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
             timestamp: new Date().toISOString()
           });
 
-          const updateResult = await User.findByIdAndUpdate(
-            userId,
-            {
-              'subscription.active': true,
-              'subscription.stripeCustomerId': session.customer,
-              'subscription.stripeSubscriptionId': session.subscription,
-              'subscription.plan': priceId === STRIPE_PRICE_IDS.basicSubscription ? 'basic' : 'premium',
-              'subscription.startDate': new Date()
-            },
-            { new: true }
+          // Verify subscription status with Stripe
+          const stripeSubscription = await (stripe as Stripe).subscriptions.retrieve(
+            session.subscription as string
           );
 
-          if (!updateResult) {
-            console.error('Failed to update user subscription:', {
+          console.log('Stripe subscription status:', {
+            subscriptionId: session.subscription,
+            status: stripeSubscription.status,
+            timestamp: new Date().toISOString()
+          });
+
+          if (stripeSubscription.status === 'active') {
+            const updateResult = await User.findByIdAndUpdate(
               userId,
-              subscriptionId: session.subscription,
-              timestamp: new Date().toISOString()
-            });
+              {
+                'subscription.active': true,
+                'subscription.stripeCustomerId': session.customer,
+                'subscription.stripeSubscriptionId': session.subscription,
+                'subscription.plan': priceId === STRIPE_PRICE_IDS.basicSubscription ? 'basic' : 'premium',
+                'subscription.startDate': new Date(stripeSubscription.start_date * 1000),
+                'subscription.endDate': new Date(stripeSubscription.current_period_end * 1000)
+              },
+              { new: true }
+            );
+
+            if (!updateResult) {
+              console.error('Failed to update user subscription:', {
+                userId,
+                subscriptionId: session.subscription,
+                timestamp: new Date().toISOString()
+              });
+            } else {
+              console.log('Subscription activated successfully:', {
+                userId,
+                subscriptionId: session.subscription,
+                plan: updateResult.subscription?.plan,
+                startDate: updateResult.subscription?.startDate,
+                endDate: updateResult.subscription?.endDate,
+                timestamp: new Date().toISOString()
+              });
+            }
           } else {
-            console.log('Subscription activated successfully:', {
-              userId,
+            console.warn('Stripe subscription not active:', {
               subscriptionId: session.subscription,
-              plan: updateResult.subscription?.plan,
+              status: stripeSubscription.status,
               timestamp: new Date().toISOString()
             });
           }
@@ -330,54 +352,94 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
     // Add delay to allow webhook processing
     await new Promise(resolve => setTimeout(resolve, 5000));
 
-    // Retrieve session with expanded details
-    const session = await (stripe as Stripe).checkout.sessions.retrieve(sessionId, {
-      expand: ['payment_intent', 'subscription']
-    });
+    try {
+      // Retrieve session with expanded details
+      const session = await (stripe as Stripe).checkout.sessions.retrieve(sessionId, {
+        expand: ['payment_intent', 'subscription']
+      });
 
-    if (!session) {
-      console.error('Session not found:', { sessionId });
-      res.status(404).json({ error: 'Session not found' });
-      return;
-    }
+      if (!session) {
+        console.error('Session not found:', { sessionId });
+        res.status(404).json({ error: 'Session not found' });
+        return;
+      }
 
-    // Validate session status
-    if (session.status !== 'complete') {
-      console.error('Session not complete:', { 
+      // Validate session status
+      if (session.status !== 'complete') {
+        console.error('Session not complete:', { 
+          sessionId,
+          status: session.status,
+          paymentStatus: session.payment_status
+        });
+        res.status(400).json({ error: 'Payment not completed' });
+        return;
+      }
+
+      // Validate payment status
+      if (session.payment_status !== 'paid') {
+        console.error('Payment not successful:', {
+          sessionId,
+          paymentStatus: session.payment_status
+        });
+        res.status(400).json({ error: 'Payment not successful' });
+        return;
+      }
+
+      // For subscription mode, verify subscription status
+      if (session.mode === 'subscription' && session.subscription) {
+        const subscription = await (stripe as Stripe).subscriptions.retrieve(
+          session.subscription as string
+        );
+
+        console.log('Verifying subscription status:', {
+          sessionId,
+          subscriptionId: session.subscription,
+          status: subscription.status,
+          timestamp: new Date().toISOString()
+        });
+
+        if (subscription.status !== 'active') {
+          console.error('Subscription not active:', {
+            sessionId,
+            subscriptionId: session.subscription,
+            status: subscription.status
+          });
+          res.status(400).json({ error: 'Subscription not active' });
+          return;
+        }
+      }
+
+      console.log('Session verified successfully:', {
         sessionId,
+        paymentStatus: session.payment_status,
         status: session.status,
-        paymentStatus: session.payment_status
+        mode: session.mode,
+        customerId: session.customer,
+        subscriptionId: session.subscription,
+        timestamp: new Date().toISOString()
       });
-      res.status(400).json({ error: 'Payment not completed' });
-      return;
-    }
 
-    // Validate payment status
-    if (session.payment_status !== 'paid') {
-      console.error('Payment not successful:', {
-        sessionId,
-        paymentStatus: session.payment_status
+      res.json({ 
+        paymentStatus: session.payment_status,
+        status: session.status,
+        mode: session.mode,
+        customerId: session.customer,
+        subscriptionId: session.subscription,
+        verifiedAt: new Date().toISOString()
       });
-      res.status(400).json({ error: 'Payment not successful' });
-      return;
+    } catch (err) {
+      if (err instanceof Stripe.errors.StripeError) {
+        console.error('Stripe error during session verification:', {
+          type: err.type,
+          code: err.code,
+          message: err.message,
+          sessionId
+        });
+        res.status(400).json({ error: 'Payment verification failed', details: err.message });
+        return;
+      }
+      throw err;
     }
-
-    console.log('Session verified successfully:', {
-      sessionId,
-      paymentStatus: session.payment_status,
-      status: session.status,
-      customerId: session.customer,
-      subscriptionId: session.subscription,
-      timestamp: new Date().toISOString()
-    });
-
-    res.json({ 
-      paymentStatus: session.payment_status,
-      status: session.status,
-      customerId: session.customer,
-      subscriptionId: session.subscription,
-      verifiedAt: new Date().toISOString()
-    });
   } catch (error) {
     console.error('Error verifying session:', {
       error,
