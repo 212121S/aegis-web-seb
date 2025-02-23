@@ -255,7 +255,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
               'subscription.plan': priceId === STRIPE_PRICE_IDS.basicSubscription ? 'basic' : 'premium',
               'subscription.active': true,
               'subscription.startDate': new Date(),
-              'subscription.endDate': new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+              'subscription.currentPeriodEnd': new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
             },
             { new: true }
           );
@@ -273,7 +273,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
               plan: updateResult.subscription?.plan,
               active: updateResult.subscription?.active,
               startDate: updateResult.subscription?.startDate,
-              endDate: updateResult.subscription?.endDate,
+              currentPeriodEnd: updateResult.subscription?.currentPeriodEnd,
               timestamp: new Date().toISOString()
             });
           }

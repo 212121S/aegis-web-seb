@@ -54,7 +54,7 @@ instance.interceptors.request.use(
       });
     }
 
-    if (config.url?.includes('subscription/')) {
+    if (config.url?.includes('subscription-status')) {
       config.isSubscriptionEndpoint = true;
       config.timeout = 15000; // 15 seconds for subscription requests
     }
@@ -84,7 +84,7 @@ instance.interceptors.response.use(
     // Handle auth, exam, and subscription endpoints to return just the data
     if (response.config.url?.includes('auth/') || 
         response.config.url?.includes('exam/') ||
-        response.config.url?.includes('subscription/')) {
+        response.config.url?.includes('subscription-status')) {
       return response.data;
     }
     
@@ -363,7 +363,7 @@ export const subscriptionAPI = {
         timestamp: new Date().toISOString()
       });
 
-      const response = await instance.get('subscription/status');
+      const response = await instance.get('payment/subscription-status');
       
       console.log('Subscription status retrieved:', {
         status: response.active,

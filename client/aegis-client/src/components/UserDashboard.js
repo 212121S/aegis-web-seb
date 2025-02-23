@@ -95,7 +95,7 @@ const UserDashboard = () => {
             {isSubscriptionActive() ? (
               <Alert severity="success">
                 Your {subscription?.plan} subscription is active until{' '}
-                {new Date(subscription?.expiresAt).toLocaleDateString()}
+                {new Date(subscription?.currentPeriodEnd).toLocaleDateString()}
               </Alert>
             ) : (
               <Alert severity="warning">

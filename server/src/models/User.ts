@@ -14,7 +14,7 @@ export interface IUser extends Document {
     active: boolean;
     plan?: string;
     startDate?: Date;
-    endDate?: Date;
+    currentPeriodEnd?: Date;
     stripeCustomerId?: string;
     stripeSubscriptionId?: string;
   };
@@ -70,7 +70,7 @@ const userSchema = new Schema<IUser>({
     },
     plan: String,
     startDate: Date,
-    endDate: Date,
+    currentPeriodEnd: Date,
     stripeCustomerId: String,
     stripeSubscriptionId: String
   },
