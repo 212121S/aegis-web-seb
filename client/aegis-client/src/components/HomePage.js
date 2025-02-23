@@ -22,7 +22,7 @@ const HomePage = () => {
 
   const handleStartPractice = () => {
     if (user) {
-      navigate('/practice-test-builder');
+      navigate('/practice-builder');
     } else {
       navigate('/login');
     }

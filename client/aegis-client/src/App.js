@@ -57,7 +57,7 @@ const NavigationBar = () => {
               Dashboard
             </Button>
             <Button color="inherit" component={Link} to="/practice-builder">
-              Practice Tests
+              Practice Test Builder
             </Button>
             {!user.subscription?.active && (
               <Button color="inherit" component={Link} to="/plans">
