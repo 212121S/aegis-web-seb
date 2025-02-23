@@ -230,27 +230,28 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
             timestamp: new Date().toISOString()
           });
 
-          // Verify subscription status with Stripe
-          const stripeSubscription = await (stripe as Stripe).subscriptions.retrieve(
-            session.subscription as string
-          );
+          try {
+            // Verify subscription status with Stripe
+            const stripeSubscription = await (stripe as Stripe).subscriptions.retrieve(
+              session.subscription as string
+            );
 
-          console.log('Stripe subscription status:', {
-            subscriptionId: session.subscription,
-            status: stripeSubscription.status,
-            timestamp: new Date().toISOString()
-          });
+            console.log('Stripe subscription status:', {
+              subscriptionId: session.subscription,
+              status: stripeSubscription.status,
+              timestamp: new Date().toISOString()
+            });
 
-          if (stripeSubscription.status === 'active') {
+            // Always update the subscription in database, even if not active yet
             const updateResult = await User.findByIdAndUpdate(
               userId,
               {
-                'subscription.active': true,
                 'subscription.stripeCustomerId': session.customer,
                 'subscription.stripeSubscriptionId': session.subscription,
                 'subscription.plan': priceId === STRIPE_PRICE_IDS.basicSubscription ? 'basic' : 'premium',
                 'subscription.startDate': new Date(stripeSubscription.start_date * 1000),
-                'subscription.endDate': new Date(stripeSubscription.current_period_end * 1000)
+                'subscription.endDate': new Date(stripeSubscription.current_period_end * 1000),
+                'subscription.active': stripeSubscription.status === 'active'
               },
               { new: true }
             );
@@ -262,19 +263,22 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
                 timestamp: new Date().toISOString()
               });
             } else {
-              console.log('Subscription activated successfully:', {
+              console.log('Subscription updated:', {
                 userId,
                 subscriptionId: session.subscription,
+                status: stripeSubscription.status,
                 plan: updateResult.subscription?.plan,
+                active: updateResult.subscription?.active,
                 startDate: updateResult.subscription?.startDate,
                 endDate: updateResult.subscription?.endDate,
                 timestamp: new Date().toISOString()
               });
             }
-          } else {
-            console.warn('Stripe subscription not active:', {
+          } catch (err) {
+            console.error('Error processing subscription webhook:', {
+              error: err,
+              userId,
               subscriptionId: session.subscription,
-              status: stripeSubscription.status,
               timestamp: new Date().toISOString()
             });
           }

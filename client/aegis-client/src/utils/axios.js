@@ -41,7 +41,7 @@ instance.interceptors.request.use(
       
       // Set shorter timeout for verification endpoints
       if (config.url?.includes('verify-session')) {
-        config.timeout = 10000; // 10 seconds for verification requests
+        config.timeout = 15000; // 15 seconds for verification requests
       }
 
       // Log payment request details
@@ -210,7 +210,7 @@ instance.interceptors.response.use(
 );
 
 export const paymentAPI = {
-  verifySession: async (sessionId, attempt = 1, maxAttempts = 8, onRetry = null) => {
+  verifySession: async (sessionId, attempt = 1, maxAttempts = 15, onRetry = null) => {
     if (!sessionId) {
       throw new PaymentVerificationError('Session ID is required');
     }
@@ -290,8 +290,8 @@ export const paymentAPI = {
         );
 
         if (shouldRetry) {
-          const baseDelay = 3000; // 3 seconds base delay
-          const delay = Math.min(baseDelay * Math.pow(1.5, currentAttempt - 1), 10000);
+          const baseDelay = 4000; // 4 seconds base delay
+          const delay = Math.min(baseDelay * Math.pow(1.5, currentAttempt - 1), 15000);
           
           console.log('Retrying payment verification:', {
             sessionId,

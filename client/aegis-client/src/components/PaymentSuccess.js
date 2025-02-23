@@ -74,73 +74,103 @@ function PaymentSuccess() {
           attempt: 1
         }));
 
-        const verifyWithRetries = async (attempt = 1, maxAttempts = 12) => {
-          try {
-            const sessionResponse = await paymentAPI.verifySession(sessionId);
+          // Initial delay to allow webhook processing
+          await new Promise(resolve => setTimeout(resolve, 8000));
 
-            // Handle processing status
-            if (sessionResponse.status === 'processing') {
-              setVerificationProgress(prev => ({
-                ...prev,
-                stage: 'subscription',
-                message: sessionResponse.message || 'Processing subscription...',
-                attempt
-              }));
+          let attempt = 1;
+          const maxAttempts = 15;
+          const baseDelay = 4000;
 
-              if (attempt < maxAttempts) {
-                const delay = 3000 * Math.pow(1.5, attempt - 1); // Exponential backoff
-                await new Promise(resolve => setTimeout(resolve, delay));
-                return verifyWithRetries(attempt + 1, maxAttempts);
-              }
-              throw new Error('Subscription activation is taking longer than expected. Please check your account page in a few minutes.');
-            }
-
-            // Payment verified successfully
+          while (attempt <= maxAttempts) {
             setVerificationProgress(prev => ({
               ...prev,
-              stage: 'verified',
-              message: 'Payment verified successfully',
-              lastError: null
+              stage: 'subscription',
+              message: `Verifying subscription (attempt ${attempt}/${maxAttempts})...`,
+              attempt
             }));
 
-            if (sessionResponse?.paymentStatus === 'paid') {
-              // Refresh auth token and subscription status
-              await verifyAuth();
-              const subscriptionResponse = await refreshSubscription();
+            try {
+              const sessionResponse = await paymentAPI.verifySession(sessionId);
 
-              if (subscriptionResponse?.active) {
-                console.log('Payment and subscription verification successful:', {
+              // Handle processing status
+              if (sessionResponse.status === 'processing') {
+                console.log('Subscription processing:', {
                   sessionId,
-                  duration: new Date() - new Date(verificationProgress.startTime),
+                  attempt,
+                  message: sessionResponse.message,
                   timestamp: new Date().toISOString()
                 });
-                setLoading(false);
-                return;
-              }
-            }
 
-            throw new Error('Payment verification failed. Please check your account page or contact support if the issue persists.');
-          } catch (err) {
-            // Handle 202 status (still processing)
-            if (err.response?.status === 202 || err.response?.data?.status === 'processing') {
+                // Update progress with server message
+                setVerificationProgress(prev => ({
+                  ...prev,
+                  message: sessionResponse.message || 'Processing subscription...',
+                  lastError: null
+                }));
+              } else if (sessionResponse?.paymentStatus === 'paid') {
+                // Payment verified successfully
+                setVerificationProgress(prev => ({
+                  ...prev,
+                  stage: 'verified',
+                  message: 'Payment verified successfully',
+                  lastError: null
+                }));
+
+                // Refresh auth token and subscription status
+                await verifyAuth();
+                const subscriptionResponse = await refreshSubscription();
+
+                if (subscriptionResponse?.active) {
+                  console.log('Payment and subscription verification successful:', {
+                    sessionId,
+                    attempt,
+                    duration: new Date() - new Date(verificationProgress.startTime),
+                    timestamp: new Date().toISOString()
+                  });
+                  setLoading(false);
+                  return;
+                }
+              }
+
+              // If we get here, we need to retry
+              attempt++;
+              if (attempt <= maxAttempts) {
+                const delay = Math.min(baseDelay * Math.pow(1.5, attempt - 1), 15000);
+                console.log(`Retrying verification in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+              }
+            } catch (err) {
+              console.warn('Verification attempt failed:', {
+                error: err,
+                attempt,
+                timestamp: new Date().toISOString()
+              });
+
+              // Update progress with error
               setVerificationProgress(prev => ({
                 ...prev,
-                stage: 'subscription',
-                message: err.response?.data?.message || 'Processing subscription...',
-                attempt
+                lastError: {
+                  message: err.message,
+                  timestamp: new Date().toISOString()
+                }
               }));
 
-              if (attempt < maxAttempts) {
-                const delay = 3000 * Math.pow(1.5, attempt - 1);
+              // If error is not retryable, throw it
+              if (!err.response?.status || ![202, 500, 408].includes(err.response?.status)) {
+                throw err;
+              }
+
+              // Otherwise retry
+              attempt++;
+              if (attempt <= maxAttempts) {
+                const delay = Math.min(baseDelay * Math.pow(1.5, attempt - 1), 15000);
+                console.log(`Retrying after error in ${delay}ms (attempt ${attempt}/${maxAttempts})`);
                 await new Promise(resolve => setTimeout(resolve, delay));
-                return verifyWithRetries(attempt + 1, maxAttempts);
               }
             }
-            throw err;
           }
-        };
 
-        await verifyWithRetries();
+          throw new Error('Subscription activation is taking longer than expected. Please check your account page in a few minutes.');
       } catch (err) {
         console.error('Payment verification failed:', {
           error: err,
