@@ -179,7 +179,7 @@ function AccountSettings() {
             <Tab icon={<Person />} label="Profile" />
             <Tab icon={<Security />} label="Security" />
             <Tab icon={<Notifications />} label="Notifications" />
-            <Tab icon={<Payment />} label="Billing" />
+            <Tab icon={<Payment />} label="Subscription" />
             <Tab icon={<Assessment />} label="Test History" />
           </Tabs>
         </Box>
