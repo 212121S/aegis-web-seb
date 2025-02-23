@@ -23,37 +23,38 @@ export const AuthProvider = ({ children }) => {
       const isPaymentFlow = window.location.pathname.includes('/payment');
       console.log('Verifying token...', { isPaymentFlow });
 
-      const response = await authAPI.verifyToken();
-      console.log('Token verification response:', response);
+      const verifyResponse = await authAPI.verifyToken();
+      console.log('Token verification response:', verifyResponse);
 
-      if (response.valid) {
-        // Skip profile fetch during payment flow to avoid unnecessary requests
-        if (!isPaymentFlow) {
-          console.log('Token is valid, fetching profile...');
-          try {
-            const profileResponse = await authAPI.getProfile();
-            console.log('Profile response:', profileResponse);
-            setUser(profileResponse);
-          } catch (profileError) {
-            console.error('Profile fetch failed:', profileError);
-            // Don't clear auth state on profile fetch error
-            if (!isPaymentFlow) {
-              localStorage.removeItem('token');
-              setUser(null);
-            }
-          }
-        } else {
-          console.log('Skipping profile fetch during payment flow');
-          // Keep existing user data during payment flow
-          if (!user) {
-            setUser({ authenticated: true });
-          }
-        }
-      } else {
+      if (!verifyResponse || !verifyResponse.valid) {
         console.log('Token is invalid, clearing auth state...');
         if (!isPaymentFlow) {
           localStorage.removeItem('token');
           setUser(null);
+        }
+        return;
+      }
+
+      // Skip profile fetch during payment flow to avoid unnecessary requests
+      if (!isPaymentFlow) {
+        console.log('Token is valid, fetching profile...');
+        try {
+          const profileData = await authAPI.getProfile();
+          console.log('Profile response:', profileData);
+          setUser(profileData);
+        } catch (profileError) {
+          console.error('Profile fetch failed:', profileError);
+          // Don't clear auth state on profile fetch error
+          if (!isPaymentFlow) {
+            localStorage.removeItem('token');
+            setUser(null);
+          }
+        }
+      } else {
+        console.log('Skipping profile fetch during payment flow');
+        // Keep existing user data during payment flow
+        if (!user) {
+          setUser({ authenticated: true });
         }
       }
     } catch (error) {
@@ -80,16 +81,18 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.login(credentials);
       console.log('Login response:', response);
       
-      const { token, user: userData } = response;
+      if (!response || typeof response !== 'object') {
+        throw new Error('Invalid response format');
+      }
       
-      if (!token) {
+      if (!response.token) {
         console.error('No token received from server');
         throw new Error('No token received from server');
       }
 
       console.log('Setting auth state...');
-      localStorage.setItem('token', token);
-      setUser(userData);
+      localStorage.setItem('token', response.token);
+      setUser(response.user);
       return true;
     } catch (error) {
       console.error('Login error:', error);
@@ -115,16 +118,18 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.register(userData);
       console.log('Registration response:', response);
 
-      const { token, user: newUser } = response;
+      if (!response || typeof response !== 'object') {
+        throw new Error('Invalid response format');
+      }
 
-      if (!token) {
+      if (!response.token) {
         console.error('No token received from server');
         throw new Error('No token received from server');
       }
 
       console.log('Setting auth state...');
-      localStorage.setItem('token', token);
-      setUser(newUser);
+      localStorage.setItem('token', response.token);
+      setUser(response.user);
       return true;
     } catch (error) {
       console.error('Registration error:', error);
@@ -140,6 +145,11 @@ export const AuthProvider = ({ children }) => {
       console.log('Updating profile...');
       const response = await authAPI.updateProfile(data);
       console.log('Update profile response:', response);
+      
+      if (!response || typeof response !== 'object') {
+        throw new Error('Invalid response format');
+      }
+      
       setUser(response);
       return true;
     } catch (error) {

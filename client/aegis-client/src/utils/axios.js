@@ -81,6 +81,11 @@ instance.interceptors.request.use(
 // Add response interceptor
 instance.interceptors.response.use(
   (response) => {
+    // Handle auth endpoints differently
+    if (response.config.url?.includes('/auth/')) {
+      return response.data; // Return just the data for auth endpoints
+    }
+    
     // Log successful payment/subscription responses
     if (response.config?.isPaymentEndpoint || response.config?.isSubscriptionEndpoint) {
       console.log(`${response.config.metadata.type} endpoint response:`, {
@@ -121,7 +126,7 @@ instance.interceptors.response.use(
       }
     }
 
-    return response;
+    return response; // Return full response for non-auth endpoints
   },
   async (error) => {
     const isPaymentFlow = window.location.pathname.includes('/payment');

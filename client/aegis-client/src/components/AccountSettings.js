@@ -68,8 +68,7 @@ function AccountSettings() {
 
   const fetchUserData = async () => {
     try {
-      const response = await authAPI.getProfile();
-      const user = response.data;
+      const user = await authAPI.getProfile();
       
       // Validate user data
       if (!user || typeof user !== 'object') {
