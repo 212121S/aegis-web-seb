@@ -54,6 +54,23 @@ const PracticeTestBuilder = () => {
     }
   };
 
+  // Helper function to handle "All" selection
+  const handleAllSelection = (currentSelection, allOptions, value) => {
+    if (value.includes('All')) {
+      // If "All" is being selected, return all options
+      if (!currentSelection.includes('All')) {
+        return ['All', ...allOptions];
+      }
+      // If "All" is being deselected, return empty array
+      return [];
+    }
+    // If a regular option is selected while "All" is selected, remove "All"
+    if (currentSelection.includes('All')) {
+      return value.filter(v => v !== 'All');
+    }
+    return value;
+  };
+
   const handleGenerateTest = async () => {
     try {
       if (!selectedVerticals.length || !selectedRoles.length || !selectedTopics.length) {
@@ -64,14 +81,20 @@ const PracticeTestBuilder = () => {
       setGenerating(true);
       setError(null);
 
+      // Remove "All" from selections and use all options if "All" was selected
+      const verticals = selectedVerticals.includes('All') ? config.verticals : selectedVerticals.filter(v => v !== 'All');
+      const roles = selectedRoles.includes('All') ? config.roles : selectedRoles.filter(r => r !== 'All');
+      const topics = selectedTopics.includes('All') ? config.topics : selectedTopics.filter(t => t !== 'All');
+
       const testSession = await examAPI.generatePracticeTest({
-        verticals: selectedVerticals,
-        roles: selectedRoles,
-        topics: selectedTopics,
+        verticals,
+        roles,
+        topics,
         difficulty,
         count: questionCount,
         useAI,
-        questionType
+        // If "All" is selected, alternate between multiple-choice and written-answer
+        questionType: questionType === 'all' ? 'mixed' : questionType
       });
 
       // Store test session in localStorage for the practice test component
@@ -116,7 +139,7 @@ const PracticeTestBuilder = () => {
             <Select
               multiple
               value={selectedVerticals}
-              onChange={(e) => setSelectedVerticals(e.target.value)}
+              onChange={(e) => setSelectedVerticals(handleAllSelection(selectedVerticals, config.verticals, e.target.value))}
               renderValue={(selected) => (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                   {selected.map((value) => (
@@ -125,6 +148,7 @@ const PracticeTestBuilder = () => {
                 </Box>
               )}
             >
+              <MenuItem key="All" value="All">All</MenuItem>
               {config?.verticals.map((vertical) => (
                 <MenuItem key={vertical} value={vertical}>
                   {vertical}
@@ -139,7 +163,7 @@ const PracticeTestBuilder = () => {
             <Select
               multiple
               value={selectedRoles}
-              onChange={(e) => setSelectedRoles(e.target.value)}
+              onChange={(e) => setSelectedRoles(handleAllSelection(selectedRoles, config.roles, e.target.value))}
               renderValue={(selected) => (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                   {selected.map((value) => (
@@ -148,6 +172,7 @@ const PracticeTestBuilder = () => {
                 </Box>
               )}
             >
+              <MenuItem key="All" value="All">All</MenuItem>
               {config?.roles.map((role) => (
                 <MenuItem key={role} value={role}>
                   {role}
@@ -162,7 +187,7 @@ const PracticeTestBuilder = () => {
             <Select
               multiple
               value={selectedTopics}
-              onChange={(e) => setSelectedTopics(e.target.value)}
+              onChange={(e) => setSelectedTopics(handleAllSelection(selectedTopics, config.topics, e.target.value))}
               renderValue={(selected) => (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                   {selected.map((value) => (
@@ -171,6 +196,7 @@ const PracticeTestBuilder = () => {
                 </Box>
               )}
             >
+              <MenuItem key="All" value="All">All</MenuItem>
               {config?.topics.map((topic) => (
                 <MenuItem key={topic} value={topic}>
                   {topic}
@@ -186,6 +212,7 @@ const PracticeTestBuilder = () => {
               value={questionType}
               onChange={(e) => setQuestionType(e.target.value)}
             >
+              <MenuItem value="all">All</MenuItem>
               <MenuItem value="multiple-choice">Multiple Choice</MenuItem>
               <MenuItem value="written-answer">Written Answer</MenuItem>
             </Select>
