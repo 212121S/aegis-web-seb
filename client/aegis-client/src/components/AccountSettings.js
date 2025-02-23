@@ -357,10 +357,11 @@ function AccountSettings() {
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                       <Box>
                         <Typography variant="h6" color="primary">
-                          {userData.subscription.planId.charAt(0).toUpperCase() + userData.subscription.planId.slice(1)} Plan
+                          {(userData.subscription?.planId || 'Basic').charAt(0).toUpperCase() + 
+                           (userData.subscription?.planId || 'Basic').slice(1)} Plan
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          Active until {new Date(userData.subscription.currentPeriodEnd).toLocaleDateString()}
+                          Active until {new Date(userData.subscription?.currentPeriodEnd || Date.now()).toLocaleDateString()}
                         </Typography>
                       </Box>
                       <Chip
