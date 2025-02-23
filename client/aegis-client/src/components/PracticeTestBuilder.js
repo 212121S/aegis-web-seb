@@ -57,9 +57,9 @@ const PracticeTestBuilder = () => {
   // Helper function to handle "All" selection
   const handleAllSelection = (currentSelection, allOptions, value) => {
     if (value.includes('All')) {
-      // If "All" is being selected, return all options
+      // If "All" is being selected, return just "All"
       if (!currentSelection.includes('All')) {
-        return ['All', ...allOptions];
+        return ['All'];
       }
       // If "All" is being deselected, return empty array
       return [];
@@ -81,10 +81,10 @@ const PracticeTestBuilder = () => {
       setGenerating(true);
       setError(null);
 
-      // Remove "All" from selections and use all options if "All" was selected
-      const verticals = selectedVerticals.includes('All') ? config.verticals : selectedVerticals.filter(v => v !== 'All');
-      const roles = selectedRoles.includes('All') ? config.roles : selectedRoles.filter(r => r !== 'All');
-      const topics = selectedTopics.includes('All') ? config.topics : selectedTopics.filter(t => t !== 'All');
+      // If "All" is selected, use all options from config
+      const verticals = selectedVerticals.includes('All') ? config.verticals : selectedVerticals;
+      const roles = selectedRoles.includes('All') ? config.roles : selectedRoles;
+      const topics = selectedTopics.includes('All') ? config.topics : selectedTopics;
 
       const testSession = await examAPI.generatePracticeTest({
         verticals,
