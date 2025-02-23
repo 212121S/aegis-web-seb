@@ -1,13 +1,33 @@
 import OpenAI from 'openai';
 
-export const openai = process.env.OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+// Log OpenAI configuration details
+const apiKey = process.env.OPENAI_API_KEY;
+console.log('OpenAI Configuration Details:', {
+  apiKeyExists: !!apiKey,
+  apiKeyLength: apiKey?.length,
+  apiKeyPrefix: apiKey?.substring(0, 7),
+  envVars: Object.keys(process.env).filter(key => key.includes('OPENAI'))
+});
+
+export const openai = apiKey 
+  ? new OpenAI({ 
+      apiKey,
+      organization: process.env.OPENAI_ORG_ID // optional
+    })
   : null;
 
 // Helper to check if OpenAI is configured
-export const isOpenAIConfigured = () => !!openai;
+export const isOpenAIConfigured = () => {
+  const configured = !!openai;
+  console.log('OpenAI Client Status:', {
+    configured,
+    clientExists: !!openai,
+    hasApiKey: !!apiKey
+  });
+  return configured;
+};
 
-console.log(process.env.OPENAI_API_KEY 
+console.log(apiKey 
   ? '✓ OpenAI API configured'
   : '⚠️  OpenAI API key not configured - AI question generation will be disabled');
 

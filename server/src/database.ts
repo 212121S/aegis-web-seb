@@ -1,11 +1,11 @@
 import mongoose from 'mongoose';
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
-const MONGO_URI = process.env.MONGO_URI;
+const MONGODB_URI = process.env.MONGODB_URI;
 
 // Log database configuration (hiding credentials)
 const logMongoConfig = () => {
-  const uri = MONGO_URI || 'not set';
+  const uri = MONGODB_URI || 'not set';
   console.log('MongoDB Configuration:', {
     uri: uri.replace(/\/\/[^@]*@/, '//***:***@'),
     environment: process.env.NODE_ENV,
@@ -27,10 +27,10 @@ export async function connectMongo(retryCount = 0): Promise<void> {
 
   try {
     // In development, allow fallback to localhost
-    const uri = MONGO_URI || (isDevelopment ? 'mongodb://localhost:27017/aegis' : null);
+    const uri = MONGODB_URI || (isDevelopment ? 'mongodb://localhost:27017/aegis' : null);
     
     if (!uri) {
-      throw new Error('MONGO_URI environment variable is required in production');
+      throw new Error('MONGODB_URI environment variable is required in production');
     }
 
     logMongoConfig();
@@ -57,10 +57,10 @@ export async function connectMongo(retryCount = 0): Promise<void> {
 
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message.includes('MONGO_URI environment variable is required')) {
+      if (error.message.includes('MONGODB_URI environment variable is required')) {
         console.error('❌', error.message);
         if (!isDevelopment) {
-          console.error('This error indicates that the MONGO_URI environment variable is not set.');
+          console.error('This error indicates that the MONGODB_URI environment variable is not set.');
           console.error('Please ensure you have set this variable in your Render dashboard.');
           console.error('Go to: Dashboard > Your Service > Environment Variables');
         }

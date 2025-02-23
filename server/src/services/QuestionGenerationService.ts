@@ -167,8 +167,18 @@ export class QuestionGenerationService {
     ];
 
     try {
+      console.log('OpenAI Configuration:', {
+        isConfigured: isOpenAIConfigured(),
+        apiKeyLength: process.env.OPENAI_API_KEY?.length,
+        model: 'gpt-4o'
+      });
+
+      if (!openai) {
+        throw new Error('OpenAI client is not initialized');
+      }
+
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4-0125-preview',
+        model: 'gpt-4o',
         messages,
         temperature: 0.7,
         max_tokens: 2000,
@@ -181,8 +191,14 @@ export class QuestionGenerationService {
       }
 
       return this.parseOpenAIResponse(content);
-    } catch (error) {
-      console.error('OpenAI API error:', error);
+    } catch (error: any) {
+      console.error('OpenAI API error:', {
+        name: error.name,
+        message: error.message,
+        status: error.status,
+        response: error.response?.data,
+        stack: error.stack
+      });
       throw new Error('Failed to generate questions');
     }
   }
