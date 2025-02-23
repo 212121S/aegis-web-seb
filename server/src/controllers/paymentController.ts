@@ -353,10 +353,8 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
     await new Promise(resolve => setTimeout(resolve, 5000));
 
     try {
-      // Retrieve session with expanded details
-      const session = await (stripe as Stripe).checkout.sessions.retrieve(sessionId, {
-        expand: ['payment_intent', 'subscription']
-      });
+      // Retrieve session
+      const session = await (stripe as Stripe).checkout.sessions.retrieve(sessionId);
 
       if (!session) {
         console.error('Session not found:', { sessionId });
@@ -379,9 +377,8 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
     if (session.mode === 'subscription') {
       try {
         // Get subscription ID from session
-        const subscriptionId = session.subscription as string;
-        if (!subscriptionId) {
-          console.log('Subscription ID not yet available:', {
+        if (!session.subscription) {
+          console.log('No subscription ID in session:', {
             sessionId,
             timestamp: new Date().toISOString()
           });
@@ -393,23 +390,37 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
           return;
         }
 
-        // Fetch subscription directly from Stripe
-        const subscription = await (stripe as Stripe).subscriptions.retrieve(subscriptionId);
+        // Get subscription details from Stripe
+        const subscription = await (stripe as Stripe).subscriptions.retrieve(session.subscription as string);
+
+        if (!subscription) {
+          console.log('Subscription not yet available:', {
+            sessionId,
+            timestamp: new Date().toISOString()
+          });
+          res.status(202).json({ 
+            status: 'processing',
+            message: 'Subscription is being processed',
+            verifiedAt: new Date().toISOString()
+          });
+          return;
+        }
         
         console.log('Subscription details:', {
           sessionId,
-          subscriptionId,
+          subscriptionId: subscription.id,
           status: subscription.status,
           customer: subscription.customer,
           currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          retrieved: true
         });
 
         // Check subscription status
         if (subscription.status !== 'active') {
           console.log('Subscription pending activation:', {
             sessionId,
-            subscriptionId,
+            subscriptionId: subscription.id,
             status: subscription.status,
             timestamp: new Date().toISOString()
           });
@@ -423,14 +434,14 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
 
         // Check if user's subscription is updated in our database
         const user = await User.findOne({
-          'subscription.stripeSubscriptionId': subscriptionId,
+          'subscription.stripeSubscriptionId': subscription.id,
           'subscription.active': true
         });
 
         if (!user) {
           console.log('Subscription not yet updated in database:', {
             sessionId,
-            subscriptionId,
+            subscriptionId: subscription.id,
             timestamp: new Date().toISOString()
           });
           res.status(202).json({ 
