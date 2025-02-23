@@ -100,72 +100,73 @@ export class QuestionGenerationService {
     let questions: IQuestion[] = [];
 
     try {
+      console.log('Attempting to find questions with params:', {
+        verticals,
+        roles,
+        topics,
+        difficulty,
+        type,
+        count
+      });
+
       // Try to find questions with exact match first
-      questions = await Question.aggregate([
-        {
-          $match: {
-            industryVerticals: { $in: verticals },
-            roles: { $in: roles },
-            topics: { $in: topics },
-            difficulty: { $in: difficulty },
-            'source.type': 'base',
-            type
-          }
-        },
-        { $sample: { size: count } }
-      ]);
+      questions = await Question.find({
+        industryVerticals: { $in: verticals },
+        roles: { $in: roles },
+        topics: { $in: topics },
+        difficulty: { $in: difficulty },
+        'source.type': 'base',
+        type
+      }).limit(count);
+
+      console.log('Exact match query result count:', questions.length);
 
       // If no questions found, try with more relaxed criteria
       if (questions.length === 0) {
-        questions = await Question.aggregate([
-          {
-            $match: {
-              $or: [
-                { industryVerticals: { $in: verticals } },
-                { roles: { $in: roles } },
-                { topics: { $in: topics } }
-              ],
-              difficulty: { $in: difficulty },
-              'source.type': 'base',
-              type
-            }
-          },
-          { $sample: { size: count } }
-        ]);
+        console.log('No exact matches, trying relaxed criteria...');
+        questions = await Question.find({
+          $or: [
+            { industryVerticals: { $in: verticals } },
+            { roles: { $in: roles } },
+            { topics: { $in: topics } }
+          ],
+          difficulty: { $in: difficulty },
+          'source.type': 'base',
+          type
+        }).limit(count);
+
+        console.log('Relaxed criteria query result count:', questions.length);
       }
 
-      // If still no questions, try with minimal criteria
+      // If still no questions, try without difficulty constraint
       if (questions.length === 0) {
-        questions = await Question.aggregate([
-          {
-            $match: {
-              $or: [
-                { industryVerticals: { $in: verticals } },
-                { roles: { $in: roles } },
-                { topics: { $in: topics } }
-              ],
-              'source.type': 'base',
-              type
-            }
-          },
-          { $sample: { size: count } }
-        ]);
+        console.log('No matches with relaxed criteria, trying without difficulty constraint...');
+        questions = await Question.find({
+          $or: [
+            { industryVerticals: { $in: verticals } },
+            { roles: { $in: roles } },
+            { topics: { $in: topics } }
+          ],
+          'source.type': 'base',
+          type
+        }).limit(count);
+
+        console.log('Query without difficulty constraint result count:', questions.length);
       }
 
       // If still no questions, try with just the type
       if (questions.length === 0) {
-        questions = await Question.aggregate([
-          {
-            $match: {
-              'source.type': 'base',
-              type
-            }
-          },
-          { $sample: { size: count } }
-        ]);
+        console.log('No matches found, trying with just type constraint...');
+        questions = await Question.find({
+          'source.type': 'base',
+          type
+        }).limit(count);
+
+        console.log('Basic type-only query result count:', questions.length);
       }
 
       if (questions.length === 0) {
+        console.log('No questions found with any criteria');
         throw new Error('No questions available in the database. Please try different criteria or contact support.');
       }
 
@@ -254,12 +255,12 @@ export class QuestionGenerationService {
       console.log('OpenAI Configuration:', {
         isConfigured: isOpenAIConfigured(),
         apiKeyLength: process.env.OPENAI_API_KEY?.length,
-        model: 'gpt-4'
+        model: 'gpt-3.5-turbo'
       });
 
       const completion = await openai.chat.completions.create(
         {
-          model: 'gpt-4',
+          model: 'gpt-3.5-turbo',
           messages,
           temperature: 0.7,
           max_tokens: 2000,
