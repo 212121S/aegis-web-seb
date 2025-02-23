@@ -35,6 +35,7 @@ const PracticeTestBuilder = () => {
   const [difficulty, setDifficulty] = useState([3, 6]); // Default range 3-6
   const [questionCount, setQuestionCount] = useState(5);
   const [useAI, setUseAI] = useState(true);
+  const [questionType, setQuestionType] = useState('multiple-choice');
 
   useEffect(() => {
     fetchConfiguration();
@@ -69,7 +70,8 @@ const PracticeTestBuilder = () => {
         topics: selectedTopics,
         difficulty,
         count: questionCount,
-        useAI
+        useAI,
+        questionType
       });
 
       // Store test session in localStorage for the practice test component
@@ -174,6 +176,18 @@ const PracticeTestBuilder = () => {
                   {topic}
                 </MenuItem>
               ))}
+            </Select>
+          </FormControl>
+
+          {/* Question Type */}
+          <FormControl fullWidth sx={{ mb: 3 }}>
+            <InputLabel>Question Type</InputLabel>
+            <Select
+              value={questionType}
+              onChange={(e) => setQuestionType(e.target.value)}
+            >
+              <MenuItem value="multiple-choice">Multiple Choice</MenuItem>
+              <MenuItem value="written-answer">Written Answer</MenuItem>
             </Select>
           </FormControl>
 

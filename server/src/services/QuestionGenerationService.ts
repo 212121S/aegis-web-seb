@@ -10,6 +10,7 @@ interface GenerationParams {
   count: number;
   useCache?: boolean;
   useAI?: boolean;
+  type?: 'multiple_choice' | 'open_ended';
 }
 
 interface GeneratedQuestion {
@@ -34,7 +35,7 @@ export class QuestionGenerationService {
   }
 
   public async generateQuestions(params: GenerationParams): Promise<IQuestion[]> {
-    const { verticals, roles, topics, difficulty, count, useCache = true, useAI = true } = params;
+    const { verticals, roles, topics, difficulty, count, useCache = true, useAI = true, type = 'multiple_choice' } = params;
 
     // Validate parameters
     this.validateParams(params);
@@ -78,7 +79,7 @@ export class QuestionGenerationService {
   }
 
   private async getQuestionsFromDatabase(params: GenerationParams): Promise<IQuestion[]> {
-    const { verticals, roles, topics, difficulty, count } = params;
+    const { verticals, roles, topics, difficulty, count, type = 'multiple_choice' } = params;
 
     const questions = await Question.aggregate([
       {
@@ -87,7 +88,8 @@ export class QuestionGenerationService {
           roles: { $in: roles },
           topics: { $in: topics },
           difficulty: { $in: difficulty },
-          'source.type': 'base'
+          'source.type': 'base',
+          type
         }
       },
       { $sample: { size: count } }
@@ -227,6 +229,7 @@ export class QuestionGenerationService {
           roles: params.roles,
           topics: params.topics,
           difficulty: params.difficulty[0], // Use first difficulty level
+          type: params.type || 'multiple_choice',
           source: {
             type: 'ai',
             timestamp: new Date(),

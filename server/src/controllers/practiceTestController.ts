@@ -40,10 +40,12 @@ export const generatePracticeTest = async (req: Request, res: Response): Promise
       topics,
       difficulty,
       count,
-      useAI = true
+      useAI = true,
+      questionType = 'multiple-choice'
     } = req.body;
 
-    // Validate request body
+    // Validate request body and convert questionType
+    const type = questionType === 'multiple-choice' ? 'multiple_choice' : 'open_ended';
     if (!verticals?.length || !roles?.length || !topics?.length) {
       res.status(400).json({ error: 'Missing required parameters' });
       return;
@@ -67,7 +69,8 @@ export const generatePracticeTest = async (req: Request, res: Response): Promise
       topics,
       difficulty,
       count,
-      useAI
+      useAI,
+      type
     });
 
     // Create a test session
