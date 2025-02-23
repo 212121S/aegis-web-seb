@@ -81,9 +81,9 @@ instance.interceptors.request.use(
 // Add response interceptor
 instance.interceptors.response.use(
   (response) => {
-    // Handle auth endpoints differently
-    if (response.config.url?.includes('/auth/')) {
-      return response.data; // Return just the data for auth endpoints
+    // Handle auth and exam endpoints differently
+    if (response.config.url?.includes('/auth/') || response.config.url?.includes('/exam/')) {
+      return response.data; // Return just the data for auth and exam endpoints
     }
     
     // Log successful payment/subscription responses

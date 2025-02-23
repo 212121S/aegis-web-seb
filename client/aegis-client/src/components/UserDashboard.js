@@ -51,10 +51,11 @@ const UserDashboard = () => {
 
       // Get test history
       const history = await examAPI.getHistory();
-      setTestHistory(history || []);
+      const testHistory = Array.isArray(history) ? history : [];
+      setTestHistory(testHistory);
 
       // Calculate analytics from history
-      if (history && history.length > 0) {
+      if (testHistory.length > 0) {
         const analytics = {
           testsCompleted: history.length,
           averageScore: history.reduce((sum, test) => sum + test.score, 0) / history.length,
