@@ -59,23 +59,34 @@ export class QuestionGenerationService {
       return this.getQuestionsFromDatabase(params);
     }
 
-    // Get sample questions for context
-    const sampleQuestions = await this.getSampleQuestions(params);
+    try {
+      // Get sample questions for context
+      const sampleQuestions = await this.getSampleQuestions(params);
 
-    // Generate new questions using OpenAI
-    const generatedQuestions = await this.callOpenAI({
-      ...params,
-      sampleQuestions
-    });
+      // Generate new questions using OpenAI
+      const generatedQuestions = await this.callOpenAI({
+        ...params,
+        sampleQuestions
+      });
 
-    // Save to database and cache
-    const savedQuestions = await this.saveQuestions(generatedQuestions, params);
+      // If no valid questions were generated, fall back to database
+      if (!generatedQuestions.length) {
+        console.warn('No valid AI-generated questions. Falling back to database questions.');
+        return this.getQuestionsFromDatabase(params);
+      }
 
-    if (useCache) {
-      await this.cacheQuestions(savedQuestions, params);
+      // Save to database and cache
+      const savedQuestions = await this.saveQuestions(generatedQuestions, params);
+
+      if (useCache) {
+        await this.cacheQuestions(savedQuestions, params);
+      }
+
+      return savedQuestions;
+    } catch (error) {
+      console.error('Failed to generate AI questions:', error);
+      return this.getQuestionsFromDatabase(params);
     }
-
-    return savedQuestions;
   }
 
   private async getQuestionsFromDatabase(params: GenerationParams): Promise<IQuestion[]> {
@@ -161,7 +172,8 @@ export class QuestionGenerationService {
 
   private async callOpenAI(params: GenerationParams & { sampleQuestions: IQuestion[] }): Promise<GeneratedQuestion[]> {
     if (!openai || !isOpenAIConfigured()) {
-      throw new Error('OpenAI is not configured. Please set OPENAI_API_KEY environment variable.');
+      console.warn('OpenAI is not configured');
+      return [];
     }
 
     const messages = [
@@ -179,15 +191,11 @@ export class QuestionGenerationService {
       console.log('OpenAI Configuration:', {
         isConfigured: isOpenAIConfigured(),
         apiKeyLength: process.env.OPENAI_API_KEY?.length,
-        model: 'gpt-4o'
+        model: 'gpt-4-0125-preview'
       });
 
-      if (!openai) {
-        throw new Error('OpenAI client is not initialized');
-      }
-
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4-0125-preview',
         messages,
         temperature: 0.7,
         max_tokens: 2000,
@@ -196,7 +204,8 @@ export class QuestionGenerationService {
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
-        throw new Error('No content in OpenAI response');
+        console.warn('No content in OpenAI response');
+        return [];
       }
 
       return this.parseOpenAIResponse(content);
@@ -208,7 +217,7 @@ export class QuestionGenerationService {
         response: error.response?.data,
         stack: error.stack
       });
-      throw new Error('Failed to generate questions');
+      return [];
     }
   }
 
@@ -217,10 +226,32 @@ export class QuestionGenerationService {
       // The response might be wrapped in ```json ``` or just be plain JSON
       const jsonStr = content.replace(/```json\n|\```/g, '');
       const questions = JSON.parse(jsonStr);
-      return Array.isArray(questions) ? questions : [questions];
+      const parsedQuestions = Array.isArray(questions) ? questions : [questions];
+
+      // Validate and filter questions
+      return parsedQuestions.filter(q => {
+        try {
+          // Check required fields
+          if (!q.text || typeof q.text !== 'string') return false;
+          if (!q.answer || typeof q.answer !== 'string') return false;
+          if (!q.explanation || typeof q.explanation !== 'string') return false;
+          if (!q.type || !['multiple_choice', 'open_ended'].includes(q.type)) return false;
+
+          // Check multiple choice specific fields
+          if (q.type === 'multiple_choice') {
+            if (!Array.isArray(q.options) || q.options.length < 2) return false;
+            if (!q.correctOption || !q.options.includes(q.correctOption)) return false;
+          }
+
+          return true;
+        } catch (error) {
+          console.error('Question validation error:', error);
+          return false;
+        }
+      });
     } catch (error) {
       console.error('Failed to parse OpenAI response:', error);
-      throw new Error('Invalid response format from OpenAI');
+      return [];
     }
   }
 
