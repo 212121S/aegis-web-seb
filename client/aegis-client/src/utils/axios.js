@@ -36,7 +36,7 @@ instance.interceptors.request.use(
     }
     
     // Configure payment and subscription endpoints
-    if (config.url?.includes('/payment/') || config.url?.includes('/stripe/')) {
+    if (config.url?.includes('payment/') || config.url?.includes('stripe/')) {
       config.isPaymentEndpoint = true;
       
       // Set shorter timeout for verification endpoints
@@ -54,7 +54,7 @@ instance.interceptors.request.use(
       });
     }
 
-    if (config.url?.includes('/subscription/')) {
+    if (config.url?.includes('subscription/')) {
       config.isSubscriptionEndpoint = true;
       config.timeout = 15000; // 15 seconds for subscription requests
     }
@@ -82,7 +82,7 @@ instance.interceptors.request.use(
 instance.interceptors.response.use(
   (response) => {
     // Handle auth and exam endpoints differently
-    if (response.config.url?.includes('/auth/') || response.config.url?.includes('/exam/')) {
+    if (response.config.url?.includes('auth/') || response.config.url?.includes('exam/')) {
       return response.data; // Return just the data for auth and exam endpoints
     }
     
@@ -115,8 +115,8 @@ instance.interceptors.response.use(
     }
 
     // For array responses (like questions), ensure it's an array
-    if (response.config.url?.includes('/exam/practice') || 
-        response.config.url?.includes('/exam/history')) {
+    if (response.config.url?.includes('exam/practice') || 
+        response.config.url?.includes('exam/history')) {
       if (!Array.isArray(response.data)) {
         console.error('Invalid array response:', {
           url: response.config.url,
@@ -129,7 +129,7 @@ instance.interceptors.response.use(
     return response; // Return full response for non-auth endpoints
   },
   async (error) => {
-    const isPaymentFlow = window.location.pathname.includes('/payment');
+    const isPaymentFlow = window.location.pathname.includes('payment');
     // Extract useful error info
     const errorData = {
       message: error.message,
@@ -234,7 +234,7 @@ export const paymentAPI = {
           await new Promise(resolve => setTimeout(resolve, 3000));
         }
 
-        const response = await instance.get(`/payment/verify-session/${sessionId}`);
+        const response = await instance.get(`payment/verify-session/${sessionId}`);
         
         // Handle processing status
         if (response.status === 'processing') {
@@ -334,7 +334,7 @@ export const paymentAPI = {
         timestamp: new Date().toISOString()
       });
 
-      const response = await instance.post('/payment/create-checkout-session', { priceId });
+      const response = await instance.post('payment/create-checkout-session', { priceId });
       
       console.log('Payment session created:', {
         priceId,
@@ -361,7 +361,7 @@ export const subscriptionAPI = {
         timestamp: new Date().toISOString()
       });
 
-      const response = await instance.get('/subscription/status');
+      const response = await instance.get('subscription/status');
       
       console.log('Subscription status retrieved:', {
         status: response.active,
@@ -383,7 +383,7 @@ export const subscriptionAPI = {
 export const authAPI = {
   login: async (credentials) => {
     try {
-      const response = await instance.post('/auth/login', credentials);
+      const response = await instance.post('auth/login', credentials);
       return response;
     } catch (error) {
       console.error('Login error:', {
@@ -396,11 +396,11 @@ export const authAPI = {
   
   verifyToken: async () => {
     try {
-      const response = await instance.post('/auth/verify-token');
+      const response = await instance.post('auth/verify-token');
       return response;
     } catch (error) {
       // Don't throw error during payment flow
-      if (window.location.pathname.includes('/payment/success')) {
+      if (window.location.pathname.includes('payment/success')) {
         console.warn('Skipping auth error during payment flow:', {
           error,
           timestamp: new Date().toISOString()
@@ -418,7 +418,7 @@ export const authAPI = {
 
   getProfile: async () => {
     try {
-      const response = await instance.get('/auth/profile');
+      const response = await instance.get('auth/profile');
       return response;
     } catch (error) {
       console.error('Get profile error:', {
@@ -431,7 +431,7 @@ export const authAPI = {
 
   updateProfile: async (data) => {
     try {
-      const response = await instance.post('/auth/update-profile', data);
+      const response = await instance.put('auth/profile', data);
       return response;
     } catch (error) {
       console.error('Update profile error:', {
@@ -446,7 +446,7 @@ export const authAPI = {
 export const examAPI = {
   getPracticeQuestions: async () => {
     try {
-      const response = await instance.get('/exam/practice');
+      const response = await instance.get('exam/practice');
       return response;
     } catch (error) {
       console.error('Failed to get practice questions:', {
@@ -459,7 +459,7 @@ export const examAPI = {
 
   getHistory: async () => {
     try {
-      const response = await instance.get('/exam/history');
+      const response = await instance.get('exam/history');
       return response;
     } catch (error) {
       console.error('Failed to get test history:', {
@@ -472,7 +472,7 @@ export const examAPI = {
 
   submitPracticeTest: async (data) => {
     try {
-      const response = await instance.post('/exam/submit-practice', data);
+      const response = await instance.post('exam/submit-practice', data);
       return response;
     } catch (error) {
       console.error('Failed to submit practice test:', {
@@ -485,7 +485,7 @@ export const examAPI = {
 
   initialize: async (type) => {
     try {
-      const response = await instance.post('/exam/initialize', { type });
+      const response = await instance.post('exam/initialize', { type });
       return response;
     } catch (error) {
       console.error('Failed to initialize test:', {
@@ -499,7 +499,7 @@ export const examAPI = {
 
   getNextQuestion: async (sessionId) => {
     try {
-      const response = await instance.get(`/exam/question/${sessionId}`);
+      const response = await instance.get(`exam/question/${sessionId}`);
       return response;
     } catch (error) {
       console.error('Failed to get next question:', {
@@ -513,7 +513,7 @@ export const examAPI = {
 
   submitAnswer: async (sessionId, data) => {
     try {
-      const response = await instance.post(`/exam/answer/${sessionId}`, data);
+      const response = await instance.post(`exam/answer/${sessionId}`, data);
       return response;
     } catch (error) {
       console.error('Failed to submit answer:', {
@@ -527,7 +527,7 @@ export const examAPI = {
 
   finalizeTest: async (sessionId) => {
     try {
-      const response = await instance.post(`/exam/finalize/${sessionId}`);
+      const response = await instance.post(`exam/finalize/${sessionId}`);
       return response;
     } catch (error) {
       console.error('Failed to finalize test:', {
@@ -541,7 +541,7 @@ export const examAPI = {
 
   getTestResults: async (testId) => {
     try {
-      const response = await instance.get(`/exam/results/${testId}`);
+      const response = await instance.get(`exam/results/${testId}`);
       return response;
     } catch (error) {
       console.error('Failed to get test results:', {

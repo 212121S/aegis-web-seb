@@ -105,7 +105,8 @@ function AccountSettings() {
       // Use the context's updateProfile function which handles token verification
       const success = await updateUserProfile({
         name: userData.name,
-        email: userData.email
+        email: userData.email,
+        username: userData.name // Include both name and username for backward compatibility
       });
 
       if (success) {
