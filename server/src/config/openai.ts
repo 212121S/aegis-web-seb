@@ -1,13 +1,11 @@
-import { Configuration, OpenAIApi } from 'openai';
+import OpenAI from 'openai';
 
-const configuration = process.env.OPENAI_API_KEY 
-  ? new Configuration({ apiKey: process.env.OPENAI_API_KEY })
+export const openai = process.env.OPENAI_API_KEY 
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
-export const openai = configuration ? new OpenAIApi(configuration) : null;
-
 // Helper to check if OpenAI is configured
-export const isOpenAIConfigured = () => !!configuration;
+export const isOpenAIConfigured = () => !!openai;
 
 console.log(process.env.OPENAI_API_KEY 
   ? '✓ OpenAI API configured'

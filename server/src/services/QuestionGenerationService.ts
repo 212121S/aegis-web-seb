@@ -1,7 +1,6 @@
 import { openai, SYSTEM_MESSAGE, generateUserMessage, CACHE_DURATION_HOURS, isOpenAIConfigured } from '../config/openai';
 import { Question, IQuestion, QuestionConstants } from '../models/Question';
 import { QuestionCache, IQuestionCache } from '../models/QuestionCache';
-import { ChatCompletionRequestMessage } from 'openai';
 
 interface GenerationParams {
   verticals: string[];
@@ -156,10 +155,10 @@ export class QuestionGenerationService {
       throw new Error('OpenAI is not configured. Please set OPENAI_API_KEY environment variable.');
     }
 
-    const messages: ChatCompletionRequestMessage[] = [
-      { role: 'system', content: SYSTEM_MESSAGE },
+    const messages = [
+      { role: 'system' as const, content: SYSTEM_MESSAGE },
       { 
-        role: 'user', 
+        role: 'user' as const, 
         content: generateUserMessage({
           ...params,
           sampleQuestions: params.sampleQuestions
@@ -168,15 +167,15 @@ export class QuestionGenerationService {
     ];
 
     try {
-      const completion = await openai.createChatCompletion({
-        model: 'gpt-4',
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4-0125-preview',
         messages,
         temperature: 0.7,
         max_tokens: 2000,
         n: 1
       });
 
-      const content = completion.data.choices[0]?.message?.content;
+      const content = completion.choices[0]?.message?.content;
       if (!content) {
         throw new Error('No content in OpenAI response');
       }
