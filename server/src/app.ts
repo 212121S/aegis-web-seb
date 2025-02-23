@@ -105,11 +105,11 @@ const requireDatabaseConnection = async (req: Request, res: Response, next: Next
   }
 };
 
-// Apply database connection middleware to API routes
-app.use('/api', requireDatabaseConnection);
-
-// Mount webhook route at root level (before other routes)
+// Mount webhook route first (before database middleware)
 app.use("/payment/webhook", webhookRoutes);
+
+// Apply database connection middleware to all other routes
+app.use(requireDatabaseConnection);
 
 // Mount API routes
 app.use("/api/auth", authRoutes);
