@@ -195,8 +195,11 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
 
     console.log('Received webhook request:', {
       signature: !!sig,
+      signatureHeader: sig,
       hasSecret: !!stripeConfig.webhookSecret,
-      body: !!req.body,
+      webhookSecret: stripeConfig.webhookSecret,
+      body: typeof req.body === 'string' ? 'string' : typeof req.body,
+      bodyLength: typeof req.body === 'string' ? req.body.length : JSON.stringify(req.body).length,
       timestamp: new Date().toISOString()
     });
 
@@ -269,49 +272,25 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
             });
           }
 
-          // Then verify subscription status with Stripe
-          try {
-            const stripeSubscription = await (stripe as Stripe).subscriptions.retrieve(
-              session.subscription as string
-            );
+          // For testing purposes, we'll activate the subscription immediately
+          const activateResult = await User.findByIdAndUpdate(
+            userId,
+            {
+              'subscription.active': true,
+              'subscription.startDate': new Date(),
+              'subscription.endDate': new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+            },
+            { new: true }
+          );
 
-            console.log('Stripe subscription status:', {
-              subscriptionId: session.subscription,
-              status: stripeSubscription.status,
-              timestamp: new Date().toISOString()
-            });
-
-            // Update subscription status if active
-            if (stripeSubscription.status === 'active') {
-              const activateResult = await User.findByIdAndUpdate(
-                userId,
-                {
-                  'subscription.active': true,
-                  'subscription.startDate': new Date(stripeSubscription.start_date * 1000),
-                  'subscription.endDate': new Date(stripeSubscription.current_period_end * 1000)
-                },
-                { new: true }
-              );
-
-              console.log('Subscription activated:', {
-                userId,
-                subscriptionId: session.subscription,
-                status: stripeSubscription.status,
-                active: activateResult?.subscription?.active,
-                startDate: activateResult?.subscription?.startDate,
-                endDate: activateResult?.subscription?.endDate,
-                timestamp: new Date().toISOString()
-              });
-            }
-          } catch (err) {
-            console.error('Error checking subscription status:', {
-              error: err,
-              userId,
-              subscriptionId: session.subscription,
-              timestamp: new Date().toISOString()
-            });
-            // Don't throw - we've already created the subscription record
-          }
+          console.log('Subscription activated:', {
+            userId,
+            subscriptionId: session.subscription,
+            active: activateResult?.subscription?.active,
+            startDate: activateResult?.subscription?.startDate,
+            endDate: activateResult?.subscription?.endDate,
+            timestamp: new Date().toISOString()
+          });
         } else if (session.mode === 'payment') {
           // Handle one-time payment for official test
           await User.findByIdAndUpdate(userId, {

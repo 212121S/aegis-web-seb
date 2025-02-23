@@ -82,15 +82,12 @@ app.use(cors(corsOptions));
 // Handle preflight requests
 app.options('*', cors(corsOptions));
 
-// Parse request bodies
+// Stripe webhook needs raw body - this must come BEFORE the json parser
+app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
+
+// Parse request bodies for all other routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// Stripe webhook needs raw body
-app.use(
-  '/api/payment/webhook',
-  express.raw({ type: 'application/json' })
-);
 
 // Database connection middleware
 const requireDatabaseConnection = async (req: Request, res: Response, next: NextFunction) => {
