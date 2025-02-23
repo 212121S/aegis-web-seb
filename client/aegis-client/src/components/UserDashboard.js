@@ -31,10 +31,12 @@ import {
 import { Link } from 'react-router-dom';
 import { examAPI } from '../utils/axios';
 import { useSubscription } from '../hooks/useSubscription';
+import { useOfficialTest } from '../hooks/useOfficialTest';
 
 const UserDashboard = () => {
   const theme = useTheme();
   const [loading, setLoading] = useState(true);
+  const { hasOfficialTest, loading: officialTestLoading } = useOfficialTest();
   const [error, setError] = useState(null);
   const [testHistory, setTestHistory] = useState([]);
   const [analytics, setAnalytics] = useState(null);
@@ -145,8 +147,9 @@ const UserDashboard = () => {
                     to="/test/official"
                     variant="contained"
                     color="secondary"
+                    disabled={!hasOfficialTest}
                   >
-                    Start Official Test
+                    {hasOfficialTest ? 'Start Official Test' : 'Purchase Required'}
                   </Button>
                 </CardActions>
               </Card>
