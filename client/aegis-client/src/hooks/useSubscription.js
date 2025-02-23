@@ -65,18 +65,15 @@ export const useSubscription = () => {
         throw new Error('Invalid subscription response format');
       }
 
-      // Extract and validate subscription data with detailed logging
+      // Extract subscription data with detailed logging
       const subscriptionData = {
-        active: response.active === true,
+        active: response.active,
         plan: response.plan || null,
         endDate: response.currentPeriodEnd || null
       };
 
-      // Validate critical fields
-      if (typeof subscriptionData.active !== 'boolean') {
-        console.warn('Invalid subscription active status:', subscriptionData.active);
-        throw new Error('Invalid subscription status format');
-      }
+      // Log the subscription data
+      console.log('Processed subscription data:', subscriptionData);
 
       console.log('Processed subscription data:', {
         ...subscriptionData,
@@ -245,7 +242,7 @@ export const useSubscription = () => {
       timestamp: new Date().toISOString()
     });
     
-    return subscription.active === true;
+    return subscription.active;
   };
 
   const getSubscriptionEndDate = () => {
