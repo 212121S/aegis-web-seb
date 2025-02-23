@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { paymentAPI } from '../utils/axios';
+import { subscriptionAPI } from '../utils/axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -24,7 +24,7 @@ export const useSubscription = () => {
         isAuthenticated
       });
 
-      const response = await paymentAPI.getSubscriptionStatus().catch(async (err) => {
+      const response = await subscriptionAPI.getSubscriptionStatus().catch(async (err) => {
         // Handle specific error cases that warrant retries
         const isServerError = err.response?.status === 500;
         const isAuthError = err.response?.status === 401;
@@ -69,23 +69,13 @@ export const useSubscription = () => {
       const subscriptionData = {
         active: response.active === true,
         plan: response.plan || null,
-        endDate: response.endDate || null,
-        details: {
-          stripeCustomerId: response.details?.stripeCustomerId || null,
-          stripeSubscriptionId: response.details?.stripeSubscriptionId || null,
-          stripeStatus: response.details?.stripeStatus || null
-        }
+        endDate: response.currentPeriodEnd || null
       };
 
       // Validate critical fields
       if (typeof subscriptionData.active !== 'boolean') {
         console.warn('Invalid subscription active status:', subscriptionData.active);
         throw new Error('Invalid subscription status format');
-      }
-
-      if (subscriptionData.active && !subscriptionData.details.stripeSubscriptionId) {
-        console.warn('Active subscription missing Stripe ID:', subscriptionData);
-        throw new Error('Invalid subscription data: Missing required fields');
       }
 
       console.log('Processed subscription data:', {
@@ -98,7 +88,7 @@ export const useSubscription = () => {
         const hasChanged = !prevState || 
           prevState.active !== subscriptionData.active ||
           prevState.plan !== subscriptionData.plan ||
-          prevState.details?.stripeStatus !== subscriptionData.details?.stripeStatus;
+          prevState.endDate !== subscriptionData.endDate;
         
         if (hasChanged) {
           console.log('Subscription state updated:', {
@@ -107,7 +97,7 @@ export const useSubscription = () => {
             changes: {
               activeChanged: prevState?.active !== subscriptionData.active,
               planChanged: prevState?.plan !== subscriptionData.plan,
-              statusChanged: prevState?.details?.stripeStatus !== subscriptionData.details?.stripeStatus
+              endDateChanged: prevState?.endDate !== subscriptionData.endDate
             }
           });
           return subscriptionData;
@@ -221,7 +211,7 @@ export const useSubscription = () => {
       subscription,
       isActive: subscription?.active,
       plan: subscription?.plan,
-      stripeStatus: subscription?.details?.stripeStatus,
+      endDate: subscription?.endDate,
       loading,
       error,
       timestamp: new Date().toISOString()
@@ -251,7 +241,7 @@ export const useSubscription = () => {
       subscription, 
       active: subscription.active,
       plan: subscription.plan,
-      stripeStatus: subscription.details?.stripeStatus,
+      endDate: subscription.endDate,
       timestamp: new Date().toISOString()
     });
     

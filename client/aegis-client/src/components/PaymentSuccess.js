@@ -91,41 +91,64 @@ function PaymentSuccess() {
             message: 'Activating subscription...'
           }));
 
-          // Give webhook more time to process and implement retry logic
-          await new Promise(resolve => setTimeout(resolve, 5000));
+          // Give webhook more time to process
+          await new Promise(resolve => setTimeout(resolve, 8000));
           
-          // Refresh auth token and subscription status with retries
+          // Refresh auth token
           await verifyAuth();
           
+          // Attempt subscription verification with increased retries
           let retryCount = 0;
-          const maxRetries = 3;
-          const baseDelay = 3000;
+          const maxRetries = 5;
+          const baseDelay = 4000;
           
           while (retryCount < maxRetries) {
+            setVerificationProgress(prev => ({
+              ...prev,
+              stage: 'subscription',
+              message: `Verifying subscription (attempt ${retryCount + 1}/${maxRetries})...`,
+              attempt: retryCount + 1
+            }));
+
             console.log(`Attempting subscription verification (attempt ${retryCount + 1}/${maxRetries})`);
             
-            const subscriptionResponse = await refreshSubscription();
-            
-            if (subscriptionResponse?.active) {
-              console.log('Payment verification successful:', {
+            try {
+              const subscriptionResponse = await refreshSubscription();
+              
+              if (subscriptionResponse?.active) {
+                console.log('Subscription verification successful:', {
+                  sessionId,
+                  attempt: retryCount + 1,
+                  duration: new Date() - new Date(verificationProgress.startTime),
+                  timestamp: new Date().toISOString()
+                });
+                setLoading(false);
+                return;
+              }
+              
+              console.log('Subscription not active yet:', {
                 sessionId,
                 attempt: retryCount + 1,
-                duration: new Date() - new Date(verificationProgress.startTime),
+                response: subscriptionResponse,
                 timestamp: new Date().toISOString()
               });
-              setLoading(false);
-              return;
+            } catch (err) {
+              console.warn('Subscription verification attempt failed:', {
+                error: err,
+                attempt: retryCount + 1,
+                timestamp: new Date().toISOString()
+              });
             }
             
             retryCount++;
             if (retryCount < maxRetries) {
               const delay = baseDelay * Math.pow(2, retryCount); // Exponential backoff
-              console.log(`Subscription not active yet, retrying in ${delay}ms...`);
+              console.log(`Retrying subscription verification in ${delay}ms...`);
               await new Promise(resolve => setTimeout(resolve, delay));
             }
           }
 
-          throw new Error('Subscription not activated after multiple verification attempts');
+          throw new Error('Subscription not activated after verification attempts. Please check your account page or contact support if the issue persists.');
         } else {
           throw new Error('Payment verification failed');
         }
