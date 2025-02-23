@@ -74,77 +74,73 @@ function PaymentSuccess() {
           attempt: 1
         }));
 
-        try {
-          const verifyWithRetries = async (attempt = 1, maxAttempts = 10) => {
-            try {
-              const sessionResponse = await paymentAPI.verifySession(sessionId);
+        const verifyWithRetries = async (attempt = 1, maxAttempts = 12) => {
+          try {
+            const sessionResponse = await paymentAPI.verifySession(sessionId);
 
-              // Handle processing status
-              if (sessionResponse.status === 'processing') {
-                setVerificationProgress(prev => ({
-                  ...prev,
-                  stage: 'subscription',
-                  message: sessionResponse.message || 'Processing subscription...',
-                  attempt
-                }));
-
-                if (attempt < maxAttempts) {
-                  const delay = 3000 * Math.pow(1.5, attempt - 1); // Exponential backoff
-                  await new Promise(resolve => setTimeout(resolve, delay));
-                  return verifyWithRetries(attempt + 1, maxAttempts);
-                }
-                throw new Error('Subscription activation timed out. Please check your account page.');
-              }
-
-              // Payment verified successfully
+            // Handle processing status
+            if (sessionResponse.status === 'processing') {
               setVerificationProgress(prev => ({
                 ...prev,
-                stage: 'verified',
-                message: 'Payment verified successfully',
-                lastError: null
+                stage: 'subscription',
+                message: sessionResponse.message || 'Processing subscription...',
+                attempt
               }));
 
-              if (sessionResponse?.paymentStatus === 'paid') {
-                // Refresh auth token and subscription status
-                await verifyAuth();
-                const subscriptionResponse = await refreshSubscription();
-
-                if (subscriptionResponse?.active) {
-                  console.log('Payment and subscription verification successful:', {
-                    sessionId,
-                    duration: new Date() - new Date(verificationProgress.startTime),
-                    timestamp: new Date().toISOString()
-                  });
-                  setLoading(false);
-                  return;
-                }
+              if (attempt < maxAttempts) {
+                const delay = 3000 * Math.pow(1.5, attempt - 1); // Exponential backoff
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return verifyWithRetries(attempt + 1, maxAttempts);
               }
-
-              throw new Error('Payment verification failed');
-            } catch (err) {
-              if (err.response?.status === 202) {
-                // Still processing, continue retrying
-                setVerificationProgress(prev => ({
-                  ...prev,
-                  stage: 'subscription',
-                  message: err.response.data.message || 'Processing subscription...',
-                  attempt
-                }));
-
-                if (attempt < maxAttempts) {
-                  const delay = 3000 * Math.pow(1.5, attempt - 1);
-                  await new Promise(resolve => setTimeout(resolve, delay));
-                  return verifyWithRetries(attempt + 1, maxAttempts);
-                }
-              }
-              throw err;
+              throw new Error('Subscription activation is taking longer than expected. Please check your account page in a few minutes.');
             }
-          };
 
-          await verifyWithRetries();
-        } catch (err) {
-          throw err;
-        }
+            // Payment verified successfully
+            setVerificationProgress(prev => ({
+              ...prev,
+              stage: 'verified',
+              message: 'Payment verified successfully',
+              lastError: null
+            }));
+
+            if (sessionResponse?.paymentStatus === 'paid') {
+              // Refresh auth token and subscription status
+              await verifyAuth();
+              const subscriptionResponse = await refreshSubscription();
+
+              if (subscriptionResponse?.active) {
+                console.log('Payment and subscription verification successful:', {
+                  sessionId,
+                  duration: new Date() - new Date(verificationProgress.startTime),
+                  timestamp: new Date().toISOString()
+                });
+                setLoading(false);
+                return;
+              }
+            }
+
+            throw new Error('Payment verification failed. Please check your account page or contact support if the issue persists.');
+          } catch (err) {
+            // Handle 202 status (still processing)
+            if (err.response?.status === 202 || err.response?.data?.status === 'processing') {
+              setVerificationProgress(prev => ({
+                ...prev,
+                stage: 'subscription',
+                message: err.response?.data?.message || 'Processing subscription...',
+                attempt
+              }));
+
+              if (attempt < maxAttempts) {
+                const delay = 3000 * Math.pow(1.5, attempt - 1);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return verifyWithRetries(attempt + 1, maxAttempts);
+              }
+            }
+            throw err;
+          }
+        };
+
+        await verifyWithRetries();
       } catch (err) {
         console.error('Payment verification failed:', {
           error: err,

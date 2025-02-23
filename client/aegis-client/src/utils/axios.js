@@ -173,6 +173,9 @@ instance.interceptors.response.use(
       } else if (error.config?.isSubscriptionEndpoint) {
         errorData.message = 'Subscription information not found';
       }
+    } else if (error.response.status === 202) {
+      // Handle processing state
+      return error.response.data;
     }
 
     // Enhanced error logging
@@ -228,6 +231,23 @@ export const paymentAPI = {
 
         const response = await instance.get(`/payment/verify-session/${sessionId}`);
         
+        // Handle processing status
+        if (response.status === 'processing') {
+          console.log('Payment verification in progress:', {
+            sessionId,
+            attempt: currentAttempt,
+            message: response.message,
+            timestamp: new Date().toISOString()
+          });
+
+          if (currentAttempt < maxAttempts) {
+            const delay = 3000 * Math.pow(1.5, currentAttempt - 1);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return verifyWithRetry(currentAttempt + 1);
+          }
+          throw new PaymentVerificationError('Payment verification timed out');
+        }
+        
         console.log('Payment verification successful:', {
           sessionId,
           response,
@@ -262,9 +282,11 @@ export const paymentAPI = {
         const shouldRetry = currentAttempt < maxAttempts && (
           error.response?.status === 500 ||
           error.response?.status === 404 || // Session not found yet
+          error.response?.status === 202 || // Still processing
           error.code === 'ECONNABORTED' ||
           !error.response ||
-          error.response?.data?.error === 'Payment not completed'
+          error.response?.data?.error === 'Payment not completed' ||
+          error.response?.data?.status === 'processing'
         );
 
         if (shouldRetry) {
