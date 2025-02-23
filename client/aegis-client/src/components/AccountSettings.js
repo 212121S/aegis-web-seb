@@ -69,18 +69,13 @@ function AccountSettings() {
   const fetchUserData = async () => {
     try {
       const response = await authAPI.getProfile();
+      const user = response.data;
       
-      // Validate response structure
-      if (!response || !response.data) {
-        throw new Error('No response data received');
-      }
-
-      const { data } = response;
-      if (!data.user || typeof data.user !== 'object') {
+      // Validate user data
+      if (!user || typeof user !== 'object') {
         throw new Error('Invalid user data format');
       }
 
-      const { user } = data;
       // Validate required fields
       if (!user.username || !user.email) {
         throw new Error('Missing required user fields');

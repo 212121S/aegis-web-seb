@@ -100,13 +100,13 @@ instance.interceptors.response.use(
       timestamp: new Date().toISOString()
     });
 
-    // Validate and transform response data
+    // Validate response data
     if (!response.data) {
       console.warn('Empty response data:', {
         url: response.config.url,
         status: response.status
       });
-      return null;
+      throw new Error('Empty response data');
     }
 
     // For array responses (like questions), ensure it's an array
@@ -121,7 +121,7 @@ instance.interceptors.response.use(
       }
     }
 
-    return response.data;
+    return response;
   },
   async (error) => {
     const isPaymentFlow = window.location.pathname.includes('/payment');
