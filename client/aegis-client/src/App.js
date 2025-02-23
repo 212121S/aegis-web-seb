@@ -62,8 +62,8 @@ const NavigationBar = () => {
                 Upgrade
               </Button>
             )}
-            <Button color="inherit" component={Link} to="/settings">
-              Settings
+            <Button color="inherit" component={Link} to="/account">
+              Account
             </Button>
             <Button color="inherit" onClick={logout}>
               Logout
@@ -176,7 +176,7 @@ const AppRoutes = () => {
               }
             />
             <Route
-              path="/settings"
+              path="/account"
               element={
                 <ProtectedRoute>
                   <AccountSettings />

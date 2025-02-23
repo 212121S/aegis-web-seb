@@ -69,22 +69,37 @@ function AccountSettings() {
   const fetchUserData = async () => {
     try {
       const response = await authAPI.getProfile();
-      console.log('Profile Data:', response.data); // Debug data
-      if (!response.data || !response.data.user) {
-        console.error('Invalid response:', response.data); // Debug invalid response
-        throw new Error('Invalid response format');
-      }
       
-      const { user } = response.data;
+      // Validate response structure
+      if (!response || !response.data) {
+        throw new Error('No response data received');
+      }
+
+      const { data } = response;
+      if (!data.user || typeof data.user !== 'object') {
+        throw new Error('Invalid user data format');
+      }
+
+      const { user } = data;
+      // Validate required fields
+      if (!user.username || !user.email) {
+        throw new Error('Missing required user fields');
+      }
+
       setUserData({
         ...userData,
         name: user.username,
         email: user.email,
-        subscription: user.subscription
+        subscription: user.subscription || null,
+        verificationToken: user.verificationToken,
+        testHistory: user.testHistory || [],
+        highestScore: user.highestScore || 0,
+        averageScore: user.averageScore || 0
       });
     } catch (err) {
-      setError('Failed to load user data');
-      console.error(err);
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to load user data';
+      setError(errorMessage);
+      console.error('Error fetching user data:', err);
     }
   };
 
