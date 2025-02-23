@@ -364,79 +364,100 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
         return;
       }
 
-      // Validate session status
-      if (session.status !== 'complete') {
-        console.error('Session not complete:', { 
-          sessionId,
-          status: session.status,
-          paymentStatus: session.payment_status
-        });
-        res.status(400).json({ error: 'Payment not completed' });
-        return;
-      }
+    // Validate session status and payment
+    if (session.status !== 'complete' || session.payment_status !== 'paid') {
+      console.error('Session validation failed:', { 
+        sessionId,
+        status: session.status,
+        paymentStatus: session.payment_status
+      });
+      res.status(400).json({ error: 'Payment not completed' });
+      return;
+    }
 
-      // Validate payment status
-      if (session.payment_status !== 'paid') {
-        console.error('Payment not successful:', {
-          sessionId,
-          paymentStatus: session.payment_status
-        });
-        res.status(400).json({ error: 'Payment not successful' });
-        return;
-      }
-
-      // For subscription mode, check if subscription is ready
-      if (session.mode === 'subscription') {
-        try {
-          // Check if subscription is available in expanded session data
-          const subscription = session.subscription as Stripe.Subscription;
-          
-          if (!subscription) {
-            console.log('Subscription not yet available in session:', {
-              sessionId,
-              timestamp: new Date().toISOString()
-            });
-            res.status(202).json({ 
-              status: 'processing',
-              message: 'Subscription is being processed',
-              verifiedAt: new Date().toISOString()
-            });
-            return;
-          }
-
-          console.log('Verifying subscription status:', {
-            sessionId,
-            subscriptionId: subscription.id,
-            status: subscription.status,
-            timestamp: new Date().toISOString()
-          });
-
-          if (subscription.status !== 'active') {
-            console.log('Subscription pending activation:', {
-              sessionId,
-              subscriptionId: subscription.id,
-              status: subscription.status
-            });
-            res.status(202).json({ 
-              status: 'processing',
-              message: 'Subscription is being activated',
-              verifiedAt: new Date().toISOString()
-            });
-            return;
-          }
-        } catch (err) {
-          console.log('Subscription verification in progress:', {
+    // For subscription mode, check if subscription is ready
+    if (session.mode === 'subscription') {
+      try {
+        // Get subscription ID from session
+        const subscriptionId = session.subscription as string;
+        if (!subscriptionId) {
+          console.log('Subscription ID not yet available:', {
             sessionId,
             timestamp: new Date().toISOString()
           });
           res.status(202).json({ 
             status: 'processing',
-            message: 'Payment processed, subscription being activated',
+            message: 'Subscription is being processed',
             verifiedAt: new Date().toISOString()
           });
           return;
         }
+
+        // Fetch subscription directly from Stripe
+        const subscription = await (stripe as Stripe).subscriptions.retrieve(subscriptionId);
+        
+        console.log('Subscription details:', {
+          sessionId,
+          subscriptionId,
+          status: subscription.status,
+          customer: subscription.customer,
+          currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+          timestamp: new Date().toISOString()
+        });
+
+        // Check subscription status
+        if (subscription.status !== 'active') {
+          console.log('Subscription pending activation:', {
+            sessionId,
+            subscriptionId,
+            status: subscription.status,
+            timestamp: new Date().toISOString()
+          });
+          res.status(202).json({ 
+            status: 'processing',
+            message: 'Subscription is being activated',
+            verifiedAt: new Date().toISOString()
+          });
+          return;
+        }
+
+        // Check if user's subscription is updated in our database
+        const user = await User.findOne({
+          'subscription.stripeSubscriptionId': subscriptionId,
+          'subscription.active': true
+        });
+
+        if (!user) {
+          console.log('Subscription not yet updated in database:', {
+            sessionId,
+            subscriptionId,
+            timestamp: new Date().toISOString()
+          });
+          res.status(202).json({ 
+            status: 'processing',
+            message: 'Finalizing subscription activation',
+            verifiedAt: new Date().toISOString()
+          });
+          return;
+        }
+      } catch (err) {
+        if (err instanceof Stripe.errors.StripeError) {
+          console.log('Stripe error during subscription verification:', {
+            sessionId,
+            error: err.message,
+            type: err.type,
+            timestamp: new Date().toISOString()
+          });
+          res.status(202).json({ 
+            status: 'processing',
+            message: 'Processing subscription details',
+            verifiedAt: new Date().toISOString()
+          });
+          return;
+        }
+        throw err;
       }
+    }
 
       console.log('Session verified successfully:', {
         sessionId,
@@ -448,13 +469,20 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
         timestamp: new Date().toISOString()
       });
 
+      // Return success response with subscription details
       res.json({ 
         paymentStatus: session.payment_status,
-        status: session.status,
+        status: 'success',
         mode: session.mode,
         customerId: session.customer,
         subscriptionId: session.subscription,
-        verifiedAt: new Date().toISOString()
+        verifiedAt: new Date().toISOString(),
+        subscription: session.mode === 'subscription' ? {
+          active: true,
+          status: 'active',
+          customerId: session.customer,
+          subscriptionId: session.subscription
+        } : undefined
       });
     } catch (err) {
       if (err instanceof Stripe.errors.StripeError) {
