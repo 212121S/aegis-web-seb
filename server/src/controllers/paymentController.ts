@@ -385,26 +385,55 @@ export const verifySession = async (req: Request, res: Response): Promise<void> 
         return;
       }
 
-      // For subscription mode, verify subscription status
-      if (session.mode === 'subscription' && session.subscription) {
-        const subscription = await (stripe as Stripe).subscriptions.retrieve(
-          session.subscription as string
-        );
+      // For subscription mode, check if subscription is ready
+      if (session.mode === 'subscription') {
+        try {
+          // Check if subscription is available in expanded session data
+          const subscription = session.subscription as Stripe.Subscription;
+          
+          if (!subscription) {
+            console.log('Subscription not yet available in session:', {
+              sessionId,
+              timestamp: new Date().toISOString()
+            });
+            res.status(202).json({ 
+              status: 'processing',
+              message: 'Subscription is being processed',
+              verifiedAt: new Date().toISOString()
+            });
+            return;
+          }
 
-        console.log('Verifying subscription status:', {
-          sessionId,
-          subscriptionId: session.subscription,
-          status: subscription.status,
-          timestamp: new Date().toISOString()
-        });
-
-        if (subscription.status !== 'active') {
-          console.error('Subscription not active:', {
+          console.log('Verifying subscription status:', {
             sessionId,
-            subscriptionId: session.subscription,
-            status: subscription.status
+            subscriptionId: subscription.id,
+            status: subscription.status,
+            timestamp: new Date().toISOString()
           });
-          res.status(400).json({ error: 'Subscription not active' });
+
+          if (subscription.status !== 'active') {
+            console.log('Subscription pending activation:', {
+              sessionId,
+              subscriptionId: subscription.id,
+              status: subscription.status
+            });
+            res.status(202).json({ 
+              status: 'processing',
+              message: 'Subscription is being activated',
+              verifiedAt: new Date().toISOString()
+            });
+            return;
+          }
+        } catch (err) {
+          console.log('Subscription verification in progress:', {
+            sessionId,
+            timestamp: new Date().toISOString()
+          });
+          res.status(202).json({ 
+            status: 'processing',
+            message: 'Payment processed, subscription being activated',
+            verifiedAt: new Date().toISOString()
+          });
           return;
         }
       }
