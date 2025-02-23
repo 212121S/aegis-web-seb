@@ -20,7 +20,9 @@ import HomePage from './components/HomePage';
 import AboutPage from './components/AboutPage';
 import PlansPage from './components/PlansPage';
 import UserDashboard from './components/UserDashboard';
+import PracticeTestBuilder from './components/PracticeTestBuilder';
 import PracticeTest from './components/PracticeTest';
+import TestResults from './components/TestResults';
 import OfficialTest from './components/OfficialTest';
 import PaymentPage from './components/PaymentPage';
 import PaymentSuccess from './components/PaymentSuccess';
@@ -54,7 +56,7 @@ const NavigationBar = () => {
             <Button color="inherit" component={Link} to="/dashboard">
               Dashboard
             </Button>
-            <Button color="inherit" component={Link} to="/practice">
+            <Button color="inherit" component={Link} to="/practice-builder">
               Practice Tests
             </Button>
             {!user.subscription?.active && (
@@ -144,10 +146,26 @@ const AppRoutes = () => {
               }
             />
             <Route
-              path="/practice"
+              path="/practice-builder"
+              element={
+                <ProtectedRoute>
+                  <PracticeTestBuilder />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/practice-test"
               element={
                 <ProtectedRoute>
                   <PracticeTest />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/test-results"
+              element={
+                <ProtectedRoute>
+                  <TestResults />
                 </ProtectedRoute>
               }
             />

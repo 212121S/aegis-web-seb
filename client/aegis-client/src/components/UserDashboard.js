@@ -58,12 +58,68 @@ const UserDashboard = () => {
 
       // Calculate analytics from history
       if (testHistory.length > 0) {
-        const analytics = {
+        // Calculate overall analytics
+        const overallAnalytics = {
           testsCompleted: history.length,
           averageScore: history.reduce((sum, test) => sum + test.score, 0) / history.length,
           highestScore: Math.max(...history.map(test => test.score))
         };
-        setAnalytics(analytics);
+
+        // Calculate analytics by topic, vertical, and role
+        const byTopic = {};
+        const byVertical = {};
+        const byRole = {};
+
+        history.forEach(test => {
+          if (test.details) {
+            // Process topics
+            Object.entries(test.details.byTopic || {}).forEach(([topic, data]) => {
+              if (!byTopic[topic]) {
+                byTopic[topic] = { totalScore: 0, attempts: 0 };
+              }
+              byTopic[topic].totalScore += data.percentage;
+              byTopic[topic].attempts += 1;
+            });
+
+            // Process verticals
+            Object.entries(test.details.byVertical || {}).forEach(([vertical, data]) => {
+              if (!byVertical[vertical]) {
+                byVertical[vertical] = { totalScore: 0, attempts: 0 };
+              }
+              byVertical[vertical].totalScore += data.percentage;
+              byVertical[vertical].attempts += 1;
+            });
+
+            // Process roles
+            Object.entries(test.details.byRole || {}).forEach(([role, data]) => {
+              if (!byRole[role]) {
+                byRole[role] = { totalScore: 0, attempts: 0 };
+              }
+              byRole[role].totalScore += data.percentage;
+              byRole[role].attempts += 1;
+            });
+          }
+        });
+
+        // Calculate averages
+        const processAnalytics = (data) => {
+          return Object.fromEntries(
+            Object.entries(data).map(([key, value]) => [
+              key,
+              {
+                avgScore: value.totalScore / value.attempts,
+                attempts: value.attempts
+              }
+            ])
+          );
+        };
+
+        setAnalytics({
+          ...overallAnalytics,
+          byTopic: processAnalytics(byTopic),
+          byVertical: processAnalytics(byVertical),
+          byRole: processAnalytics(byRole)
+        });
       }
     } catch (err) {
       console.error('Failed to load user data:', err);
@@ -112,21 +168,21 @@ const UserDashboard = () => {
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
-                    Practice Test
+                    Practice Test Builder
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Take a practice test to prepare for the official exam
+                    Create a customized practice test tailored to your needs
                   </Typography>
                 </CardContent>
                 <CardActions>
                   <Button
                     component={Link}
-                    to="/test/practice"
+                    to="/practice-builder"
                     variant="contained"
                     color="primary"
                     disabled={!isSubscriptionActive()}
                   >
-                    Start Practice Test
+                    Build Practice Test
                   </Button>
                 </CardActions>
               </Card>
@@ -158,24 +214,24 @@ const UserDashboard = () => {
         </Grid>
 
         {/* Analytics Overview */}
-        <Grid item xs={12} md={8}>
+        <Grid item xs={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h5" gutterBottom>
               Performance Analytics
             </Typography>
             {analytics ? (
               <Grid container spacing={3}>
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={12} md={3}>
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography variant="h4" color="primary">
-                      {analytics.averageScore}%
+                      {analytics.averageScore.toFixed(1)}%
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Average Score
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={12} md={3}>
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography variant="h4" color="primary">
                       {analytics.testsCompleted}
@@ -185,16 +241,109 @@ const UserDashboard = () => {
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={12} md={3}>
                   <Box sx={{ textAlign: 'center' }}>
                     <Typography variant="h4" color="primary">
-                      {analytics.highestScore}%
+                      {analytics.highestScore.toFixed(1)}%
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Highest Score
                     </Typography>
                   </Box>
                 </Grid>
+                <Grid item xs={12} md={3}>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Typography variant="h4" color="primary">
+                      {Object.keys(analytics.byTopic || {}).length}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Topics Covered
+                    </Typography>
+                  </Box>
+                </Grid>
+
+                {/* Performance by Topic */}
+                {analytics.byTopic && Object.keys(analytics.byTopic).length > 0 && (
+                  <Grid item xs={12}>
+                    <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
+                      Performance by Topic
+                    </Typography>
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Topic</TableCell>
+                            <TableCell align="right">Average Score</TableCell>
+                            <TableCell align="right">Questions Attempted</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {Object.entries(analytics.byTopic).map(([topic, data]) => (
+                            <TableRow key={topic}>
+                              <TableCell>{topic}</TableCell>
+                              <TableCell align="right">{data.avgScore.toFixed(1)}%</TableCell>
+                              <TableCell align="right">{data.attempts}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
+                )}
+
+                {/* Performance by Vertical */}
+                {analytics.byVertical && Object.keys(analytics.byVertical).length > 0 && (
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
+                      Performance by Industry Vertical
+                    </Typography>
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Vertical</TableCell>
+                            <TableCell align="right">Average Score</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {Object.entries(analytics.byVertical).map(([vertical, data]) => (
+                            <TableRow key={vertical}>
+                              <TableCell>{vertical}</TableCell>
+                              <TableCell align="right">{data.avgScore.toFixed(1)}%</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
+                )}
+
+                {/* Performance by Role */}
+                {analytics.byRole && Object.keys(analytics.byRole).length > 0 && (
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="h6" gutterBottom sx={{ mt: 3 }}>
+                      Performance by Role
+                    </Typography>
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Role</TableCell>
+                            <TableCell align="right">Average Score</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {Object.entries(analytics.byRole).map(([role, data]) => (
+                            <TableRow key={role}>
+                              <TableCell>{role}</TableCell>
+                              <TableCell align="right">{data.avgScore.toFixed(1)}%</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
+                )}
               </Grid>
             ) : (
               <Typography color="text.secondary">
@@ -269,7 +418,7 @@ const UserDashboard = () => {
                       <TableCell>
                         <Button
                           component={Link}
-                          to={`/test/results/${test.id}`}
+                          to={`/test-results/${test.id}`}
                           size="small"
                         >
                           View Details

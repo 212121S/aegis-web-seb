@@ -18,6 +18,11 @@ export interface IUser extends Document {
     stripeCustomerId?: string;
     stripeSubscriptionId?: string;
   };
+  preferences: {
+    targetRole?: string[];
+    preferredVerticals?: string[];
+    difficultyPreference?: number[];
+  };
   testHistory: Array<{
     score: number;
     date: Date;
@@ -25,7 +30,34 @@ export interface IUser extends Document {
   testResults?: Array<{
     score: number;
     date: Date;
+    details?: {
+      overall: {
+        correct: number;
+        total: number;
+        percentage: number;
+      };
+      byTopic: Record<string, { correct: number; total: number; percentage: number }>;
+      byVertical: Record<string, { correct: number; total: number; percentage: number }>;
+      byRole: Record<string, { correct: number; total: number; percentage: number }>;
+    };
   }>;
+  performance: {
+    byTopic: Record<string, {
+      attempts: number;
+      avgScore: number;
+      lastAttempt: Date;
+    }>;
+    byVertical: Record<string, {
+      attempts: number;
+      avgScore: number;
+      lastAttempt: Date;
+    }>;
+    byRole: Record<string, {
+      attempts: number;
+      avgScore: number;
+      lastAttempt: Date;
+    }>;
+  };
   highestScore: number;
   averageScore: number;
 }
@@ -84,6 +116,11 @@ const userSchema = new Schema<IUser>({
       default: Date.now
     }
   }],
+  preferences: {
+    targetRole: [String],
+    preferredVerticals: [String],
+    difficultyPreference: [Number]
+  },
   testResults: [{
     score: {
       type: Number,
@@ -92,8 +129,23 @@ const userSchema = new Schema<IUser>({
     date: {
       type: Date,
       default: Date.now
+    },
+    details: {
+      overall: {
+        correct: Number,
+        total: Number,
+        percentage: Number
+      },
+      byTopic: Schema.Types.Mixed,
+      byVertical: Schema.Types.Mixed,
+      byRole: Schema.Types.Mixed
     }
   }],
+  performance: {
+    byTopic: Schema.Types.Mixed,
+    byVertical: Schema.Types.Mixed,
+    byRole: Schema.Types.Mixed
+  },
   highestScore: {
     type: Number,
     default: 0

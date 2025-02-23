@@ -17,6 +17,7 @@ import examRoutes from "./routes/exam";
 import paymentRoutes from "./routes/payment";
 import webhookRoutes from "./routes/webhook";
 import verificationRoutes from "./routes/verification";
+import practiceTestRoutes from "./routes/practiceTest";
 
 dotenv.config();
 
@@ -116,6 +117,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/exam", examRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/auth/verify", verificationRoutes);
+app.use("/api/practice", practiceTestRoutes);
 
 // Health check endpoint
 app.get('/health', async (req: Request, res: Response) => {

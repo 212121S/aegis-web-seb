@@ -1,264 +1,308 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
   Container,
-  Paper,
   Typography,
+  Paper,
   Grid,
   CircularProgress,
-  Card,
-  CardContent,
-  LinearProgress,
+  Button,
+  Divider,
+  Stack,
+  Chip,
   Alert,
   List,
   ListItem,
   ListItemText,
-  Chip,
-  useTheme
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from '@mui/material';
-import { examAPI } from '../utils/axios';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+
+// Register ChartJS components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const TestResults = () => {
-  const { testId } = useParams();
-  const theme = useTheme();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [results, setResults] = useState(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  const results = location.state?.results;
+  const config = location.state?.config;
 
-  useEffect(() => {
-    fetchResults();
-  }, [testId]);
-
-  const fetchResults = async () => {
-    try {
-      setLoading(true);
-      const response = await examAPI.getTestResults(testId);
-      setResults(response);
-    } catch (err) {
-      setError('Failed to load test results');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
+  if (!results || !config) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Container maxWidth="md" sx={{ mt: 4 }}>
-        <Alert severity="error">{error}</Alert>
+      <Container maxWidth="sm" sx={{ mt: 4 }}>
+        <Alert severity="error">
+          No test results found. Please take a practice test first.
+        </Alert>
+        <Button
+          variant="contained"
+          onClick={() => navigate('/practice-builder')}
+          sx={{ mt: 2 }}
+        >
+          Go to Test Builder
+        </Button>
       </Container>
     );
   }
 
-  if (!results) return null;
+  const chartOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: false
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 100,
+        title: {
+          display: true,
+          text: 'Score (%)'
+        }
+      }
+    }
+  };
+
+  // Prepare chart data for topics
+  const topicChartData = {
+    labels: Object.keys(results.byTopic),
+    datasets: [
+      {
+        data: Object.values(results.byTopic).map(t => t.percentage),
+        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 1
+      }
+    ]
+  };
+
+  // Prepare chart data for verticals
+  const verticalChartData = {
+    labels: Object.keys(results.byVertical),
+    datasets: [
+      {
+        data: Object.values(results.byVertical).map(v => v.percentage),
+        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+        borderColor: 'rgba(75, 192, 192, 1)',
+        borderWidth: 1
+      }
+    ]
+  };
+
+  // Prepare chart data for roles
+  const roleChartData = {
+    labels: Object.keys(results.byRole),
+    datasets: [
+      {
+        data: Object.values(results.byRole).map(r => r.percentage),
+        backgroundColor: 'rgba(153, 102, 255, 0.6)',
+        borderColor: 'rgba(153, 102, 255, 1)',
+        borderWidth: 1
+      }
+    ]
+  };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Grid container spacing={3}>
-        {/* Overall Score */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3, textAlign: 'center' }}>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Overall Score */}
+      <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
+        <Grid container spacing={3} alignItems="center">
+          <Grid item xs={12} md={6}>
             <Typography variant="h4" gutterBottom>
               Test Results
             </Typography>
-            <Box sx={{ position: 'relative', display: 'inline-flex', mb: 2 }}>
-              <CircularProgress
-                variant="determinate"
-                value={100}
-                size={120}
-                thickness={4}
-                sx={{ color: theme.palette.grey[200] }}
-              />
-              <CircularProgress
-                variant="determinate"
-                value={results.finalScore}
-                size={120}
-                thickness={4}
-                sx={{ 
-                  color: theme.palette.success.main,
-                  position: 'absolute',
-                  left: 0
-                }}
-              />
-              <Box
-                sx={{
-                  top: 0,
-                  left: 0,
-                  bottom: 0,
-                  right: 0,
-                  position: 'absolute',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Typography variant="h4" component="div" color="text.secondary">
-                  {Math.round(results.finalScore)}
-                </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              Here's how you performed on your practice test:
+            </Typography>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Box display="flex" alignItems="center" justifyContent="center">
+              <Box position="relative" display="inline-flex">
+                <CircularProgress
+                  variant="determinate"
+                  value={results.overall.percentage}
+                  size={120}
+                  thickness={4}
+                  sx={{ color: 'success.main' }}
+                />
+                <Box
+                  sx={{
+                    top: 0,
+                    left: 0,
+                    bottom: 0,
+                    right: 0,
+                    position: 'absolute',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Typography variant="h4" component="div">
+                    {Math.round(results.overall.percentage)}%
+                  </Typography>
+                </Box>
               </Box>
             </Box>
-            <Typography variant="subtitle1" color="text.secondary">
-              {results.type === 'practice' ? 'Practice Test' : 'Official Test'} •{' '}
-              {new Date(results.completedAt).toLocaleDateString()}
+            <Typography variant="body2" align="center" sx={{ mt: 1 }}>
+              {results.overall.correct} correct out of {results.overall.total} questions
             </Typography>
-          </Paper>
-        </Grid>
-
-        {/* Performance Metrics */}
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Time Analysis
-              </Typography>
-              <List>
-                <ListItem>
-                  <ListItemText
-                    primary="Average Time per Question"
-                    secondary={`${results.timePerQuestion.toFixed(1)} seconds`}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText
-                    primary="Total Time"
-                    secondary={`${results.totalTimeMinutes || 0} minutes`}
-                  />
-                </ListItem>
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Difficulty Progression
-              </Typography>
-              <List>
-                <ListItem>
-                  <ListItemText
-                    primary="Average Difficulty"
-                    secondary={(results.averageDifficulty || 0).toFixed(1)}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText
-                    primary="Highest Difficulty Reached"
-                    secondary={results.maxDifficulty || 'N/A'}
-                  />
-                </ListItem>
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Overall Performance
-              </Typography>
-              <List>
-                <ListItem>
-                  <ListItemText
-                    primary="Questions Attempted"
-                    secondary={results.questionsAttempted || 0}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText
-                    primary="Incorrect Answers"
-                    secondary={results.incorrectAnswers || 0}
-                  />
-                </ListItem>
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Category Breakdown */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Performance by Category
-            </Typography>
-            <Grid container spacing={2}>
-              {results.questionBreakdown.map((category) => (
-                <Grid item xs={12} key={category.category}>
-                  <Box sx={{ mb: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body1">
-                        {category.category}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {category.correct}/{category.total}
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={(category.correct/category.total) * 100}
-                      sx={{ height: 8, borderRadius: 4 }}
-                    />
-                  </Box>
-                </Grid>
-              ))}
-            </Grid>
-          </Paper>
-        </Grid>
-
-        {/* Percentile Ranking */}
-        {results.percentile && (
-          <Grid item xs={12}>
-            <Paper sx={{ p: 3, textAlign: 'center' }}>
-              <Typography variant="h6" gutterBottom>
-                Percentile Ranking
-              </Typography>
-              <Typography variant="h3" color="primary">
-                {Math.round(results.percentile)}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                You performed better than {Math.round(results.percentile)}% of test takers
-              </Typography>
-            </Paper>
           </Grid>
-        )}
+        </Grid>
+      </Paper>
 
-        {/* Proctoring Events */}
-        {results.proctoringEvents && results.proctoringEvents.length > 0 && (
-          <Grid item xs={12}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Proctoring Events
-              </Typography>
-              <List>
-                {results.proctoringEvents.map((event, index) => (
-                  <ListItem key={index}>
+      {/* Test Configuration */}
+      <Paper elevation={2} sx={{ p: 2, mb: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          Test Configuration
+        </Typography>
+        <Stack direction="row" spacing={2} flexWrap="wrap">
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              Verticals:
+            </Typography>
+            <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+              {config.verticals.map(vertical => (
+                <Chip key={vertical} label={vertical} size="small" />
+              ))}
+            </Stack>
+          </Box>
+          <Divider orientation="vertical" flexItem />
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              Roles:
+            </Typography>
+            <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+              {config.roles.map(role => (
+                <Chip key={role} label={role} size="small" />
+              ))}
+            </Stack>
+          </Box>
+          <Divider orientation="vertical" flexItem />
+          <Box>
+            <Typography variant="caption" color="text.secondary">
+              Topics:
+            </Typography>
+            <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+              {config.topics.map(topic => (
+                <Chip key={topic} label={topic} size="small" />
+              ))}
+            </Stack>
+          </Box>
+        </Stack>
+      </Paper>
+
+      {/* Performance Charts */}
+      <Grid container spacing={4}>
+        <Grid item xs={12} md={4}>
+          <Paper elevation={2} sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Performance by Topic
+            </Typography>
+            <Bar data={topicChartData} options={chartOptions} />
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Paper elevation={2} sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Performance by Vertical
+            </Typography>
+            <Bar data={verticalChartData} options={chartOptions} />
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Paper elevation={2} sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Performance by Role
+            </Typography>
+            <Bar data={roleChartData} options={chartOptions} />
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Detailed Question Review */}
+      <Paper elevation={2} sx={{ p: 3, mt: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          Question Review
+        </Typography>
+        <List>
+          {results.questions.map((question, index) => (
+            <Accordion key={question.questionId}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Box display="flex" alignItems="center" width="100%">
+                  <Typography sx={{ flexGrow: 1 }}>
+                    Question {index + 1}
+                  </Typography>
+                  <Chip
+                    label={question.correct ? 'Correct' : 'Incorrect'}
+                    color={question.correct ? 'success' : 'error'}
+                    size="small"
+                    sx={{ ml: 2 }}
+                  />
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails>
+                <List>
+                  <ListItem>
                     <ListItemText
-                      primary={event.type}
-                      secondary={new Date(event.timestamp).toLocaleTimeString()}
-                    />
-                    <Chip
-                      label={event.type}
-                      color="warning"
-                      size="small"
+                      primary="Your Answer"
+                      secondary={question.userAnswer}
                     />
                   </ListItem>
-                ))}
-              </List>
-            </Paper>
-          </Grid>
-        )}
-      </Grid>
+                  <ListItem>
+                    <ListItemText
+                      primary="Correct Answer"
+                      secondary={question.correctAnswer}
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemText
+                      primary="Explanation"
+                      secondary={question.explanation}
+                    />
+                  </ListItem>
+                </List>
+              </AccordionDetails>
+            </Accordion>
+          ))}
+        </List>
+      </Paper>
+
+      {/* Action Buttons */}
+      <Box sx={{ mt: 4, display: 'flex', gap: 2, justifyContent: 'center' }}>
+        <Button
+          variant="contained"
+          onClick={() => navigate('/practice-builder')}
+        >
+          Take Another Test
+        </Button>
+        <Button
+          variant="outlined"
+          onClick={() => navigate('/dashboard')}
+        >
+          Return to Dashboard
+        </Button>
+      </Box>
     </Container>
   );
 };

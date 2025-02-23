@@ -81,9 +81,10 @@ instance.interceptors.request.use(
 // Add response interceptor
 instance.interceptors.response.use(
   (response) => {
-    // Handle auth, exam, and subscription endpoints to return just the data
+    // Handle auth, exam, practice, and subscription endpoints to return just the data
     if (response.config.url?.includes('auth/') || 
         response.config.url?.includes('exam/') ||
+        response.config.url?.includes('practice/') ||
         response.config.url?.includes('subscription-status')) {
       return response.data;
     }
@@ -117,8 +118,7 @@ instance.interceptors.response.use(
     }
 
     // For array responses (like questions), ensure it's an array
-    if (response.config.url?.includes('exam/practice') || 
-        response.config.url?.includes('exam/history')) {
+    if (response.config.url?.includes('exam/history')) {
       if (!Array.isArray(response.data)) {
         console.error('Invalid array response:', {
           url: response.config.url,
@@ -446,12 +446,39 @@ export const authAPI = {
 };
 
 export const examAPI = {
-  getPracticeQuestions: async () => {
+  // Practice Test Builder endpoints
+  getPracticeConfig: async () => {
     try {
-      const response = await instance.get('exam/practice');
+      const response = await instance.get('practice/configuration');
       return response;
     } catch (error) {
-      console.error('Failed to get practice questions:', {
+      console.error('Failed to get practice test configuration:', {
+        error,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  },
+
+  generatePracticeTest: async (data) => {
+    try {
+      const response = await instance.post('practice/generate', data);
+      return response;
+    } catch (error) {
+      console.error('Failed to generate practice test:', {
+        error,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  },
+
+  submitPracticeTest: async (data) => {
+    try {
+      const response = await instance.post('practice/submit', data);
+      return response;
+    } catch (error) {
+      console.error('Failed to submit practice test:', {
         error,
         timestamp: new Date().toISOString()
       });
@@ -465,19 +492,6 @@ export const examAPI = {
       return response;
     } catch (error) {
       console.error('Failed to get test history:', {
-        error,
-        timestamp: new Date().toISOString()
-      });
-      throw error;
-    }
-  },
-
-  submitPracticeTest: async (data) => {
-    try {
-      const response = await instance.post('exam/submit-practice', data);
-      return response;
-    } catch (error) {
-      console.error('Failed to submit practice test:', {
         error,
         timestamp: new Date().toISOString()
       });
