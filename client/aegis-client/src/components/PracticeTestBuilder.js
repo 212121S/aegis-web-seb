@@ -116,6 +116,24 @@ const PracticeTestBuilder = () => {
     );
   }
 
+  // Helper function to render selected values
+  const renderSelectedValues = (selected) => {
+    if (selected.includes('All')) {
+      return (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+          <Chip key="All" label="All" />
+        </Box>
+      );
+    }
+    return (
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+        {selected.map((value) => (
+          <Chip key={value} label={value} />
+        ))}
+      </Box>
+    );
+  };
+
   return (
     <Container maxWidth="md">
       <Box my={4}>
@@ -140,13 +158,7 @@ const PracticeTestBuilder = () => {
               multiple
               value={selectedVerticals}
               onChange={(e) => setSelectedVerticals(handleAllSelection(selectedVerticals, config.verticals, e.target.value))}
-              renderValue={(selected) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {selected.map((value) => (
-                    <Chip key={value} label={value} />
-                  ))}
-                </Box>
-              )}
+              renderValue={renderSelectedValues}
             >
               <MenuItem key="All" value="All">All</MenuItem>
               {config?.verticals.map((vertical) => (
@@ -164,13 +176,7 @@ const PracticeTestBuilder = () => {
               multiple
               value={selectedRoles}
               onChange={(e) => setSelectedRoles(handleAllSelection(selectedRoles, config.roles, e.target.value))}
-              renderValue={(selected) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {selected.map((value) => (
-                    <Chip key={value} label={value} />
-                  ))}
-                </Box>
-              )}
+              renderValue={renderSelectedValues}
             >
               <MenuItem key="All" value="All">All</MenuItem>
               {config?.roles.map((role) => (
@@ -188,13 +194,7 @@ const PracticeTestBuilder = () => {
               multiple
               value={selectedTopics}
               onChange={(e) => setSelectedTopics(handleAllSelection(selectedTopics, config.topics, e.target.value))}
-              renderValue={(selected) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                  {selected.map((value) => (
-                    <Chip key={value} label={value} />
-                  ))}
-                </Box>
-              )}
+              renderValue={renderSelectedValues}
             >
               <MenuItem key="All" value="All">All</MenuItem>
               {config?.topics.map((topic) => (
