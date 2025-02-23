@@ -1,4 +1,5 @@
 import { openai, SYSTEM_MESSAGE, generateUserMessage, CACHE_DURATION_HOURS, isOpenAIConfigured } from '../config/openai';
+import type OpenAI from 'openai';
 import { Question, IQuestion, QuestionConstants } from '../models/Question';
 import { QuestionCache, IQuestionCache } from '../models/QuestionCache';
 
@@ -219,13 +220,16 @@ export class QuestionGenerationService {
         model: 'gpt-4o'
       });
 
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages,
-        temperature: 0.7,
-        max_tokens: 2000,
-        n: 1
-      });
+      const completion = await openai.chat.completions.create(
+        {
+          model: 'gpt-4o',
+          messages,
+          temperature: 0.7,
+          max_tokens: 2000,
+          n: 1
+        },
+        { timeout: 15000 } // 15 second timeout
+      );
 
       const content = completion.choices[0]?.message?.content;
       if (!content) {
@@ -242,6 +246,9 @@ export class QuestionGenerationService {
         response: error.response?.data,
         stack: error.stack
       });
+
+      // If it's a timeout or any other error, quickly fall back to database
+      console.warn('Falling back to database questions due to OpenAI error');
       return [];
     }
   }
