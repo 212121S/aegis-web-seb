@@ -97,32 +97,16 @@ export class QuestionGenerationService {
 
   private async getQuestionsFromDatabase(params: GenerationParams): Promise<IQuestion[]> {
     const { verticals, roles, topics, difficulty, count, type = 'multiple_choice' } = params;
+    let questions: IQuestion[] = [];
 
-    // Try to find questions with exact match first
-    let questions = await Question.aggregate([
-      {
-        $match: {
-          industryVerticals: { $in: verticals },
-          roles: { $in: roles },
-          topics: { $in: topics },
-          difficulty: { $in: difficulty },
-          'source.type': 'base',
-          type
-        }
-      },
-      { $sample: { size: count } }
-    ]);
-
-    // If no questions found, try with more relaxed criteria
-    if (questions.length === 0) {
+    try {
+      // Try to find questions with exact match first
       questions = await Question.aggregate([
         {
           $match: {
-            $or: [
-              { industryVerticals: { $in: verticals } },
-              { roles: { $in: roles } },
-              { topics: { $in: topics } }
-            ],
+            industryVerticals: { $in: verticals },
+            roles: { $in: roles },
+            topics: { $in: topics },
             difficulty: { $in: difficulty },
             'source.type': 'base',
             type
@@ -130,13 +114,66 @@ export class QuestionGenerationService {
         },
         { $sample: { size: count } }
       ]);
-    }
 
-    if (questions.length === 0) {
-      throw new Error('No questions available for the selected criteria');
-    }
+      // If no questions found, try with more relaxed criteria
+      if (questions.length === 0) {
+        questions = await Question.aggregate([
+          {
+            $match: {
+              $or: [
+                { industryVerticals: { $in: verticals } },
+                { roles: { $in: roles } },
+                { topics: { $in: topics } }
+              ],
+              difficulty: { $in: difficulty },
+              'source.type': 'base',
+              type
+            }
+          },
+          { $sample: { size: count } }
+        ]);
+      }
 
-    return questions;
+      // If still no questions, try with minimal criteria
+      if (questions.length === 0) {
+        questions = await Question.aggregate([
+          {
+            $match: {
+              $or: [
+                { industryVerticals: { $in: verticals } },
+                { roles: { $in: roles } },
+                { topics: { $in: topics } }
+              ],
+              'source.type': 'base',
+              type
+            }
+          },
+          { $sample: { size: count } }
+        ]);
+      }
+
+      // If still no questions, try with just the type
+      if (questions.length === 0) {
+        questions = await Question.aggregate([
+          {
+            $match: {
+              'source.type': 'base',
+              type
+            }
+          },
+          { $sample: { size: count } }
+        ]);
+      }
+
+      if (questions.length === 0) {
+        throw new Error('No questions available in the database. Please try different criteria or contact support.');
+      }
+
+      return questions;
+    } catch (error) {
+      console.error('Database query error:', error);
+      throw new Error('Failed to retrieve questions from database. Please try again later.');
+    }
   }
 
   private validateParams(params: GenerationParams): void {
@@ -217,12 +254,12 @@ export class QuestionGenerationService {
       console.log('OpenAI Configuration:', {
         isConfigured: isOpenAIConfigured(),
         apiKeyLength: process.env.OPENAI_API_KEY?.length,
-        model: 'gpt-4o'
+        model: 'gpt-4'
       });
 
       const completion = await openai.chat.completions.create(
         {
-          model: 'gpt-4o',
+          model: 'gpt-4',
           messages,
           temperature: 0.7,
           max_tokens: 2000,
