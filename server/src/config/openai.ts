@@ -62,6 +62,7 @@ export const generateUserMessage = (params: {
   topics: string[];
   difficulty: number[];
   count: number;
+  type?: 'multiple_choice' | 'open_ended';
   sampleQuestions?: any[];
 }) => {
   const {
@@ -70,6 +71,7 @@ export const generateUserMessage = (params: {
     topics,
     difficulty,
     count,
+    type = 'multiple_choice',
     sampleQuestions
   } = params;
 
@@ -84,7 +86,8 @@ Requirements:
 1. Questions should be specifically tailored to the intersection of the given verticals, roles, and topics
 2. Maintain the specified difficulty level(s)
 3. Include a mix of theoretical and practical questions
-4. Format each question as a JSON object following the specified structure`;
+4. Generate only ${type === 'multiple_choice' ? 'multiple choice' : 'written answer'} questions
+5. Format each question as a JSON object following the specified structure`;
 
   if (sampleQuestions?.length) {
     message += `\n\nReference these sample questions for style and difficulty calibration:

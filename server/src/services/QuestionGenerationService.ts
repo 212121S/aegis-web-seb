@@ -103,7 +103,7 @@ export class QuestionGenerationService {
   }
 
   private validateParams(params: GenerationParams): void {
-    const { verticals, roles, topics, difficulty } = params;
+    const { verticals, roles, topics, difficulty, type = 'multiple_choice' } = params;
 
     // Validate verticals
     if (!verticals.every(v => QuestionConstants.VALID_VERTICALS.includes(v))) {
@@ -124,16 +124,22 @@ export class QuestionGenerationService {
     if (!difficulty.every(d => Number.isInteger(d) && d >= 1 && d <= 8)) {
       throw new Error('Difficulty must be integers between 1 and 8');
     }
+
+    // Validate question type
+    if (type !== 'multiple_choice' && type !== 'open_ended') {
+      throw new Error('Invalid question type');
+    }
   }
 
   private async findCachedQuestions(params: GenerationParams): Promise<IQuestion[]> {
-    const { verticals, roles, topics, difficulty } = params;
+    const { verticals, roles, topics, difficulty, type = 'multiple_choice' } = params;
 
     const cache = await QuestionCache.findOne({
       'metadata.verticals': { $all: verticals },
       'metadata.roles': { $all: roles },
       'metadata.topics': { $all: topics },
       'metadata.difficulty': { $all: difficulty },
+      'metadata.type': type,
       expiresAt: { $gt: new Date() }
     }).populate('questions');
 
@@ -141,14 +147,15 @@ export class QuestionGenerationService {
   }
 
   private async getSampleQuestions(params: GenerationParams): Promise<IQuestion[]> {
-    const { verticals, roles, topics, difficulty } = params;
+    const { verticals, roles, topics, difficulty, type = 'multiple_choice' } = params;
 
     return Question.find({
       industryVerticals: { $in: verticals },
       roles: { $in: roles },
       topics: { $in: topics },
       difficulty: { $in: difficulty },
-      'source.type': 'base'
+      'source.type': 'base',
+      type
     }).limit(2);
   }
 
@@ -261,7 +268,8 @@ export class QuestionGenerationService {
         verticals: params.verticals,
         roles: params.roles,
         topics: params.topics,
-        difficulty: params.difficulty
+        difficulty: params.difficulty,
+        type: params.type || 'multiple_choice'
       }
     });
 
