@@ -255,16 +255,16 @@ export class QuestionGenerationService {
       console.log('OpenAI Configuration:', {
         isConfigured: isOpenAIConfigured(),
         apiKeyLength: process.env.OPENAI_API_KEY?.length,
-        model: 'gpt-3.5-turbo'
+        model: 'chatgpt-4o-latest'
       });
 
       const completion = await openai.chat.completions.create(
         {
-          model: 'gpt-3.5-turbo',
-          messages,
-          temperature: 0.7,
-          max_tokens: 2000,
-          n: 1
+        model: 'chatgpt-4o-latest',
+        messages,
+        temperature: 0.7,
+        max_tokens: 2000,
+        n: 1
         },
         { timeout: 15000 } // 15 second timeout
       );
