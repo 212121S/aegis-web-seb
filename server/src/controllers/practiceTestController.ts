@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { QuestionGenerationService } from '../services/QuestionGenerationService';
+import { GradingService } from '../services/GradingService';
 import { Question, QuestionConstants } from '../models/Question';
 import { User } from '../models/User';
 import { Types } from 'mongoose';
@@ -141,6 +142,7 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
         questionId: string;
         questionText: string;
         correct: boolean;
+        score: number;
         userAnswer: string;
         correctAnswer: string;
         explanation: string;
@@ -148,21 +150,27 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
     };
 
     // Process each answer
-    answers.forEach(answer => {
+    for (const answer of answers) {
       const question = questions.find(q => q._id.toString() === answer.questionId);
       if (!question) return;
 
-      const isCorrect = question.type === 'multiple_choice' 
-        ? answer.answer === question.correctOption
-        : answer.answer.toLowerCase().trim() === question.answer.toLowerCase().trim();
+      let score = 0;
+      if (question.type === 'multiple_choice') {
+        score = answer.answer === question.correctOption ? 100 : 0;
+      } else {
+        // Use ChatGPT to grade written answers
+        const gradingService = GradingService.getInstance();
+        score = await gradingService.gradeWrittenAnswer(answer.answer, question.answer);
+      }
 
-      if (isCorrect) results.overall.correct++;
+      results.overall.correct += score / 100;
 
       // Add to question results
       results.questions.push({
         questionId: question._id.toString(),
         questionText: question.text,
-        correct: isCorrect,
+        correct: score === 100,
+        score: score,
         userAnswer: answer.answer,
         correctAnswer: question.type === 'multiple_choice' ? question.correctOption! : question.answer,
         explanation: question.explanation
@@ -174,7 +182,7 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
           results.byTopic[topic] = { correct: 0, total: 0, percentage: 0 };
         }
         results.byTopic[topic].total++;
-        if (isCorrect) results.byTopic[topic].correct++;
+        results.byTopic[topic].correct += score / 100;
       });
 
       // Update vertical scores
@@ -183,7 +191,7 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
           results.byVertical[vertical] = { correct: 0, total: 0, percentage: 0 };
         }
         results.byVertical[vertical].total++;
-        if (isCorrect) results.byVertical[vertical].correct++;
+        results.byVertical[vertical].correct += score / 100;
       });
 
       // Update role scores
@@ -192,7 +200,7 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
           results.byRole[role] = { correct: 0, total: 0, percentage: 0 };
         }
         results.byRole[role].total++;
-        if (isCorrect) results.byRole[role].correct++;
+        results.byRole[role].correct += score / 100;
       });
     });
 

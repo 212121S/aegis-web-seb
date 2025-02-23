@@ -214,7 +214,9 @@ const TestResults = () => {
                       mr: 2
                     }}
                   >
-                    {question.correct ? 'Correct' : 'Incorrect'}
+                    {question.score !== undefined 
+                      ? `${question.score.toFixed(1)}%`
+                      : question.correct ? 'Correct' : 'Incorrect'}
                   </Typography>
                 </Box>
               </AccordionSummary>
