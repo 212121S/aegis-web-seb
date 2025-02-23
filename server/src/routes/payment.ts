@@ -22,7 +22,4 @@ router.get('/subscription-status', auth, getSubscriptionStatus);
 // Cancel subscription
 router.post('/cancel-subscription', auth, cancelSubscription);
 
-// Webhook handler - raw body parsing is handled at the app level
-router.post('/webhook', handleWebhook);
-
 export default router;

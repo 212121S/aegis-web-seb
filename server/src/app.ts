@@ -15,6 +15,7 @@ console.log('Stripe Configuration:', {
 import authRoutes from "./routes/auth";
 import examRoutes from "./routes/exam";
 import paymentRoutes from "./routes/payment";
+import webhookRoutes from "./routes/webhook";
 import verificationRoutes from "./routes/verification";
 
 dotenv.config();
@@ -83,7 +84,7 @@ app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
 // Stripe webhook needs raw body - this must come BEFORE the json parser
-app.use('/api/payment/webhook', express.raw({ type: 'application/json' }));
+app.use('/payment/webhook', express.raw({ type: 'application/json' }));
 
 // Parse request bodies for all other routes
 app.use(express.json());
@@ -107,7 +108,10 @@ const requireDatabaseConnection = async (req: Request, res: Response, next: Next
 // Apply database connection middleware to API routes
 app.use('/api', requireDatabaseConnection);
 
-// Mount routes
+// Mount webhook route at root level (before other routes)
+app.use("/payment/webhook", webhookRoutes);
+
+// Mount API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/exam", examRoutes);
 app.use("/api/payment", paymentRoutes);
