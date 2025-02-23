@@ -22,7 +22,7 @@ const HomePage = () => {
 
   const handleStartPractice = () => {
     if (user) {
-      navigate('/practice');
+      navigate('/practice-test-builder');
     } else {
       navigate('/login');
     }
@@ -44,7 +44,7 @@ const HomePage = () => {
             size="large"
             onClick={handleStartPractice}
           >
-            Start Practice Tests
+            Practice Test Builder
           </Button>
           {!user?.subscription?.active && (
             <Button
