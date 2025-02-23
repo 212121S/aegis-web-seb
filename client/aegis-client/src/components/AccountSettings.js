@@ -75,21 +75,25 @@ function AccountSettings() {
         throw new Error('Invalid user data format');
       }
 
-      // Validate required fields
-      if (!user.username || !user.email) {
-        throw new Error('Missing required user fields');
-      }
+      // Extract name and email with fallbacks
+      const name = user.username || user.name || '';
+      const email = user.email || '';
 
       setUserData({
         ...userData,
-        name: user.username,
-        email: user.email,
+        name,
+        email,
         subscription: user.subscription || null,
         verificationToken: user.verificationToken,
         testHistory: user.testHistory || [],
         highestScore: user.highestScore || 0,
         averageScore: user.averageScore || 0
       });
+
+      // Log warning if fields are missing
+      if (!name || !email) {
+        console.warn('Some user fields are missing:', { name, email });
+      }
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.message || 'Failed to load user data';
       setError(errorMessage);

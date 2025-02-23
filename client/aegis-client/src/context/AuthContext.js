@@ -41,7 +41,20 @@ export const AuthProvider = ({ children }) => {
         try {
           const profileData = await authAPI.getProfile();
           console.log('Profile response:', profileData);
-          setUser(profileData);
+          
+          // Ensure we have valid user data
+          if (!profileData || typeof profileData !== 'object') {
+            throw new Error('Invalid profile data format');
+          }
+
+          // Extract user data with fallbacks
+          const userData = {
+            ...profileData,
+            username: profileData.username || profileData.name || '',
+            email: profileData.email || ''
+          };
+
+          setUser(userData);
         } catch (profileError) {
           console.error('Profile fetch failed:', profileError);
           // Don't clear auth state on profile fetch error
