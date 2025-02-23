@@ -5,6 +5,16 @@ import { Question, QuestionConstants } from '../models/Question';
 import { User } from '../models/User';
 import { Types } from 'mongoose';
 
+interface QuestionResult {
+  questionId: string;
+  questionText: string;
+  correct: boolean;
+  score: number;
+  userAnswer: string;
+  correctAnswer: string;
+  explanation: string;
+}
+
 interface UserDocument {
   _id: Types.ObjectId;
   subscription: {
@@ -128,40 +138,38 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
     const questionIds = answers.map(a => new Types.ObjectId(a.questionId));
     const questions = await Question.find({ _id: { $in: questionIds } });
 
-    // Calculate scores by topic and vertical
+    // Initialize results object
     const results = {
-      overall: {
-        correct: 0,
-        total: answers.length,
-        percentage: 0
-      },
+      overall: { correct: 0, total: answers.length, percentage: 0 },
       byTopic: {} as Record<string, { correct: number; total: number; percentage: number }>,
       byVertical: {} as Record<string, { correct: number; total: number; percentage: number }>,
       byRole: {} as Record<string, { correct: number; total: number; percentage: number }>,
-      questions: [] as Array<{
-        questionId: string;
-        questionText: string;
-        correct: boolean;
-        score: number;
-        userAnswer: string;
-        correctAnswer: string;
-        explanation: string;
-      }>
+      questions: new Array<QuestionResult>()
     };
 
-    // Process each answer
-    for (const answer of answers) {
+    // Process answers sequentially
+    const processAnswer = async (answer: { questionId: string; answer: string }) => {
       const question = questions.find(q => q._id.toString() === answer.questionId);
-      if (!question) return;
+      if (!question) return null;
 
       let score = 0;
       if (question.type === 'multiple_choice') {
         score = answer.answer === question.correctOption ? 100 : 0;
       } else {
-        // Use ChatGPT to grade written answers
         const gradingService = GradingService.getInstance();
         score = await gradingService.gradeWrittenAnswer(answer.answer, question.answer);
       }
+
+      return { question, score, answer };
+    };
+
+    // Process all answers and wait for results
+    const processedAnswers = await Promise.all(answers.map(processAnswer));
+
+    // Update results with processed answers
+    processedAnswers.forEach(result => {
+      if (!result) return;
+      const { question, score, answer } = result;
 
       results.overall.correct += score / 100;
 
