@@ -221,6 +221,12 @@ const TestResults = () => {
               <AccordionDetails>
                 <Box>
                   <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                    Question:
+                  </Typography>
+                  <Typography paragraph>
+                    {question.questionText}
+                  </Typography>
+                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
                     Your Answer:
                   </Typography>
                   <Typography paragraph>

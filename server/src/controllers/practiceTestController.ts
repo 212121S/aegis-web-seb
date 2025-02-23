@@ -136,6 +136,7 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
       byRole: {} as Record<string, { correct: number; total: number; percentage: number }>,
       questions: [] as Array<{
         questionId: string;
+        questionText: string;
         correct: boolean;
         userAnswer: string;
         correctAnswer: string;
@@ -157,6 +158,7 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
       // Add to question results
       results.questions.push({
         questionId: question._id.toString(),
+        questionText: question.text,
         correct: isCorrect,
         userAnswer: answer.answer,
         correctAnswer: question.type === 'multiple_choice' ? question.correctOption! : question.answer,
