@@ -427,6 +427,19 @@ export const authAPI = {
       });
       throw error;
     }
+  },
+
+  updateProfile: async (data) => {
+    try {
+      const response = await instance.post('/auth/update-profile', data);
+      return response;
+    } catch (error) {
+      console.error('Update profile error:', {
+        error,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
   }
 };
 

@@ -48,7 +48,7 @@ function TabPanel({ children, value, index, ...other }) {
 
 function AccountSettings() {
   const theme = useTheme();
-  const { updateProfile } = useAuth();
+  const { user, error: authError, updateProfile: updateUserProfile } = useAuth();
   const [value, setValue] = useState(0);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState('');
@@ -65,43 +65,29 @@ function AccountSettings() {
   });
 
   useEffect(() => {
-    fetchUserData();
-  }, []);
-
-  const fetchUserData = async () => {
-    try {
-      const user = await authAPI.getProfile();
-      
-      // Validate user data
-      if (!user || typeof user !== 'object') {
-        throw new Error('Invalid user data format');
-      }
-
-      // Extract name and email with fallbacks
-      const name = user.username || user.name || '';
-      const email = user.email || '';
-
+    if (user) {
       setUserData({
-        ...userData,
-        name,
-        email,
+        name: user.username || user.name || '',
+        email: user.email || '',
         subscription: user.subscription || null,
         verificationToken: user.verificationToken,
         testHistory: user.testHistory || [],
         highestScore: user.highestScore || 0,
-        averageScore: user.averageScore || 0
+        averageScore: user.averageScore || 0,
+        notifications: {
+          email: true,
+          testReminders: true,
+          promotions: false
+        }
       });
-
-      // Log warning if fields are missing
-      if (!name || !email) {
-        console.warn('Some user fields are missing:', { name, email });
-      }
-    } catch (err) {
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to load user data';
-      setError(errorMessage);
-      console.error('Error fetching user data:', err);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (authError) {
+      setError(authError);
+    }
+  }, [authError]);
 
   const handleTabChange = (event, newValue) => {
     setValue(newValue);
@@ -117,15 +103,13 @@ function AccountSettings() {
 
     try {
       // Use the context's updateProfile function which handles token verification
-      const success = await updateProfile({
+      const success = await updateUserProfile({
         name: userData.name,
         email: userData.email
       });
 
       if (success) {
         setSuccess('Profile updated successfully');
-        // Refresh user data to ensure we have the latest
-        await fetchUserData();
       } else {
         setError('Failed to update profile. Please try again.');
       }
@@ -166,9 +150,6 @@ function AccountSettings() {
       setError('');
       
       await paymentAPI.cancelSubscription();
-
-      // Refresh user data to show updated subscription status
-      await fetchUserData();
       setSuccess('Subscription cancelled successfully');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to cancel subscription');
