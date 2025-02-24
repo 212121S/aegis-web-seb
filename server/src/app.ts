@@ -208,7 +208,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction): void => {
 
 // Start server with retry logic
 const startServer = async (retryCount = 0, maxRetries = 3) => {
-  const port = parseInt(process.env.PORT || '3000', 10);
+  const port = process.env.NODE_ENV === 'production' ? 10000 : parseInt(process.env.PORT || '3000', 10);
   const host = '0.0.0.0';
 
   try {
