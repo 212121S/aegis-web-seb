@@ -80,7 +80,7 @@ function Register() {
     debounce(async (query, page) => {
       try {
         setLoadingUniversities(true);
-        const response = await axiosInstance.get('/api/verification/universities', {
+        const response = await axiosInstance.get('/verification/universities', {
           params: {
             q: query,
             page,
@@ -172,7 +172,7 @@ function Register() {
     setError("");
 
     try {
-      const response = await axiosInstance.post('/api/auth/register', {
+      const response = await axiosInstance.post('/auth/register', {
         ...formData,
         university: formData.university._id,
         dateOfBirth: formData.dateOfBirth,
@@ -195,8 +195,8 @@ function Register() {
 
   const handleVerifyEmail = async () => {
     try {
-      await axiosInstance.get(`/api/verification/email/verify/${verificationCode}`);
-      await axiosInstance.post('/api/verification/phone/send');
+      await axiosInstance.get(`/verification/email/verify/${verificationCode}`);
+      await axiosInstance.post('/verification/phone/send');
       setVerificationCode("");
       setActiveStep(2);
     } catch (err) {
@@ -206,7 +206,7 @@ function Register() {
 
   const handleVerifyPhone = async () => {
     try {
-      await axiosInstance.post('/api/verification/phone/verify', {
+      await axiosInstance.post('/verification/phone/verify', {
         code: verificationCode
       });
       setSuccess(true);
@@ -221,7 +221,7 @@ function Register() {
 
   const handleResendEmail = async () => {
     try {
-      await axiosInstance.post('/api/verification/email/resend');
+      await axiosInstance.post('/verification/email/resend');
       setError("Verification email resent");
     } catch (err) {
       setError("Failed to resend verification email");
@@ -230,7 +230,7 @@ function Register() {
 
   const handleResendPhone = async () => {
     try {
-      await axiosInstance.post('/api/verification/phone/resend');
+      await axiosInstance.post('/verification/phone/resend');
       setError("Verification SMS resent");
     } catch (err) {
       setError("Failed to resend verification SMS");
