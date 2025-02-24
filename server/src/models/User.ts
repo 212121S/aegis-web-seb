@@ -167,8 +167,10 @@ const userSchema = new Schema<IUser>({
   timestamps: true
 });
 
-// Indexes
+// Drop any existing username index and add required indexes
 userSchema.index({ 'subscription.stripeCustomerId': 1 });
+userSchema.set('collation', { locale: 'en', strength: 2 });
+userSchema.set('autoIndex', true);
 
 // Methods
 userSchema.methods.toJSON = function() {
