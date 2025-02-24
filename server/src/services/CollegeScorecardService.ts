@@ -72,6 +72,12 @@ class CollegeScorecardService {
     perPage: number;
   }> {
     try {
+      // Try to get data from cache first
+      const cachedData = await this.getFallbackUniversities(page, perPage, query);
+      if (cachedData.universities.length > 0) {
+        return cachedData;
+      }
+
       // Build search parameters
       const params = new URLSearchParams({
         api_key: this.apiKey,
@@ -95,10 +101,13 @@ class CollegeScorecardService {
         params.append('school.name', query);
       }
 
-      // Make API request
+      // Make API request with timeout
       const response = await axios.get<CollegeScorecardResponse>(
         `${this.apiUrl}/schools`,
-        { params }
+        { 
+          params,
+          timeout: 10000 // 10 second timeout
+        }
       );
 
       // Transform the data
@@ -121,7 +130,7 @@ class CollegeScorecardService {
     } catch (error) {
       console.error('Error fetching universities from College Scorecard:', error);
       // Fallback to cached data
-      return this.getFallbackUniversities();
+      return this.getFallbackUniversities(page, perPage, query);
     }
   }
 
@@ -147,10 +156,18 @@ class CollegeScorecardService {
     }
   }
 
-  private async getFallbackUniversities(page: number = 0, perPage: number = 100) {
+  private async getFallbackUniversities(page: number = 0, perPage: number = 100, query: string = '') {
     try {
-      const total = await University.countDocuments();
-      const universities = await University.find()
+      let filter = {};
+      if (query) {
+        filter = {
+          name: { $regex: query, $options: 'i' }
+        };
+      }
+
+      const total = await University.countDocuments(filter);
+      const universities = await University.find(filter)
+        .sort({ name: 1 })
         .skip(page * perPage)
         .limit(perPage)
         .lean();

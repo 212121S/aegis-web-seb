@@ -9,21 +9,35 @@ const router = express.Router();
 // Get universities list with search and pagination
 router.get('/universities', async (req: express.Request, res: express.Response) => {
   try {
+    console.log('Universities endpoint hit:', {
+      query: req.query.q,
+      page: req.query.page,
+      per_page: req.query.per_page
+    });
+
     const query = req.query.q as string || '';
     const page = parseInt(req.query.page as string || '0', 10);
     const perPage = parseInt(req.query.per_page as string || '100', 10);
 
     const collegeService = CollegeScorecardService.getInstance();
+    console.log('Fetching universities...');
     const result = await collegeService.searchUniversities(query, page, perPage);
+    console.log('Universities fetched:', {
+      count: result.universities.length,
+      total: result.total,
+      page: result.page
+    });
 
-    return res.json({
+    const response = {
       universities: result.universities,
       pagination: {
         total: result.total,
         page: result.page,
         per_page: result.perPage
       }
-    });
+    };
+    
+    return res.json(response);
   } catch (error) {
     console.error('Get universities error:', error);
     return res.status(500).json({ error: 'Failed to fetch universities' });
