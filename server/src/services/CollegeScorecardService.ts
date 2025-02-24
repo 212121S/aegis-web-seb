@@ -116,8 +116,11 @@ class CollegeScorecardService {
       }
 
       // Make API request with timeout
+      const url = `${this.apiUrl.replace(/\/+$/, '')}/schools`; // Remove trailing slashes
+      console.log('Making API request to:', url);
+      
       const response = await axios.get<CollegeScorecardResponse>(
-        `${this.apiUrl}/schools`,
+        url,
         { 
           params,
           timeout: 10000 // 10 second timeout

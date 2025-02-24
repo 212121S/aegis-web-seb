@@ -28,16 +28,16 @@ router.get('/universities', async (req: express.Request, res: express.Response) 
       page: result.page
     });
 
-    const response = {
-      universities: result.universities,
-      pagination: {
-        total: result.total,
-        page: result.page,
-        per_page: result.perPage
+    return res.json({
+      data: {
+        universities: result.universities,
+        pagination: {
+          total: result.total,
+          page: result.page,
+          per_page: result.perPage
+        }
       }
-    };
-    
-    return res.json(response);
+    });
   } catch (error) {
     console.error('Get universities error:', error);
     return res.status(500).json({ error: 'Failed to fetch universities' });
