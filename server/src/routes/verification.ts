@@ -2,8 +2,32 @@ import express from 'express';
 import { auth } from '../middleware/authMiddleware';
 import { VerificationService } from '../services/VerificationService';
 import { User } from '../models/User';
+import path from 'path';
+import fs from 'fs';
 
 const router = express.Router();
+
+// Get universities list
+router.get('/universities', async (req, res) => {
+  try {
+    const universitiesPath = path.join(__dirname, '../data/universities.json');
+    const universitiesData = JSON.parse(fs.readFileSync(universitiesPath, 'utf8'));
+    
+    // Extract US and UK universities
+    const usUniversities = universitiesData.US;
+    const ukUniversities = universitiesData.International.filter(
+      (uni: any) => uni.country === 'United Kingdom'
+    );
+    
+    // Combine and format universities
+    const universities = [...usUniversities, ...ukUniversities];
+    
+    res.json(universities);
+  } catch (error) {
+    console.error('Get universities error:', error);
+    res.status(500).json({ error: 'Failed to fetch universities' });
+  }
+});
 
 // Send email verification
 router.post('/email/send', auth, async (req, res) => {

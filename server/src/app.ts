@@ -116,7 +116,7 @@ app.use(requireDatabaseConnection);
 app.use("/api/auth", authRoutes);
 app.use("/api/exam", examRoutes);
 app.use("/api/payment", paymentRoutes);
-app.use("/api/auth/verify", verificationRoutes);
+app.use("/api/verification", verificationRoutes);
 app.use("/api/practice", practiceTestRoutes);
 
 // Health check endpoint
