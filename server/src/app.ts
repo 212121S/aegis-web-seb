@@ -114,7 +114,7 @@ app.use("/api/exam", examRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/practice", practiceTestRoutes);
 
-// Mount verification routes with explicit logging
+// Mount verification routes with logging
 app.use("/api/verification", (req: Request, res: Response, next: NextFunction) => {
   console.log('Verification route accessed:', {
     method: req.method,
@@ -126,37 +126,6 @@ app.use("/api/verification", (req: Request, res: Response, next: NextFunction) =
     cwd: process.cwd(),
     dirname: __dirname
   });
-
-  // Check if this is the universities endpoint
-  if (req.path === '/universities') {
-    console.log('Universities endpoint hit');
-    const universitiesPath = path.join(process.cwd(), 'src/data/universities.json');
-    try {
-      const fileContent = fs.readFileSync(universitiesPath, 'utf8');
-      console.log('File content:', fileContent);
-      
-      const universitiesData = JSON.parse(fileContent);
-      console.log('Parsed data:', universitiesData);
-      
-      const usUniversities = universitiesData.US;
-      console.log('US universities:', usUniversities);
-      
-      const ukUniversities = universitiesData.International.filter(
-        (uni: any) => uni.country === 'United Kingdom'
-      );
-      console.log('UK universities:', ukUniversities);
-      
-      const universities = [...usUniversities, ...ukUniversities];
-      console.log('Combined universities:', universities);
-      
-      res.setHeader('Content-Type', 'application/json');
-      return res.json(universities);
-    } catch (error) {
-      console.error('Error reading universities:', error);
-      return res.status(500).json({ error: 'Failed to fetch universities' });
-    }
-  }
-
   return next();
 }, verificationRoutes);
 
