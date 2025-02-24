@@ -112,12 +112,40 @@ app.use("/payment/webhook", webhookRoutes);
 // Apply database connection middleware to all other routes
 app.use(requireDatabaseConnection);
 
+// Log mounted routes for debugging
+console.log('Mounting API routes:', {
+  auth: '/api/auth',
+  exam: '/api/exam',
+  payment: '/api/payment',
+  verification: '/api/verification',
+  practice: '/api/practice'
+});
+
 // Mount API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/exam", examRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/verification", verificationRoutes);
 app.use("/api/practice", practiceTestRoutes);
+
+// Log all registered routes
+app._router.stack.forEach((middleware: any) => {
+  if (middleware.route) {
+    console.log('Route:', {
+      path: middleware.route.path,
+      methods: Object.keys(middleware.route.methods)
+    });
+  } else if (middleware.name === 'router') {
+    middleware.handle.stack.forEach((handler: any) => {
+      if (handler.route) {
+        console.log('Nested Route:', {
+          path: handler.route.path,
+          methods: Object.keys(handler.route.methods)
+        });
+      }
+    });
+  }
+});
 
 // Health check endpoint
 app.get('/health', async (req: Request, res: Response) => {

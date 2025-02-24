@@ -83,13 +83,7 @@ instance.interceptors.request.use(
 // Add response interceptor
 instance.interceptors.response.use(
   (response) => {
-    // Handle auth, exam, practice, and subscription endpoints to return just the data
-    if (response.config.url?.includes('auth/') || 
-        response.config.url?.includes('exam/') ||
-        response.config.url?.includes('practice/') ||
-        response.config.url?.includes('subscription-status')) {
-      return response.data;
-    }
+    // Log successful responses for debugging
     
     // Log successful payment/subscription responses
     if (response.config?.isPaymentEndpoint || response.config?.isSubscriptionEndpoint) {
@@ -101,8 +95,6 @@ instance.interceptors.response.use(
         type: response.config.metadata.type
       });
     }
-    
-    // Log successful responses for debugging
     console.log('API Response:', {
       url: response.config.url,
       status: response.status,
@@ -130,7 +122,7 @@ instance.interceptors.response.use(
       }
     }
 
-    return response; // Return full response for non-auth endpoints
+    return response.data; // Always return just the data
   },
   async (error) => {
     const isPaymentFlow = window.location.pathname.includes('payment');

@@ -9,9 +9,23 @@ const router = express.Router();
 
 // Get universities list
 router.get('/universities', async (req, res) => {
+  console.log('Universities endpoint hit:', {
+    method: req.method,
+    path: req.path,
+    url: req.url,
+    baseUrl: req.baseUrl,
+    originalUrl: req.originalUrl,
+    timestamp: new Date().toISOString()
+  });
   try {
-    const universitiesPath = path.join(__dirname, '../data/universities.json');
+    // Log the attempted file path and current working directory
+    const universitiesPath = path.join(__dirname, '..', 'data', 'universities.json');
+    console.log('Attempting to read universities from:', universitiesPath);
     const universitiesData = JSON.parse(fs.readFileSync(universitiesPath, 'utf8'));
+    console.log('Successfully loaded universities data:', {
+      usCount: universitiesData.US.length,
+      internationalCount: universitiesData.International.length
+    });
     
     // Extract US and UK universities
     const usUniversities = universitiesData.US;
