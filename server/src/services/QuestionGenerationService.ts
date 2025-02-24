@@ -266,7 +266,7 @@ export class QuestionGenerationService {
           max_tokens: 2000,
           n: 1
         },
-        { timeout: 15000 } // 15 second timeout
+        { timeout: 120000 } // 2 minute timeout
       );
 
       const content = completion.choices[0]?.message?.content;

@@ -3,7 +3,7 @@ import config from '../config';
 
 const instance = axios.create({
   baseURL: config.apiUrl,
-  timeout: 30000,
+  timeout: 30000, // Default timeout
   headers: {
     'Content-Type': 'application/json'
   }
@@ -57,6 +57,8 @@ instance.interceptors.request.use(
     if (config.url?.includes('subscription-status')) {
       config.isSubscriptionEndpoint = true;
       config.timeout = 15000; // 15 seconds for subscription requests
+    } else if (config.url?.includes('practice/generate')) {
+      config.timeout = 120000; // 2 minutes for practice test generation
     }
     
     // Add request timestamp and metadata for tracking
