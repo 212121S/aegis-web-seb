@@ -13,15 +13,32 @@ router.get('/universities', async (req: express.Request, res: express.Response) 
     const page = parseInt(req.query.page as string || '0', 10);
     const perPage = parseInt(req.query.per_page as string || '100', 10);
 
-    const collegeService = CollegeScorecardService.getInstance();
-    const result = await collegeService.searchUniversities(query, page, perPage);
+    // Read from local JSON file
+    const data = require('../data/universities.json');
+    
+    // Combine US and International universities into a single array
+    const allUniversities = [
+      ...data.US.map(uni => ({ ...uni, type: 'US' })),
+      ...data.International.map(uni => ({ ...uni, type: 'International' }))
+    ];
+
+    // Filter by search query if provided
+    const filteredUniversities = query
+      ? allUniversities.filter(uni => 
+          uni.name.toLowerCase().includes(query.toLowerCase())
+        )
+      : allUniversities;
+
+    // Calculate pagination
+    const start = page * perPage;
+    const paginatedUniversities = filteredUniversities.slice(start, start + perPage);
 
     return res.json({
-      universities: result.universities,
+      universities: paginatedUniversities,
       pagination: {
-        total: result.total,
-        page: result.page,
-        per_page: result.perPage
+        total: filteredUniversities.length,
+        page: page,
+        per_page: perPage
       }
     });
   } catch (error) {
