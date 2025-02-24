@@ -5,7 +5,7 @@ services:
     env: node
     region: ohio
     rootDir: server
-    buildCommand: npm ci && npm run build && chmod +x build/start.sh
+    buildCommand: npm ci && rm -rf build && tsc && cp package*.json start.sh build/ && chmod +x build/start.sh
     startCommand: cd build && NODE_ENV=production ./start.sh
     healthCheckPath: /health
     plan: free
