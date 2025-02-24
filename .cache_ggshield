@@ -1,1 +1,1 @@
-{"last_found_secrets": [{"name": "Stripe Webhook Secret - commit://staged/server/src/config/stripe.ts", "match": "57c612bcc139cbb913e739713adb414de6c9eb5d4864724acae32a01f5e94741"}]}
+{"last_found_secrets": [{"name": "Generic High Entropy Secret - commit://staged/render.yaml", "match": "ea2936075fb977796959e5d8193ba9ae8afd4f70f289c4336d8ed597c1e3fb71"}]}
