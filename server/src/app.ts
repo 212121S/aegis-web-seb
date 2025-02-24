@@ -1,4 +1,6 @@
 import express, { Request, Response, NextFunction } from "express";
+import path from 'path';
+import fs from 'fs';
 import { connectMongo, isConnected } from "./database";
 import cors, { CorsOptions } from "cors";
 import dotenv from "dotenv";
@@ -48,22 +50,7 @@ console.log('Environment Configuration:', {
 
 // Enhanced CORS configuration
 const corsOptions: CorsOptions = {
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    // Log CORS check
-    console.log('CORS Check:', { origin, allowedOrigins });
-
-    if (allowedOrigins.some(allowed => origin.includes(allowed))) {
-      callback(null, true);
-    } else {
-      console.warn(`[CORS] Rejected request from origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: '*', // Allow all origins temporarily for debugging
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
   allowedHeaders: [
@@ -96,7 +83,7 @@ const requireDatabaseConnection = async (req: Request, res: Response, next: Next
   if (!isConnected()) {
     try {
       await connectMongo();
-      next();
+      return next();
     } catch (error) {
       console.error('Database connection failed:', error);
       res.status(503).json({ error: 'Database connection failed' });
@@ -125,8 +112,70 @@ console.log('Mounting API routes:', {
 app.use("/api/auth", authRoutes);
 app.use("/api/exam", examRoutes);
 app.use("/api/payment", paymentRoutes);
-app.use("/api/verification", verificationRoutes);
 app.use("/api/practice", practiceTestRoutes);
+
+// Mount verification routes with explicit logging
+app.use("/api/verification", (req: Request, res: Response, next: NextFunction) => {
+  console.log('Verification route accessed:', {
+    method: req.method,
+    path: req.path,
+    url: req.url,
+    baseUrl: req.baseUrl,
+    originalUrl: req.originalUrl,
+    timestamp: new Date().toISOString(),
+    cwd: process.cwd(),
+    dirname: __dirname
+  });
+
+  // Check if this is the universities endpoint
+  if (req.path === '/universities') {
+    console.log('Universities endpoint hit');
+    const universitiesPath = path.join(process.cwd(), 'src/data/universities.json');
+    try {
+      const fileContent = fs.readFileSync(universitiesPath, 'utf8');
+      console.log('File content:', fileContent);
+      
+      const universitiesData = JSON.parse(fileContent);
+      console.log('Parsed data:', universitiesData);
+      
+      const usUniversities = universitiesData.US;
+      console.log('US universities:', usUniversities);
+      
+      const ukUniversities = universitiesData.International.filter(
+        (uni: any) => uni.country === 'United Kingdom'
+      );
+      console.log('UK universities:', ukUniversities);
+      
+      const universities = [...usUniversities, ...ukUniversities];
+      console.log('Combined universities:', universities);
+      
+      res.setHeader('Content-Type', 'application/json');
+      return res.json(universities);
+    } catch (error) {
+      console.error('Error reading universities:', error);
+      return res.status(500).json({ error: 'Failed to fetch universities' });
+    }
+  }
+
+  return next();
+}, verificationRoutes);
+
+// Add catch-all route for debugging
+app.use('*', (req: Request, res: Response, next: NextFunction) => {
+  console.log('Catch-all route hit:', {
+    method: req.method,
+    path: req.path,
+    url: req.url,
+    baseUrl: req.baseUrl,
+    originalUrl: req.originalUrl,
+    timestamp: new Date().toISOString()
+  });
+  
+  // If this is a 404, send a proper error response
+  if (!res.headersSent) {
+    res.status(404).json({ error: 'Route not found' });
+  }
+});
 
 // Log all registered routes
 app._router.stack.forEach((middleware: any) => {

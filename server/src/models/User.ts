@@ -10,6 +10,7 @@ export interface IUser extends Document {
   verificationToken?: string;
   phoneVerificationToken?: string;
   officialTestCredits: number;
+  isAdmin: boolean;
   subscription: {
     active: boolean;
     plan?: string;
@@ -157,6 +158,10 @@ const userSchema = new Schema<IUser>({
   officialTestCredits: {
     type: Number,
     default: 0
+  },
+  isAdmin: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

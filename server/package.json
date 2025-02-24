@@ -19,6 +19,7 @@
         "@types/node": "^18.0.0",
         "@types/nodemailer": "^6.4.17",
         "@types/twilio": "^3.19.2",
+        "axios": "^1.7.9",
         "bcrypt": "^5.1.0",
         "cors": "^2.8.5",
         "dotenv": "^16.1.4",
@@ -44,6 +45,7 @@
         "build": "rm -rf build && tsc && cp -r src/data build/src/ && cp package*.json start.sh build/ && chmod +x build/start.sh",
         "test": "jest",
         "postinstall": "npm run build",
-        "seed:practice": "ts-node src/scripts/seedPracticeQuestions.ts"
+        "seed:practice": "ts-node src/scripts/seedPracticeQuestions.ts",
+        "populate-universities": "ts-node src/scripts/populateUniversityCache.ts"
     }
 }

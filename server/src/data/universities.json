@@ -1,84 +1,19 @@
 {
   "US": [
-    {
-      "name": "Harvard University",
-      "country": "United States",
-      "type": "private",
-      "domain": "harvard.edu"
-    },
-    {
-      "name": "Yale University",
-      "country": "United States",
-      "type": "private",
-      "domain": "yale.edu"
-    },
-    {
-      "name": "Stanford University",
-      "country": "United States",
-      "type": "private",
-      "domain": "stanford.edu"
-    },
-    {
-      "name": "Massachusetts Institute of Technology",
-      "country": "United States",
-      "type": "private",
-      "domain": "mit.edu"
-    },
-    {
-      "name": "Princeton University",
-      "country": "United States",
-      "type": "private",
-      "domain": "princeton.edu"
-    },
-    {
-      "name": "Columbia University",
-      "country": "United States",
-      "type": "private",
-      "domain": "columbia.edu"
-    },
-    {
-      "name": "University of California, Berkeley",
-      "country": "United States",
-      "type": "public",
-      "domain": "berkeley.edu"
-    },
-    {
-      "name": "University of Michigan",
-      "country": "United States",
-      "type": "public",
-      "domain": "umich.edu"
-    }
+    {"name": "Harvard University"},
+    {"name": "Stanford University"},
+    {"name": "MIT"},
+    {"name": "Yale University"},
+    {"name": "Princeton University"},
+    {"name": "Columbia University"},
+    {"name": "UC Berkeley"},
+    {"name": "University of Chicago"}
   ],
   "International": [
-    {
-      "name": "University of Oxford",
-      "country": "United Kingdom",
-      "type": "public",
-      "domain": "ox.ac.uk"
-    },
-    {
-      "name": "University of Cambridge",
-      "country": "United Kingdom",
-      "type": "public",
-      "domain": "cam.ac.uk"
-    },
-    {
-      "name": "ETH Zurich",
-      "country": "Switzerland",
-      "type": "public",
-      "domain": "ethz.ch"
-    },
-    {
-      "name": "University of Toronto",
-      "country": "Canada",
-      "type": "public",
-      "domain": "utoronto.ca"
-    },
-    {
-      "name": "National University of Singapore",
-      "country": "Singapore",
-      "type": "public",
-      "domain": "nus.edu.sg"
-    }
+    {"name": "University of Oxford", "country": "United Kingdom"},
+    {"name": "University of Cambridge", "country": "United Kingdom"},
+    {"name": "Imperial College London", "country": "United Kingdom"},
+    {"name": "University College London", "country": "United Kingdom"},
+    {"name": "London School of Economics", "country": "United Kingdom"}
   ]
 }

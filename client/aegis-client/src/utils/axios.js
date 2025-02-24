@@ -1,12 +1,26 @@
 import axios from 'axios';
 import config from '../config';
 
+// Log the API URL for debugging
+console.log('Creating axios instance with baseURL:', config.apiUrl);
+
 const instance = axios.create({
   baseURL: config.apiUrl,
   timeout: 30000, // Default timeout
   headers: {
     'Content-Type': 'application/json'
   }
+});
+
+// Log all requests for debugging
+instance.interceptors.request.use(request => {
+  console.log('Request:', {
+    url: request.url,
+    baseURL: request.baseURL,
+    method: request.method,
+    timestamp: new Date().toISOString()
+  });
+  return request;
 });
 
 // Custom error classes
@@ -122,7 +136,9 @@ instance.interceptors.response.use(
       }
     }
 
-    return response.data; // Always return just the data
+    // Return the full response for debugging
+    console.log('Full response:', response);
+    return response.data;
   },
   async (error) => {
     const isPaymentFlow = window.location.pathname.includes('payment');

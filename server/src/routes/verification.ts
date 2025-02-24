@@ -2,44 +2,50 @@ import express from 'express';
 import { auth } from '../middleware/authMiddleware';
 import { VerificationService } from '../services/VerificationService';
 import { User } from '../models/User';
-import path from 'path';
-import fs from 'fs';
+import CollegeScorecardService from '../services/CollegeScorecardService';
 
 const router = express.Router();
 
-// Get universities list
-router.get('/universities', async (req, res) => {
-  console.log('Universities endpoint hit:', {
-    method: req.method,
-    path: req.path,
-    url: req.url,
-    baseUrl: req.baseUrl,
-    originalUrl: req.originalUrl,
-    timestamp: new Date().toISOString()
-  });
+// Get universities list with search and pagination
+router.get('/universities', async (req: express.Request, res: express.Response) => {
   try {
-    // Log the attempted file path and current working directory
-    const universitiesPath = path.join(__dirname, '..', 'data', 'universities.json');
-    console.log('Attempting to read universities from:', universitiesPath);
-    const universitiesData = JSON.parse(fs.readFileSync(universitiesPath, 'utf8'));
-    console.log('Successfully loaded universities data:', {
-      usCount: universitiesData.US.length,
-      internationalCount: universitiesData.International.length
+    const query = req.query.q as string || '';
+    const page = parseInt(req.query.page as string || '0', 10);
+    const perPage = parseInt(req.query.per_page as string || '100', 10);
+
+    const collegeService = CollegeScorecardService.getInstance();
+    const result = await collegeService.searchUniversities(query, page, perPage);
+
+    return res.json({
+      universities: result.universities,
+      pagination: {
+        total: result.total,
+        page: result.page,
+        per_page: result.perPage
+      }
     });
-    
-    // Extract US and UK universities
-    const usUniversities = universitiesData.US;
-    const ukUniversities = universitiesData.International.filter(
-      (uni: any) => uni.country === 'United Kingdom'
-    );
-    
-    // Combine and format universities
-    const universities = [...usUniversities, ...ukUniversities];
-    
-    res.json(universities);
   } catch (error) {
     console.error('Get universities error:', error);
-    res.status(500).json({ error: 'Failed to fetch universities' });
+    return res.status(500).json({ error: 'Failed to fetch universities' });
+  }
+});
+
+// Refresh university cache (admin only)
+router.post('/universities/refresh', auth, async (req: express.Request, res: express.Response) => {
+  try {
+    // Check if user is admin
+    const user = await User.findById(req.user?._id);
+    if (!user?.isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const collegeService = CollegeScorecardService.getInstance();
+    await collegeService.refreshCache();
+
+    return res.json({ message: 'University cache refreshed successfully' });
+  } catch (error) {
+    console.error('Refresh universities error:', error);
+    return res.status(500).json({ error: 'Failed to refresh universities' });
   }
 });
 

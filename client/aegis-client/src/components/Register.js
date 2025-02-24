@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axiosInstance from "../utils/axios";
 import {
@@ -22,7 +22,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  useTheme
+  useTheme,
+  Pagination
 } from "@mui/material";
 import {
   Visibility,
@@ -33,8 +34,10 @@ import {
   Phone,
   School,
   Cake,
-  Shield
+  Shield,
+  Search as SearchIcon
 } from "@mui/icons-material";
+import debounce from 'lodash/debounce';
 
 const steps = [
   'Basic Information',
@@ -64,19 +67,41 @@ function Register() {
   const [verificationCode, setVerificationCode] = useState("");
   const [tosDialogOpen, setTosDialogOpen] = useState(false);
   const [userId, setUserId] = useState(null);
+  
+  // New state for university search
+  const [universitySearchQuery, setUniversitySearchQuery] = useState("");
+  const [universityPage, setUniversityPage] = useState(0);
+  const [totalUniversities, setTotalUniversities] = useState(0);
+  const [loadingUniversities, setLoadingUniversities] = useState(false);
+  const perPage = 100;
+
+  // Debounced search function
+  const debouncedFetchUniversities = useCallback(
+    debounce(async (query, page) => {
+      try {
+        setLoadingUniversities(true);
+        const response = await axiosInstance.get('/api/verification/universities', {
+          params: {
+            q: query,
+            page,
+            per_page: perPage
+          }
+        });
+        setUniversities(response.data.universities);
+        setTotalUniversities(response.data.pagination.total);
+      } catch (err) {
+        console.error('Failed to fetch universities:', err);
+        setError('Failed to load universities. Please try again.');
+      } finally {
+        setLoadingUniversities(false);
+      }
+    }, 300),
+    []
+  );
 
   useEffect(() => {
-    fetchUniversities();
-  }, []);
-
-  const fetchUniversities = async () => {
-    try {
-      const response = await axiosInstance.get('/api/verification/universities');
-      setUniversities(response.data);
-    } catch (err) {
-      console.error('Failed to fetch universities:', err);
-    }
-  };
+    debouncedFetchUniversities(universitySearchQuery, universityPage);
+  }, [universitySearchQuery, universityPage]);
 
   const validateBasicInfo = () => {
     if (!formData.email) {
@@ -308,18 +333,22 @@ function Register() {
             <Autocomplete
               id="university"
               options={universities}
-              getOptionLabel={(option) => option.name}
+              getOptionLabel={(option) => `${option.name} (${option.type})`}
               value={formData.university}
               onChange={(event, newValue) => {
                 setFormData(prev => ({ ...prev, university: newValue }));
               }}
+              onInputChange={(event, newInputValue) => {
+                setUniversitySearchQuery(newInputValue);
+              }}
+              loading={loadingUniversities}
               renderInput={(params) => (
                 <TextField
                   {...params}
                   margin="normal"
                   required
                   fullWidth
-                  label="University"
+                  label="Search University"
                   error={!!error && error.includes("university")}
                   InputProps={{
                     ...params.InputProps,
@@ -328,10 +357,28 @@ function Register() {
                         <School color="action" />
                       </InputAdornment>
                     ),
+                    endAdornment: (
+                      <>
+                        {loadingUniversities ? (
+                          <CircularProgress color="inherit" size={20} />
+                        ) : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
                   }}
                 />
               )}
             />
+            {totalUniversities > perPage && (
+              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                <Pagination
+                  count={Math.ceil(totalUniversities / perPage)}
+                  page={universityPage + 1}
+                  onChange={(e, page) => setUniversityPage(page - 1)}
+                  color="primary"
+                />
+              </Box>
+            )}
             <TextField
               margin="normal"
               required

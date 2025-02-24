@@ -19,8 +19,8 @@ const getApiUrl = () => {
   } else {
     baseUrl = apiUrl;
   }
-  // Ensure the URL ends with /api
-  return baseUrl.endsWith('/api') ? baseUrl : `${baseUrl}/api`;
+  // Return the base URL as-is since we're including /api in the env var
+  return baseUrl;
 };
 
 const getStripePrices = () => {
