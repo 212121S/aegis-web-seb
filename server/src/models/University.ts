@@ -38,9 +38,7 @@ const universitySchema = new mongoose.Schema<IUniversity>({
   }
 });
 
-// Create a TTL index on updatedAt
-universitySchema.index({ updatedAt: 1 }, { 
-  expireAfterSeconds: parseInt(process.env.UNIVERSITY_CACHE_TTL || '86400', 10)
-});
+// Index on updatedAt for cache management (without TTL)
+universitySchema.index({ updatedAt: 1 });
 
 export const University = mongoose.model<IUniversity>('University', universitySchema);

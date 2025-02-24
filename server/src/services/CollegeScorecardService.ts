@@ -1,4 +1,5 @@
 import axios from 'axios';
+import mongoose from 'mongoose';
 import { University } from '../models/University';
 
 interface CollegeScorecardResponse {
@@ -56,6 +57,13 @@ class CollegeScorecardService {
     }
   }
 
+  private checkDatabaseConnection() {
+    if (mongoose.connection.readyState !== 1) {
+      console.error('MongoDB not connected. Current state:', mongoose.connection.readyState);
+      throw new Error('Database connection not available');
+    }
+  }
+
   public async searchUniversities(
     query: string = '',
     page: number = 0,
@@ -72,11 +80,17 @@ class CollegeScorecardService {
     perPage: number;
   }> {
     try {
+      this.checkDatabaseConnection();
+
       // Try to get data from cache first
+      console.log('Attempting to fetch from cache first...');
       const cachedData = await this.getFallbackUniversities(page, perPage, query);
       if (cachedData.universities.length > 0) {
+        console.log('Returning cached data:', cachedData.universities.length, 'universities');
         return cachedData;
       }
+
+      console.log('Cache miss, fetching from College Scorecard API...');
 
       // Build search parameters
       const params = new URLSearchParams({
@@ -110,6 +124,8 @@ class CollegeScorecardService {
         }
       );
 
+      console.log('API response received:', response.data.results.length, 'universities');
+
       // Transform the data
       const universities = response.data.results.map(result => ({
         name: result['school.name'],
@@ -121,16 +137,29 @@ class CollegeScorecardService {
       // Cache the results in MongoDB
       await this.cacheUniversities(universities);
 
-      return {
+      const result = {
         universities,
         total: response.data.metadata.total,
         page: response.data.metadata.page,
         perPage: response.data.metadata.per_page
       };
+
+      console.log('Returning API data:', result.universities.length, 'universities');
+      return result;
+
     } catch (error) {
-      console.error('Error fetching universities from College Scorecard:', error);
-      // Fallback to cached data
-      return this.getFallbackUniversities(page, perPage, query);
+      console.error('Error in searchUniversities:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        if (error.stack) console.error('Stack trace:', error.stack);
+      }
+      // Always return a valid response, even if empty
+      return {
+        universities: [],
+        total: 0,
+        page,
+        perPage
+      };
     }
   }
 
@@ -141,6 +170,10 @@ class CollegeScorecardService {
     domain: string;
   }>): Promise<void> {
     try {
+      this.checkDatabaseConnection();
+
+      console.log('Caching', universities.length, 'universities');
+
       // Use bulk operations for better performance
       const operations = universities.map(uni => ({
         updateOne: {
@@ -150,14 +183,26 @@ class CollegeScorecardService {
         }
       }));
 
-      await University.bulkWrite(operations);
+      const result = await University.bulkWrite(operations);
+      console.log('Cache operation result:', {
+        matched: result.matchedCount,
+        modified: result.modifiedCount,
+        upserted: result.upsertedCount
+      });
+
     } catch (error) {
       console.error('Error caching universities:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        if (error.stack) console.error('Stack trace:', error.stack);
+      }
     }
   }
 
   private async getFallbackUniversities(page: number = 0, perPage: number = 100, query: string = '') {
     try {
+      this.checkDatabaseConnection();
+
       let filter = {};
       if (query) {
         filter = {
@@ -165,12 +210,18 @@ class CollegeScorecardService {
         };
       }
 
+      console.log('Querying cache with filter:', filter);
+      
       const total = await University.countDocuments(filter);
+      console.log('Found total documents in cache:', total);
+
       const universities = await University.find(filter)
         .sort({ name: 1 })
         .skip(page * perPage)
         .limit(perPage)
         .lean();
+      
+      console.log('Retrieved from cache:', universities.length, 'universities');
 
       return {
         universities,
@@ -180,24 +231,46 @@ class CollegeScorecardService {
       };
     } catch (error) {
       console.error('Error fetching cached universities:', error);
-      throw new Error('Unable to fetch universities');
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        if (error.stack) console.error('Stack trace:', error.stack);
+      }
+      // Return empty result instead of throwing
+      return {
+        universities: [],
+        total: 0,
+        page,
+        perPage
+      };
     }
   }
 
   public async refreshCache(): Promise<void> {
     try {
+      this.checkDatabaseConnection();
+
+      console.log('Starting cache refresh...');
+
       // Remove universities that haven't been updated within the TTL
       const cutoff = new Date(Date.now() - this.cacheTTL * 1000);
-      await University.deleteMany({
+      const deleteResult = await University.deleteMany({
         updatedAt: { $lt: cutoff }
       });
+      console.log('Deleted expired cache entries:', deleteResult.deletedCount);
 
       // Fetch fresh data for the first 1000 universities (10 pages of 100)
       for (let page = 0; page < 10; page++) {
+        console.log('Fetching page', page, 'of universities');
         await this.searchUniversities('', page, 100);
       }
+
+      console.log('Cache refresh complete');
     } catch (error) {
       console.error('Error refreshing university cache:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        if (error.stack) console.error('Stack trace:', error.stack);
+      }
     }
   }
 }
