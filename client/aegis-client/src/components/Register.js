@@ -52,7 +52,7 @@ function Register() {
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState({
     email: "",
-    username: "",
+    name: "",
     password: "",
     phone: "",
     university: null,
@@ -112,12 +112,12 @@ function Register() {
       setError("Please enter a valid email address");
       return false;
     }
-    if (!formData.username) {
-      setError("Username is required");
+    if (!formData.name) {
+      setError("Name is required");
       return false;
     }
-    if (formData.username.length < 3) {
-      setError("Username must be at least 3 characters long");
+    if (formData.name.length < 2) {
+      setError("Name must be at least 2 characters long");
       return false;
     }
     if (!formData.password) {
@@ -265,13 +265,13 @@ function Register() {
               margin="normal"
               required
               fullWidth
-              id="username"
-              label="Username"
-              name="username"
-              autoComplete="username"
-              value={formData.username}
+              id="name"
+              label="Full Name"
+              name="name"
+              autoComplete="name"
+              value={formData.name}
               onChange={handleChange}
-              error={!!error && error.includes("username")}
+              error={!!error && error.includes("name")}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
