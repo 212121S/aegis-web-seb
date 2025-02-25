@@ -95,11 +95,33 @@ export class QuestionGenerationService {
     }
   }
 
+  private async retryOperation<T>(
+    operation: () => Promise<T>,
+    maxAttempts: number = 2,
+    delayMs: number = 1000
+  ): Promise<T> {
+    let lastError: Error = new Error('Operation failed');
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error as Error;
+        if (attempt < maxAttempts) {
+          console.log(`Attempt ${attempt} failed, retrying after ${delayMs}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
+      }
+    }
+    
+    throw lastError;
+  }
+
   private async getQuestionsFromDatabase(params: GenerationParams): Promise<IQuestion[]> {
     const { verticals, roles, topics, difficulty, count, type = 'multiple_choice' } = params;
-    let questions: IQuestion[] = [];
-
-    try {
+    
+    return this.retryOperation(async () => {
+      let questions: IQuestion[] = [];
       console.log('Attempting to find questions with params:', {
         verticals,
         roles,
@@ -171,10 +193,7 @@ export class QuestionGenerationService {
       }
 
       return questions;
-    } catch (error) {
-      console.error('Database query error:', error);
-      throw new Error('Failed to retrieve questions from database. Please try again later.');
-    }
+    });
   }
 
   private validateParams(params: GenerationParams): void {
