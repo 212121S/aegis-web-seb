@@ -272,7 +272,7 @@ const PracticeTestBuilder = () => {
             {generating ? (
               <>
                 <CircularProgress size={24} sx={{ mr: 1 }} color="inherit" />
-                Generating Test...
+                Generating Practice Test... This may take a minute
               </>
             ) : (
               'Generate Practice Test'
