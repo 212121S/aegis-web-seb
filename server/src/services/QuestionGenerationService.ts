@@ -194,12 +194,65 @@ export class QuestionGenerationService {
 
       console.log(`Found ${questions.length} questions with exact match and difficulty range ${JSON.stringify(difficultyRange)}`);
 
+      // If no exact matches, try progressively more relaxed criteria
       if (questions.length === 0) {
-        // If no exact matches, use a more flexible approach
+        console.log('No exact matches found, trying with more flexible criteria...');
+        
+        // Try with just verticals and roles
+        questions = await Question.find({
+          ...baseQuery,
+          industryVerticals: { $in: verticals },
+          roles: { $in: roles },
+          difficulty: difficultyRange
+        }).limit(count);
+        
+        console.log(`Found ${questions.length} questions with verticals and roles match`);
+      }
+      
+      // If still no matches, try with just topics
+      if (questions.length === 0) {
+        console.log('Still no matches, trying with just topics...');
+        
+        questions = await Question.find({
+          ...baseQuery,
+          topics: { $in: topics },
+          difficulty: difficultyRange
+        }).limit(count);
+        
+        console.log(`Found ${questions.length} questions with topics match`);
+      }
+      
+      // If still no matches, try with just difficulty
+      if (questions.length === 0) {
+        console.log('Still no matches, trying with just difficulty...');
+        
+        questions = await Question.find({
+          ...baseQuery,
+          difficulty: difficultyRange
+        }).limit(count);
+        
+        console.log(`Found ${questions.length} questions with difficulty match`);
+      }
+      
+      // If still no matches, try with any base questions
+      if (questions.length === 0) {
+        console.log('Still no matches, trying with any base questions...');
+        
+        questions = await Question.find({
+          'source.type': 'base'
+        }).limit(count);
+        
+        console.log(`Found ${questions.length} base questions`);
+      }
+
+      // If still no matches, use the flexible scoring approach as a last resort
+      if (questions.length === 0) {
+        console.log('No matches with relaxed criteria, trying flexible scoring approach...');
+        
         // Define pipeline stages for flexible matching
         const pipeline: PipelineStage[] = [
           {
-            $match: baseQuery
+            $match: { 'source.type': 'base' }
           },
           {
             $addFields: {
@@ -261,15 +314,24 @@ export class QuestionGenerationService {
           questions = await Question.find({
             _id: { $in: flexibleMatches.map(q => q._id) }
           });
+          
+          console.log(`Found ${questions.length} questions with flexible scoring approach`);
         }
       }
 
+      // If we still have no questions, try to get any questions as a last resort
       if (questions.length === 0) {
-        console.log('No questions found with any criteria');
-        throw new Error('No questions available in the database. Please try different criteria or contact support.');
+        console.log('No questions found with any criteria, trying to get any questions...');
+        
+        questions = await Question.find({}).limit(count);
+        
+        if (questions.length === 0) {
+          console.log('No questions found in the database at all');
+          throw new Error('No questions available in the database. Please try different criteria or contact support.');
+        }
+        
+        console.log(`Found ${questions.length} questions with no criteria`);
       }
-
-      console.log(`Found ${questions.length} questions`);
 
       return questions;
     });
@@ -524,10 +586,57 @@ Questions should be designed to truly differentiate the top 1% of candidates by 
 
   private parseOpenAIResponse(content: string): GeneratedQuestion[] {
     try {
+      console.log('Raw OpenAI response length:', content.length);
+      
+      // Check if the response starts with non-JSON content
+      if (content.trim().charAt(0) !== '{' && content.trim().charAt(0) !== '[' && !content.includes('```')) {
+        console.warn('OpenAI response does not appear to be JSON format:', content.substring(0, 100) + '...');
+        return [];
+      }
+      
       // The response might be wrapped in ```json ``` or just be plain JSON
-      const jsonStr = content.replace(/```json\n|\```/g, '');
-      const questions = JSON.parse(jsonStr);
+      let jsonStr = content;
+      
+      // Handle markdown code blocks
+      if (content.includes('```')) {
+        const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (codeBlockMatch && codeBlockMatch[1]) {
+          jsonStr = codeBlockMatch[1].trim();
+        } else {
+          console.warn('Could not extract JSON from code blocks');
+          return [];
+        }
+      }
+      
+      // Remove any remaining markdown formatting
+      jsonStr = jsonStr.replace(/```json\n|\```/g, '').trim();
+      
+      // Try to parse the JSON
+      let questions;
+      try {
+        questions = JSON.parse(jsonStr);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        console.warn('Attempting to fix malformed JSON...');
+        
+        // Try to fix common JSON issues
+        // 1. Missing quotes around property names
+        const fixedJson = jsonStr
+          .replace(/(\w+):/g, '"$1":')
+          // 2. Single quotes instead of double quotes
+          .replace(/'/g, '"');
+        
+        try {
+          questions = JSON.parse(fixedJson);
+          console.log('Successfully parsed JSON after fixing format issues');
+        } catch (secondError) {
+          console.error('Failed to parse JSON even after fixes:', secondError);
+          return [];
+        }
+      }
+      
       const parsedQuestions = Array.isArray(questions) ? questions : [questions];
+      console.log(`Successfully parsed ${parsedQuestions.length} questions from OpenAI response`);
 
       // Validate and filter questions
       return parsedQuestions.filter(q => {

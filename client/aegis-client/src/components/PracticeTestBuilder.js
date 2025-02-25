@@ -15,7 +15,8 @@ import {
   Chip,
   CircularProgress,
   Alert,
-  useTheme
+  useTheme,
+  LinearProgress
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { examAPI } from '../utils/axios';
@@ -27,6 +28,10 @@ const PracticeTestBuilder = () => {
   const [error, setError] = useState(null);
   const [config, setConfig] = useState(null);
   const [generating, setGenerating] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [retryProgress, setRetryProgress] = useState(0);
+  const [retryMessage, setRetryMessage] = useState('');
+  const MAX_RETRIES = 3;
 
   // Form state
   const [selectedVerticals, setSelectedVerticals] = useState([]);
@@ -71,6 +76,56 @@ const PracticeTestBuilder = () => {
     return value;
   };
 
+  // Helper function to delay execution with exponential backoff
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const generateTestWithRetry = async (params, currentRetry = 0) => {
+    try {
+      // Update retry UI
+      setRetryCount(currentRetry);
+      setRetryProgress(0);
+      
+      if (currentRetry > 0) {
+        setRetryMessage(`Attempt ${currentRetry}/${MAX_RETRIES} - Retrying test generation...`);
+      }
+      
+      // Simulate progress during API call
+      const progressInterval = setInterval(() => {
+        setRetryProgress(prev => Math.min(prev + 5, 95));
+      }, 300);
+      
+      // Attempt to generate the test
+      const testSession = await examAPI.generatePracticeTest(params);
+      
+      // Clear progress interval
+      clearInterval(progressInterval);
+      setRetryProgress(100);
+      
+      // Success - store test session and navigate
+      localStorage.setItem('currentPracticeTest', JSON.stringify(testSession));
+      navigate('/practice-test');
+      
+      return true;
+    } catch (error) {
+      console.error(`Attempt ${currentRetry + 1} failed:`, error);
+      
+      // If we haven't reached max retries, try again with exponential backoff
+      if (currentRetry < MAX_RETRIES - 1) {
+        const backoffTime = Math.pow(2, currentRetry) * 1000; // Exponential backoff: 1s, 2s, 4s, etc.
+        setRetryMessage(`Attempt ${currentRetry + 1} failed. Retrying in ${backoffTime/1000} seconds...`);
+        
+        // Wait with backoff before retrying
+        await delay(backoffTime);
+        
+        // Recursive retry with incremented counter
+        return generateTestWithRetry(params, currentRetry + 1);
+      } else {
+        // Max retries reached, throw the error to be caught by the caller
+        throw error;
+      }
+    }
+  };
+
   const handleGenerateTest = async () => {
     try {
       if (!selectedVerticals.length || !selectedRoles.length || !selectedTopics.length) {
@@ -80,13 +135,15 @@ const PracticeTestBuilder = () => {
 
       setGenerating(true);
       setError(null);
+      setRetryCount(0);
+      setRetryMessage('');
 
       // If "All" is selected, use all options from config
       const verticals = selectedVerticals.includes('All') ? config.verticals : selectedVerticals;
       const roles = selectedRoles.includes('All') ? config.roles : selectedRoles;
       const topics = selectedTopics.includes('All') ? config.topics : selectedTopics;
 
-      const testSession = await examAPI.generatePracticeTest({
+      const params = {
         verticals: verticals.filter(v => v !== 'All'),  // Filter out "All" from the arrays
         roles: roles.filter(r => r !== 'All'),
         topics: topics.filter(t => t !== 'All'),
@@ -94,16 +151,18 @@ const PracticeTestBuilder = () => {
         count: questionCount,
         useAI,
         questionType
-      });
+      };
 
-      // Store test session in localStorage for the practice test component
-      localStorage.setItem('currentPracticeTest', JSON.stringify(testSession));
-      navigate('/practice-test');
+      // Call the retry function
+      await generateTestWithRetry(params);
+      
     } catch (error) {
-      console.error('Failed to generate test:', error);
-      setError(error.message || 'Failed to generate test. Please try again.');
+      console.error('All retry attempts failed:', error);
+      setError(error.message || 'Failed to generate test after multiple attempts. Please try again with different criteria.');
     } finally {
       setGenerating(false);
+      setRetryMessage('');
+      setRetryProgress(0);
     }
   };
 
@@ -260,6 +319,16 @@ const PracticeTestBuilder = () => {
             sx={{ mb: 3 }}
           />
 
+          {/* Retry Progress */}
+          {generating && retryCount > 0 && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                {retryMessage}
+              </Typography>
+              <LinearProgress variant="determinate" value={retryProgress} />
+            </Box>
+          )}
+
           {/* Generate Button */}
           <Button
             variant="contained"
@@ -272,7 +341,7 @@ const PracticeTestBuilder = () => {
             {generating ? (
               <>
                 <CircularProgress size={24} sx={{ mr: 1 }} color="inherit" />
-                Generating Practice Test... This may take a minute
+                {retryCount === 0 ? 'Generating Practice Test... This may take a minute' : `Retry ${retryCount}/${MAX_RETRIES} in progress...`}
               </>
             ) : (
               'Generate Practice Test'
