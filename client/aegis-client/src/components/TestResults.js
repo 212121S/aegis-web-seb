@@ -18,6 +18,7 @@ import {
   AccordionSummary,
   AccordionDetails,
   Chip,
+  Divider,
   useTheme
 } from '@mui/material';
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
@@ -67,6 +68,12 @@ const TestResults = () => {
     }
   };
 
+  // Helper function to clean markdown formatting from text
+  const cleanMarkdown = (text) => {
+    if (!text) return '';
+    return text.replace(/\*\*/g, '');
+  };
+
   const getChartData = (data, label) => ({
     labels: Object.keys(data),
     datasets: [
@@ -98,6 +105,22 @@ const TestResults = () => {
         display: false
       }
     }
+  };
+
+  // Helper function to get status label based on percentage
+  const getStatusLabel = (percentage) => {
+    if (percentage >= 90) return 'Exceptional';
+    if (percentage >= 70) return 'Good';
+    if (percentage >= 50) return 'Adequate';
+    if (percentage > 0) return 'Poor';
+    return 'Not Addressed';
+  };
+
+  // Helper function to get color based on percentage
+  const getStatusColor = (percentage) => {
+    if (percentage >= 70) return 'success';
+    if (percentage >= 50) return 'warning';
+    return 'error';
   };
 
   if (!results) {
@@ -223,36 +246,43 @@ const TestResults = () => {
               </AccordionSummary>
               <AccordionDetails>
                 <Box>
-                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
-                    Question:
-                  </Typography>
-                  <Typography paragraph>
-                    {question.questionText}
-                  </Typography>
-                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
-                    Your Answer:
-                  </Typography>
-                  <Typography paragraph>
-                    {question.userAnswer}
-                  </Typography>
-                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
-                    Correct Answer:
-                  </Typography>
-                  <Typography paragraph>
-                    {question.correctAnswer}
-                  </Typography>
-                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
-                    Explanation:
-                  </Typography>
-                  <Typography paragraph>
-                    {question.explanation}
-                  </Typography>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                        Question:
+                      </Typography>
+                      <Typography paragraph>
+                        {question.questionText}
+                      </Typography>
+                      <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                        Your Answer:
+                      </Typography>
+                      <Typography paragraph>
+                        {question.userAnswer}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                        Correct Answer:
+                      </Typography>
+                      <Typography paragraph>
+                        {cleanMarkdown(question.correctAnswer)}
+                      </Typography>
+                      <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                        Explanation:
+                      </Typography>
+                      <Typography paragraph>
+                        {question.explanation}
+                      </Typography>
+                    </Grid>
+                  </Grid>
                   
                   {/* Holistic Feedback from ChatGPT */}
                   {question.holisticFeedback && (
                     <>
-                      <Typography variant="subtitle2" color="textSecondary" gutterBottom sx={{ mt: 2 }}>
-                        AI Grading Assessment:
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="h6" gutterBottom>
+                        AI Grading Assessment
                       </Typography>
                       <Paper 
                         variant="outlined" 
@@ -269,10 +299,7 @@ const TestResults = () => {
                           </Typography>
                           <Chip 
                             label={`${question.holisticFeedback.score}%`}
-                            color={
-                              question.holisticFeedback.score >= 70 ? 'success' :
-                              question.holisticFeedback.score >= 50 ? 'warning' : 'error'
-                            }
+                            color={getStatusColor(question.holisticFeedback.score)}
                           />
                         </Box>
                         <Typography variant="body1">
@@ -285,17 +312,19 @@ const TestResults = () => {
                   {/* Concept Feedback for Written Answers */}
                   {question.conceptsFeedback && question.conceptsFeedback.length > 0 && (
                     <>
-                      <Typography variant="subtitle2" color="textSecondary" gutterBottom sx={{ mt: 2 }}>
-                        Grading Breakdown:
+                      <Typography variant="h6" gutterBottom>
+                        Grading Breakdown
                       </Typography>
-                      <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
+                      
+                      {/* Compact Grading Table */}
+                      <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
                         <Table size="small">
                           <TableHead>
                             <TableRow>
                               <TableCell>Concept</TableCell>
-                              <TableCell>Description</TableCell>
                               <TableCell align="center">Weight</TableCell>
-                              <TableCell align="center">Status</TableCell>
+                              <TableCell align="center">Score</TableCell>
+                              <TableCell align="center">Points</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
@@ -305,84 +334,105 @@ const TestResults = () => {
                                   ? `rgba(76, 175, 80, ${Math.min(concept.qualityPercentage / 100, 0.2)})`
                                   : 'rgba(244, 67, 54, 0.1)'
                               }}>
-                                <TableCell>{concept.concept}</TableCell>
-                                <TableCell>{concept.description || 'N/A'}</TableCell>
+                                <TableCell>
+                                  <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                                    {concept.concept}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {concept.description || 'N/A'}
+                                  </Typography>
+                                </TableCell>
                                 <TableCell align="center">{concept.weight}%</TableCell>
                                 <TableCell align="center">
                                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <Typography sx={{ 
-                                      color: concept.qualityPercentage >= 70 ? 'success.main' : 
-                                             concept.qualityPercentage >= 50 ? 'warning.main' : 'error.main',
-                                      fontWeight: 'bold'
-                                    }}>
-                                      {concept.qualityPercentage}%
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {concept.qualityPercentage >= 90 ? 'Exceptional' :
-                                       concept.qualityPercentage >= 70 ? 'Good' :
-                                       concept.qualityPercentage >= 50 ? 'Adequate' :
-                                       concept.qualityPercentage > 0 ? 'Poor' : 'Not Addressed'}
+                                    <Chip 
+                                      label={`${concept.qualityPercentage}%`}
+                                      color={getStatusColor(concept.qualityPercentage)}
+                                      size="small"
+                                      sx={{ fontWeight: 'bold' }}
+                                    />
+                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                                      {getStatusLabel(concept.qualityPercentage)}
                                     </Typography>
                                   </Box>
                                 </TableCell>
+                                <TableCell align="center">
+                                  {((concept.qualityPercentage / 100) * concept.weight).toFixed(1)} / {concept.weight}
+                                </TableCell>
                               </TableRow>
                             ))}
+                            {/* Total row */}
+                            <TableRow sx={{ backgroundColor: 'rgba(63, 81, 181, 0.1)' }}>
+                              <TableCell colSpan={2} sx={{ fontWeight: 'bold' }}>Total</TableCell>
+                              <TableCell align="center">
+                                <Chip 
+                                  label={`${question.score ? question.score.toFixed(1) : 0}%`}
+                                  color={getStatusColor(question.score || 0)}
+                                  size="small"
+                                  sx={{ fontWeight: 'bold' }}
+                                />
+                              </TableCell>
+                              <TableCell align="center">
+                                {question.conceptsFeedback.reduce((total, concept) => 
+                                  total + ((concept.qualityPercentage / 100) * concept.weight), 0).toFixed(1)} / 100
+                              </TableCell>
+                            </TableRow>
                           </TableBody>
                         </Table>
                       </TableContainer>
                       
-                      {/* Detailed Feedback */}
-                      <Typography variant="subtitle2" color="textSecondary" gutterBottom>
-                        Detailed Feedback:
+                      {/* Detailed Feedback - Collapsible */}
+                      <Typography variant="h6" gutterBottom>
+                        Detailed Feedback
                       </Typography>
-                      {question.conceptsFeedback.map((concept, idx) => (
-                        <Paper key={idx} variant="outlined" sx={{ p: 2, mb: 1, borderLeft: concept.addressed ? '4px solid #4caf50' : '4px solid #f44336' }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                              {concept.concept} ({concept.weight}%)
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography sx={{ 
-                                fontWeight: 'bold',
-                                color: concept.qualityPercentage >= 70 ? 'success.main' : 
-                                       concept.qualityPercentage >= 50 ? 'warning.main' : 'error.main',
-                              }}>
-                                {concept.qualityPercentage}%
-                              </Typography>
-                              <Chip 
-                                label={
-                                  concept.qualityPercentage >= 90 ? 'Exceptional' :
-                                  concept.qualityPercentage >= 70 ? 'Good' :
-                                  concept.qualityPercentage >= 50 ? 'Adequate' :
-                                  concept.qualityPercentage > 0 ? 'Poor' : 'Not Addressed'
-                                } 
-                                color={
-                                  concept.qualityPercentage >= 70 ? 'success' :
-                                  concept.qualityPercentage >= 50 ? 'warning' : 'error'
-                                }
-                                size="small"
-                              />
-                            </Box>
-                          </Box>
-                          
-                          {/* Calculate points earned for this concept */}
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                            Points: {((concept.qualityPercentage / 100) * concept.weight).toFixed(1)} / {concept.weight}
-                          </Typography>
-                          
-                          {/* Only show if feedback isn't the default "not evaluated" message */}
-                          {concept.feedback && !concept.feedback.includes("not evaluated") && (
-                            <>
-                              <Typography variant="body2" sx={{ fontWeight: 'bold', mt: 1 }}>
-                                Feedback:
-                              </Typography>
-                              <Typography variant="body2" paragraph>
-                                {concept.feedback}
-                              </Typography>
-                            </>
-                          )}
-                        </Paper>
-                      ))}
+                      <Grid container spacing={2}>
+                        {question.conceptsFeedback.map((concept, idx) => (
+                          <Grid item xs={12} md={6} key={idx}>
+                            <Paper 
+                              variant="outlined" 
+                              sx={{ 
+                                p: 2, 
+                                height: '100%',
+                                borderLeft: `4px solid ${
+                                  concept.qualityPercentage >= 70 ? '#4caf50' : 
+                                  concept.qualityPercentage >= 50 ? '#ff9800' : '#f44336'
+                                }`
+                              }}
+                            >
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                                  {concept.concept}
+                                </Typography>
+                                <Chip 
+                                  label={`${concept.qualityPercentage}%`}
+                                  color={getStatusColor(concept.qualityPercentage)}
+                                  size="small"
+                                />
+                              </Box>
+                              
+                              {/* Only show if feedback is meaningful */}
+                              {concept.feedback && 
+                               !concept.feedback.includes("not evaluated") && 
+                               !concept.feedback.includes("does not appear to address this concept adequately") && (
+                                <Typography variant="body2">
+                                  {concept.feedback}
+                                </Typography>
+                              )}
+                              
+                              {/* Show a default message if no meaningful feedback */}
+                              {(!concept.feedback || 
+                                concept.feedback.includes("not evaluated") || 
+                                concept.feedback.includes("does not appear to address this concept adequately")) && (
+                                <Typography variant="body2" color="text.secondary">
+                                  {concept.addressed 
+                                    ? "This concept is partially addressed in your answer."
+                                    : "This concept was not clearly addressed in your answer."}
+                                </Typography>
+                              )}
+                            </Paper>
+                          </Grid>
+                        ))}
+                      </Grid>
                     </>
                   )}
                 </Box>

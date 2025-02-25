@@ -47,11 +47,14 @@ export class GradingService {
         return { score, conceptsFeedback: [] };
       }
 
+      // Remove markdown formatting from the correct answer
+      const cleanedAnswer = question.answer.replace(/\*\*/g, '');
+
       // Get holistic feedback from ChatGPT
       const holisticFeedback = await this.getHolisticGradeFromChatGPT(
         userAnswer, 
         question.text, 
-        question.answer, 
+        cleanedAnswer, 
         question.explanation
       );
 
@@ -68,10 +71,10 @@ export class GradingService {
       const enhancedRubric = this.ensureRubricDescriptions(question.rubric);
       
       // Extract key concepts from the student's answer
-      const extractedConcepts = await this.extractConceptsFromAnswer(userAnswer, question.answer, enhancedRubric);
+      const extractedConcepts = await this.extractConceptsFromAnswer(userAnswer, cleanedAnswer, enhancedRubric);
       
       // Evaluate those concepts against the rubric
-      const rubricResult = await this.evaluateAgainstRubric(userAnswer, question.answer, enhancedRubric, extractedConcepts);
+      const rubricResult = await this.evaluateAgainstRubric(userAnswer, cleanedAnswer, enhancedRubric, extractedConcepts);
       
       // Return combined result with holistic feedback as the primary score
       return {
@@ -84,7 +87,7 @@ export class GradingService {
       
       // Fall back to legacy grading if both approaches fail
       try {
-        const score = await this.legacyGradeWrittenAnswer(userAnswer, question.answer);
+        const score = await this.legacyGradeWrittenAnswer(userAnswer, question.answer.replace(/\*\*/g, ''));
         return { score, conceptsFeedback: [] };
       } catch (fallbackError) {
         console.error('Error in fallback grading:', fallbackError);
@@ -205,7 +208,12 @@ Provide a holistic grade (0-100) and detailed feedback.`
       "Technical Accuracy": "Demonstrates correct application of financial concepts, terminology, and analytical frameworks",
       "Completeness": "Covers all key aspects of the question with sufficient depth and supporting rationale",
       "Strategic Thinking": "Shows consideration of multiple scenarios, risk assessment, and long-term implications",
-      "Practical Implementation": "Addresses real-world constraints, implementation challenges, and operational feasibility"
+      "Practical Implementation": "Addresses real-world constraints, implementation challenges, and operational feasibility",
+      "Revenue synergies": "Identifies and explains potential revenue benefits from the acquisition",
+      "Cost synergies": "Discusses cost reductions and operational efficiencies gained post-acquisition",
+      "Integration costs": "Analyzes the costs involved in achieving synergies and potential risks",
+      "Strategic alignment": "Evaluates how the acquisition fits within the strategic objectives of the parent company",
+      "Sensitivity analysis": "Includes the approach to test various scenarios and their impacts on synergies"
     };
 
     // Return the mapped description or a generic one based on the concept name
@@ -394,56 +402,258 @@ Evaluate each concept in the rubric, determining whether it's adequately address
         }
       }
       
-      // Ensure all criteria are included in the feedback
-      for (const criterion of rubric.criteria) {
-        if (!conceptsFeedback.some(cf => cf.concept === criterion.concept)) {
-          // For any missing criteria, make a second attempt to evaluate
-          const hasExtractedConcepts = extractedConcepts[criterion.concept]?.length > 0;
-          const qualityPercentage = hasExtractedConcepts ? 50 : 0; // Default to 50% quality if we found some phrases
+      // If we're missing any concepts, use the fallback evaluation for those
+      if (conceptsFeedback.length < rubric.criteria.length) {
+        const missingCriteria = rubric.criteria.filter(
+          criterion => !conceptsFeedback.some(cf => cf.concept === criterion.concept)
+        );
+        
+        if (missingCriteria.length > 0) {
+          // Create a partial fallback just for the missing criteria
+          const partialFallback = await this.createPartialFallbackEvaluation(
+            userAnswer, 
+            correctAnswer, 
+            { criteria: missingCriteria }, 
+            extractedConcepts
+          );
           
-          conceptsFeedback.push({
-            concept: criterion.concept,
-            addressed: hasExtractedConcepts,
-            qualityPercentage: qualityPercentage,
-            feedback: hasExtractedConcepts 
-              ? `Based on extracted phrases, this concept appears to be partially addressed, but a detailed evaluation couldn't be performed.` 
-              : `The answer does not appear to address this concept adequately.`,
-            weight: criterion.weight,
-            description: criterion.description
-          });
+          // Add the missing criteria feedback
+          conceptsFeedback.push(...partialFallback.conceptsFeedback);
           
-          // Add the weighted score based on quality percentage
-          score += (qualityPercentage / 100) * criterion.weight;
+          // Update the score
+          score = conceptsFeedback.reduce(
+            (total, cf) => total + ((cf.qualityPercentage / 100) * cf.weight), 
+            0
+          );
         }
       }
       
       return { score, conceptsFeedback };
     } catch (error) {
       console.error('Error in rubric evaluation:', error);
+      return this.createFallbackEvaluation(userAnswer, correctAnswer, rubric, extractedConcepts);
+    }
+  }
+
+  /**
+   * Create fallback evaluation when the primary evaluation fails
+   */
+  private async createFallbackEvaluation(
+    userAnswer: string,
+    correctAnswer: string,
+    rubric: { criteria: Array<{ concept: string; description: string; weight: number; }> },
+    extractedConcepts: Record<string, string[]>
+  ): Promise<GradingResult> {
+    try {
+      // First try to get a holistic assessment to distribute across concepts
+      const holisticFeedback = await this.getHolisticGradeFromChatGPT(
+        userAnswer, 
+        "", // We don't need the question text here
+        correctAnswer, 
+        ""  // We don't need the explanation here
+      );
       
-      // Create fallback feedback if evaluation fails
+      // Create a map of concept keywords to help distribute the holistic feedback
+      const conceptKeywords = rubric.criteria.reduce((map, criterion) => {
+        // Extract key terms from the concept name and description
+        const keyTerms = [
+          ...criterion.concept.toLowerCase().split(/\s+/),
+          ...(criterion.description ? criterion.description.toLowerCase().split(/\s+/) : [])
+        ].filter(term => term.length > 3); // Only use terms with more than 3 characters
+        
+        map[criterion.concept] = keyTerms;
+        return map;
+      }, {} as Record<string, string[]>);
+      
+      // Calculate a relevance score for each concept based on the holistic feedback
+      const relevanceScores = rubric.criteria.reduce((map, criterion) => {
+        const keywords = conceptKeywords[criterion.concept] || [];
+        let relevance = 0;
+        
+        // Count how many keywords from this concept appear in the holistic feedback
+        keywords.forEach(keyword => {
+          const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
+          const matches = (holisticFeedback.feedback.match(regex) || []).length;
+          relevance += matches;
+        });
+        
+        // Ensure a minimum relevance score
+        map[criterion.concept] = Math.max(1, relevance);
+        return map;
+      }, {} as Record<string, number>);
+      
+      // Calculate the total relevance score
+      const totalRelevance = Object.values(relevanceScores).reduce((sum, score) => sum + score, 0);
+      
+      // Distribute the holistic score across concepts based on relevance and extracted phrases
       const conceptsFeedback = rubric.criteria.map(criterion => {
-        // Check if we have extracted concepts for this criterion
         const hasExtractedConcepts = extractedConcepts[criterion.concept]?.length > 0;
-        const qualityPercentage = hasExtractedConcepts ? 50 : 0; // Default to 50% quality if we found some phrases
+        const relevanceRatio = relevanceScores[criterion.concept] / totalRelevance;
+        
+        // Calculate a quality percentage based on the holistic score, relevance, and extracted phrases
+        // If we have extracted phrases, give a boost to the score
+        const extractedBoost = hasExtractedConcepts ? 1.2 : 0.8;
+        let qualityPercentage = Math.round(holisticFeedback.score * relevanceRatio * extractedBoost);
+        
+        // Ensure the quality percentage is within bounds
+        qualityPercentage = Math.min(100, Math.max(0, qualityPercentage));
+        
+        // Generate specific feedback based on the holistic assessment
+        let feedback = "";
+        if (hasExtractedConcepts) {
+          const phrases = extractedConcepts[criterion.concept];
+          feedback = `The answer addresses this concept with phrases like: "${phrases.join('", "')}". `;
+          
+          // Add a portion of the holistic feedback that might be relevant
+          if (holisticFeedback.feedback.length > 0) {
+            // Find sentences in the holistic feedback that contain keywords from this concept
+            const keywords = conceptKeywords[criterion.concept] || [];
+            const sentences = holisticFeedback.feedback.split(/\.\s+/);
+            
+            const relevantSentences = sentences.filter(sentence => 
+              keywords.some(keyword => 
+                sentence.toLowerCase().includes(keyword)
+              )
+            );
+            
+            if (relevantSentences.length > 0) {
+              feedback += `Overall assessment: ${relevantSentences.join('. ')}.`;
+            } else {
+              // If no specific sentences match, add a generic assessment
+              feedback += `This concept is partially addressed in the overall response.`;
+            }
+          }
+        } else {
+          feedback = `The answer does not clearly address this concept. `;
+          
+          // Add suggestions based on the correct answer
+          const correctAnswerLower = correctAnswer.toLowerCase();
+          if (correctAnswerLower.includes(criterion.concept.toLowerCase())) {
+            // Find sentences in the correct answer that mention this concept
+            const sentences = correctAnswer.split(/\.\s+/);
+            const relevantSentences = sentences.filter(sentence => 
+              sentence.toLowerCase().includes(criterion.concept.toLowerCase())
+            );
+            
+            if (relevantSentences.length > 0) {
+              feedback += `The correct answer addresses this by explaining: "${relevantSentences[0]}".`;
+            }
+          }
+        }
         
         return {
           concept: criterion.concept,
           addressed: hasExtractedConcepts,
-          qualityPercentage: qualityPercentage,
-          feedback: hasExtractedConcepts 
-            ? `Based on extracted phrases, this concept appears to be partially addressed, but a detailed evaluation couldn't be performed.` 
-            : `The answer does not appear to address this concept adequately.`,
+          qualityPercentage,
+          feedback,
           weight: criterion.weight,
           description: criterion.description
         };
       });
       
-      // Calculate fallback score based on quality percentages
-      const score = conceptsFeedback.reduce((total, cf) => total + ((cf.qualityPercentage / 100) * cf.weight), 0);
+      // Calculate the final score based on the weighted average of concept scores
+      const score = conceptsFeedback.reduce(
+        (total, cf) => total + ((cf.qualityPercentage / 100) * cf.weight), 
+        0
+      );
+      
+      return { score, conceptsFeedback };
+    } catch (error) {
+      console.error('Error in fallback evaluation:', error);
+      
+      // If everything fails, create a very basic fallback
+      const conceptsFeedback = rubric.criteria.map(criterion => {
+        const hasExtractedConcepts = extractedConcepts[criterion.concept]?.length > 0;
+        
+        return {
+          concept: criterion.concept,
+          addressed: hasExtractedConcepts,
+          qualityPercentage: hasExtractedConcepts ? 50 : 0,
+          feedback: hasExtractedConcepts 
+            ? `The answer includes some elements related to this concept.` 
+            : `The answer does not appear to address this concept.`,
+          weight: criterion.weight,
+          description: criterion.description
+        };
+      });
+      
+      const score = conceptsFeedback.reduce(
+        (total, cf) => total + ((cf.qualityPercentage / 100) * cf.weight), 
+        0
+      );
       
       return { score, conceptsFeedback };
     }
+  }
+
+  /**
+   * Create a partial fallback evaluation for missing criteria
+   */
+  private async createPartialFallbackEvaluation(
+    userAnswer: string,
+    correctAnswer: string,
+    rubric: { criteria: Array<{ concept: string; description: string; weight: number; }> },
+    extractedConcepts: Record<string, string[]>
+  ): Promise<GradingResult> {
+    // This is a simplified version of createFallbackEvaluation that only handles specific criteria
+    const conceptsFeedback: ConceptFeedback[] = [];
+    
+    for (const criterion of rubric.criteria) {
+      const hasExtractedConcepts = extractedConcepts[criterion.concept]?.length > 0;
+      
+      // Calculate a quality percentage based on extracted phrases and a base score
+      // We'll use a more nuanced approach than the simple 50/0 split
+      let qualityPercentage = 0;
+      
+      if (hasExtractedConcepts) {
+        const phrases = extractedConcepts[criterion.concept];
+        // More phrases = higher score, up to a reasonable limit
+        qualityPercentage = Math.min(85, 40 + (phrases.length * 15));
+      }
+      
+      // Generate specific feedback based on the extracted phrases
+      let feedback = "";
+      if (hasExtractedConcepts) {
+        const phrases = extractedConcepts[criterion.concept];
+        feedback = `The answer addresses this concept with phrases like: "${phrases.join('", "')}". `;
+        
+        // Add suggestions for improvement
+        feedback += `For a more comprehensive response, consider elaborating on how these elements specifically impact the acquisition scenario.`;
+      } else {
+        feedback = `The answer does not clearly address this concept. `;
+        
+        // Add suggestions based on the correct answer
+        const correctAnswerLower = correctAnswer.toLowerCase();
+        if (correctAnswerLower.includes(criterion.concept.toLowerCase())) {
+          // Find sentences in the correct answer that mention this concept
+          const sentences = correctAnswer.split(/\.\s+/);
+          const relevantSentences = sentences.filter(sentence => 
+            sentence.toLowerCase().includes(criterion.concept.toLowerCase())
+          );
+          
+          if (relevantSentences.length > 0) {
+            feedback += `The correct answer addresses this by explaining: "${relevantSentences[0]}".`;
+          }
+        }
+      }
+      
+      conceptsFeedback.push({
+        concept: criterion.concept,
+        addressed: hasExtractedConcepts,
+        qualityPercentage,
+        feedback,
+        weight: criterion.weight,
+        description: criterion.description
+      });
+    }
+    
+    // Calculate score based on the weighted average
+    const score = conceptsFeedback.reduce(
+      (total, cf) => total + ((cf.qualityPercentage / 100) * cf.weight), 
+      0
+    );
+    
+    return { score, conceptsFeedback };
   }
 
   /**

@@ -456,6 +456,20 @@ export const authAPI = {
 };
 
 export const examAPI = {
+  // Generic HTTP methods
+  get: async (url) => {
+    try {
+      const response = await instance.get(url);
+      return response;
+    } catch (error) {
+      console.error(`Failed to GET ${url}:`, {
+        error,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  },
+  
   // Practice Test Builder endpoints
   getPracticeConfig: async () => {
     try {
