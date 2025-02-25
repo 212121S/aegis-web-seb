@@ -330,7 +330,21 @@ export class QuestionGenerationService {
           throw new Error('No questions available in the database. Please try different criteria or contact support.');
         }
         
-        console.log(`Found ${questions.length} questions with no criteria`);
+        // Validate that the questions have the required fields
+        const validQuestions = questions.filter(q => 
+          q.text && 
+          q.answer && 
+          q.explanation && 
+          (q.type !== 'multiple_choice' || (q.options && q.options.length > 0 && q.correctOption))
+        );
+        
+        if (validQuestions.length === 0) {
+          console.log('Found questions but none have valid content');
+          throw new Error('No valid questions available in the database. Please try different criteria or contact support.');
+        }
+        
+        questions = validQuestions;
+        console.log(`Found ${questions.length} valid questions with no criteria`);
       }
 
       return questions;
@@ -599,12 +613,42 @@ Questions should be designed to truly differentiate the top 1% of candidates by 
       
       // Handle markdown code blocks
       if (content.includes('```')) {
-        const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+        console.log('Detected code blocks in OpenAI response');
+        
+        // Try multiple regex patterns to extract JSON from code blocks
+        let codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+        
+        // If the first pattern doesn't work, try a more lenient pattern
+        if (!codeBlockMatch || !codeBlockMatch[1]) {
+          console.log('First regex pattern failed, trying alternative pattern');
+          codeBlockMatch = content.match(/```([\s\S]*?)```/);
+        }
+        
+        // If we found a match, use it
         if (codeBlockMatch && codeBlockMatch[1]) {
           jsonStr = codeBlockMatch[1].trim();
+          console.log('Successfully extracted content from code block, length:', jsonStr.length);
         } else {
-          console.warn('Could not extract JSON from code blocks');
-          return [];
+          // If we still can't extract the JSON, try to find anything that looks like JSON
+          console.log('Could not extract JSON from code blocks with regex, trying to find JSON-like content');
+          
+          // Look for content between { and } or [ and ]
+          const jsonStart = content.indexOf('{');
+          const arrayStart = content.indexOf('[');
+          
+          if (jsonStart >= 0 || arrayStart >= 0) {
+            // Find the starting position of the JSON-like content
+            const startPos = (jsonStart >= 0 && arrayStart >= 0) 
+              ? Math.min(jsonStart, arrayStart) 
+              : (jsonStart >= 0 ? jsonStart : arrayStart);
+            
+            // Extract from the start position to the end
+            jsonStr = content.substring(startPos);
+            console.log('Found JSON-like content starting at position', startPos);
+          } else {
+            console.warn('Could not extract any JSON-like content from the response');
+            return [];
+          }
         }
       }
       
