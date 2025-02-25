@@ -5,6 +5,7 @@ import { IQuestion } from '../models/Question';
 export interface ConceptFeedback {
   concept: string;
   addressed: boolean;
+  qualityPercentage: number; // 0-100 scale
   feedback: string;
   weight: number;
   description?: string;
@@ -174,6 +175,7 @@ export class GradingService {
         const conceptsFeedback = rubric.criteria.map(criterion => ({
           concept: criterion.concept,
           addressed: false,
+          qualityPercentage: 0,
           feedback: "Unable to evaluate without AI services.",
           weight: criterion.weight
         }));
@@ -185,20 +187,30 @@ export class GradingService {
         messages: [
           {
             role: "system",
-            content: `You are an expert grader for investment banking technical questions. You will evaluate whether a student's answer adequately addresses key concepts from a grading rubric.
+            content: `You are an expert grader for investment banking technical questions. You will evaluate how well a student's answer addresses key concepts from a grading rubric.
 
 For each concept in the rubric:
-1. Determine if the student's answer adequately addresses it (Yes/No)
-2. Provide specific feedback explaining your determination
-3. Reference specific content from the student's answer in your feedback
+1. Determine if the concept is addressed at all (Yes/No)
+2. If addressed, evaluate the quality on a scale of 0-100%:
+   - 90-100%: Exceptional - Comprehensive, sophisticated, and insightful treatment
+   - 70-89%: Good - Solid understanding with some depth and specificity
+   - 50-69%: Adequate - Basic understanding with limited depth or specificity
+   - 1-49%: Poor - Minimal or superficial mention without meaningful analysis
+   - 0%: Not addressed at all
 
-Be generous in your evaluation - if the student demonstrates understanding of the concept, even if using different terminology, consider it addressed.
+3. Provide specific feedback explaining your evaluation, including:
+   - What the student did well regarding this concept
+   - What was missing or could be improved
+   - References to specific content from the student's answer
+
+Be fair but rigorous in your evaluation. A concept is only fully addressed (90-100%) if it demonstrates comprehensive understanding and sophisticated analysis.
 
 Return your evaluation as a JSON array of objects with the format:
 [
   {
     "concept": "concept_name",
     "addressed": true/false,
+    "qualityPercentage": number (0-100),
     "feedback": "Specific explanation with references to the student's answer"
   }
 ]`
@@ -242,7 +254,7 @@ Evaluate each concept in the rubric, determining whether it's adequately address
         evaluation = [];
       }
       
-      // Calculate score based on weights of addressed concepts
+      // Calculate score based on quality percentage of each concept
       let score = 0;
       const conceptsFeedback: ConceptFeedback[] = [];
       
@@ -250,14 +262,15 @@ Evaluate each concept in the rubric, determining whether it's adequately address
         const criterion = rubric.criteria.find(c => c.concept === item.concept);
         if (criterion) {
           const weight = criterion.weight;
+          const qualityPercentage = item.qualityPercentage || (item.addressed ? 100 : 0);
           
-          if (item.addressed) {
-            score += weight;
-          }
+          // Calculate weighted score based on quality percentage
+          score += (qualityPercentage / 100) * weight;
           
           conceptsFeedback.push({
             concept: item.concept,
             addressed: item.addressed,
+            qualityPercentage: qualityPercentage,
             feedback: item.feedback,
             weight: weight,
             description: criterion.description
@@ -269,21 +282,22 @@ Evaluate each concept in the rubric, determining whether it's adequately address
       for (const criterion of rubric.criteria) {
         if (!conceptsFeedback.some(cf => cf.concept === criterion.concept)) {
           // For any missing criteria, make a second attempt to evaluate
-          const addressed = extractedConcepts[criterion.concept]?.length > 0;
+          const hasExtractedConcepts = extractedConcepts[criterion.concept]?.length > 0;
+          const qualityPercentage = hasExtractedConcepts ? 50 : 0; // Default to 50% quality if we found some phrases
           
           conceptsFeedback.push({
             concept: criterion.concept,
-            addressed: addressed,
-            feedback: addressed 
-              ? `Based on extracted phrases, this concept appears to be addressed.` 
+            addressed: hasExtractedConcepts,
+            qualityPercentage: qualityPercentage,
+            feedback: hasExtractedConcepts 
+              ? `Based on extracted phrases, this concept appears to be partially addressed, but a detailed evaluation couldn't be performed.` 
               : `The answer does not appear to address this concept adequately.`,
             weight: criterion.weight,
             description: criterion.description
           });
           
-          if (addressed) {
-            score += criterion.weight;
-          }
+          // Add the weighted score based on quality percentage
+          score += (qualityPercentage / 100) * criterion.weight;
         }
       }
       
@@ -295,20 +309,22 @@ Evaluate each concept in the rubric, determining whether it's adequately address
       const conceptsFeedback = rubric.criteria.map(criterion => {
         // Check if we have extracted concepts for this criterion
         const hasExtractedConcepts = extractedConcepts[criterion.concept]?.length > 0;
+        const qualityPercentage = hasExtractedConcepts ? 50 : 0; // Default to 50% quality if we found some phrases
         
         return {
           concept: criterion.concept,
           addressed: hasExtractedConcepts,
+          qualityPercentage: qualityPercentage,
           feedback: hasExtractedConcepts 
-            ? `Based on extracted phrases, this concept appears to be addressed.` 
+            ? `Based on extracted phrases, this concept appears to be partially addressed, but a detailed evaluation couldn't be performed.` 
             : `The answer does not appear to address this concept adequately.`,
           weight: criterion.weight,
           description: criterion.description
         };
       });
       
-      // Calculate fallback score
-      const score = conceptsFeedback.reduce((total, cf) => total + (cf.addressed ? cf.weight : 0), 0);
+      // Calculate fallback score based on quality percentages
+      const score = conceptsFeedback.reduce((total, cf) => total + ((cf.qualityPercentage / 100) * cf.weight), 0);
       
       return { score, conceptsFeedback };
     }

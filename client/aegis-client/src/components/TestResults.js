@@ -267,18 +267,29 @@ const TestResults = () => {
                           <TableBody>
                             {question.conceptsFeedback.map((concept, idx) => (
                               <TableRow key={idx} sx={{ 
-                                backgroundColor: concept.addressed 
-                                  ? 'rgba(76, 175, 80, 0.1)' 
+                                backgroundColor: concept.qualityPercentage > 0
+                                  ? `rgba(76, 175, 80, ${Math.min(concept.qualityPercentage / 100, 0.2)})`
                                   : 'rgba(244, 67, 54, 0.1)'
                               }}>
                                 <TableCell>{concept.concept}</TableCell>
                                 <TableCell>{concept.description || 'N/A'}</TableCell>
                                 <TableCell align="center">{concept.weight}%</TableCell>
-                                <TableCell align="center" sx={{ 
-                                  color: concept.addressed ? 'success.main' : 'error.main',
-                                  fontWeight: 'bold'
-                                }}>
-                                  {concept.addressed ? 'Addressed' : 'Not Addressed'}
+                                <TableCell align="center">
+                                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <Typography sx={{ 
+                                      color: concept.qualityPercentage >= 70 ? 'success.main' : 
+                                             concept.qualityPercentage >= 50 ? 'warning.main' : 'error.main',
+                                      fontWeight: 'bold'
+                                    }}>
+                                      {concept.qualityPercentage}%
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {concept.qualityPercentage >= 90 ? 'Exceptional' :
+                                       concept.qualityPercentage >= 70 ? 'Good' :
+                                       concept.qualityPercentage >= 50 ? 'Adequate' :
+                                       concept.qualityPercentage > 0 ? 'Poor' : 'Not Addressed'}
+                                    </Typography>
+                                  </Box>
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -296,12 +307,34 @@ const TestResults = () => {
                             <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
                               {concept.concept} ({concept.weight}%)
                             </Typography>
-                            <Chip 
-                              label={concept.addressed ? 'Addressed' : 'Not Addressed'} 
-                              color={concept.addressed ? 'success' : 'error'}
-                              size="small"
-                            />
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography sx={{ 
+                                fontWeight: 'bold',
+                                color: concept.qualityPercentage >= 70 ? 'success.main' : 
+                                       concept.qualityPercentage >= 50 ? 'warning.main' : 'error.main',
+                              }}>
+                                {concept.qualityPercentage}%
+                              </Typography>
+                              <Chip 
+                                label={
+                                  concept.qualityPercentage >= 90 ? 'Exceptional' :
+                                  concept.qualityPercentage >= 70 ? 'Good' :
+                                  concept.qualityPercentage >= 50 ? 'Adequate' :
+                                  concept.qualityPercentage > 0 ? 'Poor' : 'Not Addressed'
+                                } 
+                                color={
+                                  concept.qualityPercentage >= 70 ? 'success' :
+                                  concept.qualityPercentage >= 50 ? 'warning' : 'error'
+                                }
+                                size="small"
+                              />
+                            </Box>
                           </Box>
+                          
+                          {/* Calculate points earned for this concept */}
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            Points: {((concept.qualityPercentage / 100) * concept.weight).toFixed(1)} / {concept.weight}
+                          </Typography>
                           
                           {/* Only show if feedback isn't the default "not evaluated" message */}
                           {concept.feedback && !concept.feedback.includes("not evaluated") && (

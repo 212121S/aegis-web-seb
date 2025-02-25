@@ -594,29 +594,99 @@ Questions should be designed to truly differentiate the top 1% of candidates by 
     }>;
   } {
     // Extract key phrases from the answer to create a simple rubric
-    const answer = question.answer;
-    const explanation = question.explanation;
+    const questionText = question.text.toLowerCase();
+    const answer = question.answer.toLowerCase();
+    const explanation = question.explanation.toLowerCase();
+    
+    // Check for common financial topics in the question and answer
+    const topicChecks = [
+      {
+        concept: "Valuation Methodology",
+        keywords: ["valuation", "dcf", "multiple", "discount", "cash flow", "terminal value"],
+        description: "Demonstrates understanding of appropriate valuation methodologies, including DCF, multiples analysis, or other relevant approaches for the given scenario, with proper application of discount rates and growth assumptions"
+      },
+      {
+        concept: "Financial Analysis",
+        keywords: ["financial", "ratio", "analysis", "balance sheet", "income statement", "cash flow statement", "metric"],
+        description: "Applies relevant financial analysis techniques, including ratio analysis, trend analysis, or comparative analysis to evaluate financial performance, with appropriate interpretation of results and implications"
+      },
+      {
+        concept: "Market Assessment",
+        keywords: ["market", "industry", "competitor", "competitive", "landscape", "trend", "growth"],
+        description: "Evaluates market conditions, industry trends, competitive landscape, and growth opportunities that impact the business scenario, with consideration of market sizing, segmentation, and competitive positioning"
+      },
+      {
+        concept: "Risk Evaluation",
+        keywords: ["risk", "downside", "uncertainty", "volatility", "mitigate", "hedge"],
+        description: "Identifies key risks and uncertainties, including market risks, operational risks, and financial risks, with appropriate mitigation strategies and quantitative assessment of potential impacts"
+      },
+      {
+        concept: "Strategic Implications",
+        keywords: ["strategy", "strategic", "long-term", "synergy", "integration", "acquisition", "merger"],
+        description: "Analyzes strategic implications, including long-term positioning, competitive advantage, and alignment with corporate objectives, with consideration of alternative strategic options and their tradeoffs"
+      },
+      {
+        concept: "Operational Considerations",
+        keywords: ["operation", "operational", "implement", "execution", "process", "efficiency"],
+        description: "Addresses operational aspects including implementation challenges, process improvements, and operational efficiencies, with specific recommendations for execution and performance measurement"
+      },
+      {
+        concept: "Capital Structure",
+        keywords: ["capital", "debt", "equity", "leverage", "financing", "fund", "lbo"],
+        description: "Evaluates optimal capital structure, including debt-equity mix, financing options, and impact on returns and risk profile, with consideration of cost of capital, financial flexibility, and market conditions"
+      },
+      {
+        concept: "Stakeholder Impact",
+        keywords: ["stakeholder", "shareholder", "investor", "management", "employee", "customer"],
+        description: "Considers impacts on various stakeholders including shareholders, management, employees, customers, and other relevant parties, with analysis of potential conflicts and alignment strategies"
+      }
+    ];
+    
+    // Find matching topics
+    const matchedTopics = topicChecks.filter(topic => {
+      return topic.keywords.some(keyword => 
+        questionText.includes(keyword) || answer.includes(keyword) || explanation.includes(keyword)
+      );
+    });
+    
+    // If we found at least 3 matching topics, use them
+    if (matchedTopics.length >= 3) {
+      // Take the top 4 topics (or fewer if we don't have 4)
+      const selectedTopics = matchedTopics.slice(0, 4);
+      
+      // Calculate weights - more evenly distributed
+      const baseWeight = Math.floor(100 / selectedTopics.length);
+      const remainder = 100 - (baseWeight * selectedTopics.length);
+      
+      return {
+        criteria: selectedTopics.map((topic, index) => ({
+          concept: topic.concept,
+          description: topic.description,
+          weight: index === 0 ? baseWeight + remainder : baseWeight
+        }))
+      };
+    }
     
     // Default criteria if we can't extract meaningful ones
     const defaultCriteria = [
       {
         concept: "Technical Accuracy",
-        description: "Correct application of financial concepts and terminology",
+        description: "Demonstrates correct application of financial concepts, terminology, and analytical frameworks with precise calculations and appropriate methodologies for the specific context of the question",
         weight: 40
       },
       {
         concept: "Completeness",
-        description: "Coverage of all key aspects of the question",
+        description: "Covers all key aspects of the question with sufficient depth, supporting rationale, and consideration of relevant factors, addressing both explicit and implicit requirements of the prompt",
         weight: 30
       },
       {
         concept: "Strategic Thinking",
-        description: "Consideration of implications and multiple scenarios",
+        description: "Shows consideration of multiple scenarios, risk assessment and mitigation strategies, long-term implications, and market context awareness, with evaluation of tradeoffs between different approaches",
         weight: 20
       },
       {
         concept: "Practical Implementation",
-        description: "Addressing real-world constraints and challenges",
+        description: "Addresses real-world constraints, implementation challenges, operational feasibility, and practical considerations for executing the proposed solution, including timeline, resource requirements, and success metrics",
         weight: 10
       }
     ];

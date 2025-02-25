@@ -46,7 +46,12 @@ const generateRubric = async (question: IQuestion): Promise<{
           3. Assign weights to each concept based on importance (weights should sum to 100)
           4. Cover different aspects of a complete answer (e.g., theory, application, analysis)
           
-          IMPORTANT: Each description must be specific and detailed (at least 15-20 words), explaining exactly what the student should mention to get credit for that concept.
+          IMPORTANT GUIDELINES:
+          - Each description must be specific and detailed (at least 15-20 words), explaining exactly what the student should mention to get credit for this concept
+          - Descriptions should include specific examples, techniques, or approaches that would demonstrate mastery
+          - Concepts should be distinct and non-overlapping
+          - Weights should reflect the relative importance of each concept (more important concepts get higher weights)
+          - The rubric should be designed to differentiate between superficial mentions and deep understanding
           
           Return your response as a JSON object with the following structure:
           {
@@ -61,11 +66,12 @@ const generateRubric = async (question: IQuestion): Promise<{
           }
           
           Example of good descriptions:
-          - "Identifies specific operational benefits like cost savings, cross-selling opportunities, shared services, or technology integration"
-          - "Discusses financial benefits such as improved multiples, cash flow stability, capital structure optimization, or tax advantages"
-          - "Addresses potential difficulties in merging different company cultures, systems, or operational models"
+          - "Identifies specific operational benefits like cost savings, cross-selling opportunities, shared services, or technology integration, with quantitative estimates of synergy value"
+          - "Discusses financial benefits such as improved multiples, cash flow stability, capital structure optimization, or tax advantages, with consideration of timing and risk factors"
+          - "Addresses potential difficulties in merging different company cultures, systems, or operational models, with specific mitigation strategies for each challenge"
+          - "Proposes a detailed implementation timeline with key milestones, resource requirements, and critical path analysis for the integration process"
           
-          NEVER use "N/A" or vague descriptions.`
+          NEVER use "N/A" or vague descriptions. The descriptions should be detailed enough that they could be used to evaluate the quality of an answer on a percentage basis, not just whether a concept is mentioned or not.`
         },
         {
           role: 'user',
