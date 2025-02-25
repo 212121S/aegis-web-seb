@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { QuestionGenerationService } from '../services/QuestionGenerationService';
 import { GradingService } from '../services/GradingService';
-import { Question, QuestionConstants } from '../models/Question';
+import { Question, QuestionConstants, IQuestion } from '../models/Question';
 import { User } from '../models/User';
 import { Types } from 'mongoose';
 
@@ -55,8 +55,7 @@ export const generatePracticeTest = async (req: Request, res: Response): Promise
       questionType = 'multiple-choice'
     } = req.body;
 
-    // Validate request body and convert questionType
-    const type = questionType === 'multiple-choice' ? 'multiple_choice' : 'open_ended';
+    // Validate request parameters
     if (!verticals?.length || !roles?.length || !topics?.length) {
       res.status(400).json({ error: 'Missing required parameters' });
       return;
@@ -72,17 +71,53 @@ export const generatePracticeTest = async (req: Request, res: Response): Promise
       return;
     }
 
-    // Generate questions
+    // Generate questions based on questionType
     const questionService = QuestionGenerationService.getInstance();
-    const questions = await questionService.generateQuestions({
-      verticals,
-      roles,
-      topics,
-      difficulty,
-      count,
-      useAI,
-      type
-    });
+    let questions: IQuestion[] = [];
+
+    if (questionType === 'all') {
+      // Calculate counts for each type
+      const mcqCount = Math.ceil(count / 2);
+      const writtenCount = count - mcqCount;
+
+      // Generate multiple choice questions
+      const mcqQuestions = await questionService.generateQuestions({
+        verticals,
+        roles,
+        topics,
+        difficulty,
+        count: mcqCount,
+        useAI,
+        type: 'multiple_choice'
+      });
+
+      // Generate written answer questions
+      const writtenQuestions = await questionService.generateQuestions({
+        verticals,
+        roles,
+        topics,
+        difficulty,
+        count: writtenCount,
+        useAI,
+        type: 'open_ended'
+      });
+
+      // Combine and shuffle questions
+      questions = [...mcqQuestions, ...writtenQuestions]
+        .sort(() => Math.random() - 0.5); // Randomize question order
+    } else {
+      // Generate questions of a single type
+      const type = questionType === 'multiple-choice' ? 'multiple_choice' : 'open_ended';
+      questions = await questionService.generateQuestions({
+        verticals,
+        roles,
+        topics,
+        difficulty,
+        count,
+        useAI,
+        type
+      });
+    }
 
     // Create a test session
     const testSession = {
