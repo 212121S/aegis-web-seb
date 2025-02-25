@@ -104,23 +104,44 @@ export class QuestionGenerationService {
     
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        // Add a small initial delay even on first attempt to ensure connection is ready
+        // Add a longer initial delay and ensure database connection is ready
         if (attempt === 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          console.log('Ensuring database connection is ready...');
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Check if we can perform a simple query to verify connection
+          try {
+            await Question.findOne().select('_id').lean();
+            console.log('Database connection verified');
+          } catch (connError) {
+            console.warn('Database connection not ready, waiting additional time...');
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
         }
         
-        return await operation();
+        const result = await operation();
+        
+        // Log success for debugging
+        console.log(`Operation succeeded on attempt ${attempt}`);
+        
+        return result;
       } catch (error) {
         lastError = error as Error;
+        console.error(`Attempt ${attempt} failed:`, error);
+        
         if (attempt < maxAttempts) {
-          // Use exponential backoff: delay increases with each attempt
-          const delayMs = initialDelayMs * Math.pow(2, attempt - 1);
-          console.log(`Attempt ${attempt} failed, retrying after ${delayMs}ms...`);
+          // Use exponential backoff with a minimum delay
+          const delayMs = Math.max(
+            initialDelayMs * Math.pow(2, attempt - 1),
+            1000 // Ensure minimum 1 second delay between retries
+          );
+          console.log(`Retrying after ${delayMs}ms (Attempt ${attempt}/${maxAttempts})...`);
           await new Promise(resolve => setTimeout(resolve, delayMs));
         }
       }
     }
     
+    console.error('All retry attempts failed. Last error:', lastError);
     throw lastError;
   }
 
