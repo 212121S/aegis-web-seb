@@ -52,7 +52,7 @@ export class QuestionGenerationService {
     // Check if AI generation is requested but not available
     if (useAI && !isOpenAIConfigured()) {
       console.warn('AI generation requested but OpenAI is not configured. Falling back to database questions.');
-      return this.getQuestionsFromDatabase(params);
+      return this.ensureQuestionCount(await this.getQuestionsFromDatabase(params), count);
     }
 
     // Check cache if enabled
@@ -65,7 +65,7 @@ export class QuestionGenerationService {
 
     // If AI is not requested or not available, get questions from database
     if (!useAI) {
-      return this.getQuestionsFromDatabase(params);
+      return this.ensureQuestionCount(await this.getQuestionsFromDatabase(params), count);
     }
 
     try {
@@ -78,10 +78,12 @@ export class QuestionGenerationService {
         sampleQuestions
       });
 
+      console.log(`OpenAI generated ${generatedQuestions.length} valid questions out of ${count} requested`);
+
       // If no valid questions were generated, fall back to database
       if (!generatedQuestions.length) {
         console.warn('No valid AI-generated questions. Falling back to database questions.');
-        return this.getQuestionsFromDatabase(params);
+        return this.ensureQuestionCount(await this.getQuestionsFromDatabase(params), count);
       }
 
       // Save to database and cache
@@ -91,16 +93,60 @@ export class QuestionGenerationService {
         await this.cacheQuestions(savedQuestions, params);
       }
 
+      // If we don't have enough questions, supplement with database questions
+      if (savedQuestions.length < count) {
+        console.log(`Only generated ${savedQuestions.length} questions, supplementing with database questions`);
+        const supplementalParams = { ...params, count: count - savedQuestions.length };
+        const supplementalQuestions = await this.getQuestionsFromDatabase(supplementalParams);
+        
+        // Combine AI-generated and database questions
+        const combinedQuestions = [...savedQuestions, ...supplementalQuestions];
+        return this.ensureQuestionCount(combinedQuestions, count);
+      }
+
       return savedQuestions;
     } catch (error) {
       console.error('Failed to generate AI questions:', error);
       try {
-        return await this.getQuestionsFromDatabase(params);
+        return this.ensureQuestionCount(await this.getQuestionsFromDatabase(params), count);
       } catch (dbError) {
         console.error('Failed to get database questions:', dbError);
         throw new Error('Failed to generate questions from both AI and database');
       }
     }
+  }
+
+  /**
+   * Ensures that we return exactly the requested number of questions
+   * If we have too few, it will duplicate some questions
+   * If we have too many, it will trim the list
+   */
+  private ensureQuestionCount(questions: IQuestion[], requestedCount: number): IQuestion[] {
+    console.log(`Ensuring question count: have ${questions.length}, need ${requestedCount}`);
+    
+    if (questions.length === requestedCount) {
+      return questions;
+    }
+    
+    if (questions.length > requestedCount) {
+      // If we have more than needed, just return the requested count
+      return questions.slice(0, requestedCount);
+    }
+    
+    // If we have fewer than needed, duplicate some questions to reach the count
+    const result: IQuestion[] = [...questions];
+    
+    // Keep duplicating questions until we reach the requested count
+    while (result.length < requestedCount) {
+      // Get a random question from the original set
+      const randomIndex = Math.floor(Math.random() * questions.length);
+      const questionToDuplicate = questions[randomIndex];
+      
+      result.push(questionToDuplicate);
+    }
+    
+    console.log(`Final question count after adjustment: ${result.length}`);
+    return result;
   }
 
   private async waitForConnection(maxWaitMs: number = 5000): Promise<void> {
@@ -190,64 +236,88 @@ export class QuestionGenerationService {
         roles: { $in: roles },
         topics: { $in: topics },
         difficulty: difficultyRange
-      }).limit(count);
+      }).limit(count * 2); // Get more than we need to ensure we have enough after filtering
 
       console.log(`Found ${questions.length} questions with exact match and difficulty range ${JSON.stringify(difficultyRange)}`);
 
       // If no exact matches, try progressively more relaxed criteria
-      if (questions.length === 0) {
-        console.log('No exact matches found, trying with more flexible criteria...');
+      if (questions.length < count) {
+        console.log('Not enough exact matches found, trying with more flexible criteria...');
         
         // Try with just verticals and roles
-        questions = await Question.find({
+        const verticalRoleQuestions = await Question.find({
           ...baseQuery,
           industryVerticals: { $in: verticals },
           roles: { $in: roles },
           difficulty: difficultyRange
-        }).limit(count);
+        }).limit(count * 2);
         
-        console.log(`Found ${questions.length} questions with verticals and roles match`);
+        // Add new questions that aren't already in our list
+        const newQuestions = verticalRoleQuestions.filter(
+          newQ => !questions.some(q => q._id.toString() === newQ._id.toString())
+        );
+        questions = [...questions, ...newQuestions];
+        
+        console.log(`Found ${newQuestions.length} additional questions with verticals and roles match, total now: ${questions.length}`);
       }
       
-      // If still no matches, try with just topics
-      if (questions.length === 0) {
-        console.log('Still no matches, trying with just topics...');
+      // If still not enough matches, try with just topics
+      if (questions.length < count) {
+        console.log('Still not enough matches, trying with just topics...');
         
-        questions = await Question.find({
+        const topicQuestions = await Question.find({
           ...baseQuery,
           topics: { $in: topics },
           difficulty: difficultyRange
-        }).limit(count);
+        }).limit(count * 2);
         
-        console.log(`Found ${questions.length} questions with topics match`);
+        // Add new questions that aren't already in our list
+        const newQuestions = topicQuestions.filter(
+          newQ => !questions.some(q => q._id.toString() === newQ._id.toString())
+        );
+        questions = [...questions, ...newQuestions];
+        
+        console.log(`Found ${newQuestions.length} additional questions with topics match, total now: ${questions.length}`);
       }
       
-      // If still no matches, try with just difficulty
-      if (questions.length === 0) {
-        console.log('Still no matches, trying with just difficulty...');
+      // If still not enough matches, try with just difficulty
+      if (questions.length < count) {
+        console.log('Still not enough matches, trying with just difficulty...');
         
-        questions = await Question.find({
+        const difficultyQuestions = await Question.find({
           ...baseQuery,
           difficulty: difficultyRange
-        }).limit(count);
+        }).limit(count * 2);
         
-        console.log(`Found ${questions.length} questions with difficulty match`);
+        // Add new questions that aren't already in our list
+        const newQuestions = difficultyQuestions.filter(
+          newQ => !questions.some(q => q._id.toString() === newQ._id.toString())
+        );
+        questions = [...questions, ...newQuestions];
+        
+        console.log(`Found ${newQuestions.length} additional questions with difficulty match, total now: ${questions.length}`);
       }
       
-      // If still no matches, try with any base questions
-      if (questions.length === 0) {
-        console.log('Still no matches, trying with any base questions...');
+      // If still not enough matches, try with any base questions
+      if (questions.length < count) {
+        console.log('Still not enough matches, trying with any base questions...');
         
-        questions = await Question.find({
+        const baseQuestions = await Question.find({
           'source.type': 'base'
-        }).limit(count);
+        }).limit(count * 2);
         
-        console.log(`Found ${questions.length} base questions`);
+        // Add new questions that aren't already in our list
+        const newQuestions = baseQuestions.filter(
+          newQ => !questions.some(q => q._id.toString() === newQ._id.toString())
+        );
+        questions = [...questions, ...newQuestions];
+        
+        console.log(`Found ${newQuestions.length} additional base questions, total now: ${questions.length}`);
       }
 
-      // If still no matches, use the flexible scoring approach as a last resort
-      if (questions.length === 0) {
-        console.log('No matches with relaxed criteria, trying flexible scoring approach...');
+      // If still not enough matches, use the flexible scoring approach as a last resort
+      if (questions.length < count) {
+        console.log('Not enough matches with relaxed criteria, trying flexible scoring approach...');
         
         // Define pipeline stages for flexible matching
         const pipeline: PipelineStage[] = [
@@ -303,7 +373,7 @@ export class QuestionGenerationService {
             }
           } as PipelineStage.Sort,
           {
-            $limit: count
+            $limit: count * 2
           }
         ];
 
@@ -311,11 +381,17 @@ export class QuestionGenerationService {
         
         if (flexibleMatches.length > 0) {
           // Convert aggregation results back to Question documents
-          questions = await Question.find({
+          const scoredQuestions = await Question.find({
             _id: { $in: flexibleMatches.map(q => q._id) }
           });
           
-          console.log(`Found ${questions.length} questions with flexible scoring approach`);
+          // Add new questions that aren't already in our list
+          const newQuestions = scoredQuestions.filter(
+            newQ => !questions.some(q => q._id.toString() === newQ._id.toString())
+          );
+          questions = [...questions, ...newQuestions];
+          
+          console.log(`Found ${newQuestions.length} additional questions with flexible scoring approach, total now: ${questions.length}`);
         }
       }
 
@@ -323,7 +399,7 @@ export class QuestionGenerationService {
       if (questions.length === 0) {
         console.log('No questions found with any criteria, trying to get any questions...');
         
-        questions = await Question.find({}).limit(count);
+        questions = await Question.find({}).limit(count * 2);
         
         if (questions.length === 0) {
           console.log('No questions found in the database at all');
@@ -347,7 +423,10 @@ export class QuestionGenerationService {
         console.log(`Found ${questions.length} valid questions with no criteria`);
       }
 
-      return questions;
+      // Shuffle the questions to ensure variety
+      questions = questions.sort(() => Math.random() - 0.5);
+
+      return questions.slice(0, count);
     });
   }
 
