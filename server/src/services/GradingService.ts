@@ -70,15 +70,22 @@ export class GradingService {
       // Ensure all rubric criteria have proper descriptions
       const enhancedRubric = this.ensureRubricDescriptions(question.rubric);
       
+      // Adjust weights based on industry context if applicable
+      const adjustedRubric = this.adjustConceptWeightsByIndustry(enhancedRubric, question.text, cleanedAnswer);
+      
       // Extract key concepts from the student's answer
-      const extractedConcepts = await this.extractConceptsFromAnswer(userAnswer, cleanedAnswer, enhancedRubric);
+      const extractedConcepts = await this.extractConceptsFromAnswer(userAnswer, cleanedAnswer, adjustedRubric);
       
       // Evaluate those concepts against the rubric
-      const rubricResult = await this.evaluateAgainstRubric(userAnswer, cleanedAnswer, enhancedRubric, extractedConcepts);
+      const rubricResult = await this.evaluateAgainstRubric(userAnswer, cleanedAnswer, adjustedRubric, extractedConcepts);
       
-      // Return combined result with holistic feedback as the primary score
+      // Calculate a balanced score that considers both holistic and rubric-based evaluations
+      // This gives more weight to the detailed rubric evaluation while still considering the holistic assessment
+      const balancedScore = Math.round((rubricResult.score * 0.7) + (holisticFeedback.score * 0.3));
+      
+      // Return combined result with the balanced score
       return {
-        score: holisticFeedback.score,
+        score: balancedScore,
         conceptsFeedback: rubricResult.conceptsFeedback,
         holisticFeedback
       };
@@ -97,6 +104,44 @@ export class GradingService {
   }
 
   /**
+   * Extract industry context from question and answer
+   */
+  private extractIndustryContext(questionText: string, correctAnswer: string): string {
+    // List of industry keywords to look for
+    const industryKeywords: Record<string, string[]> = {
+      'biotech': ['biotech', 'pharmaceutical', 'drug development', 'clinical trial', 'pipeline', 'therapeutic', 'FDA', 'regulatory approval'],
+      'healthcare': ['healthcare', 'hospital', 'medical device', 'patient', 'reimbursement', 'Medicare', 'Medicaid'],
+      'technology': ['technology', 'software', 'hardware', 'SaaS', 'subscription', 'user', 'platform', 'digital'],
+      'financial': ['bank', 'insurance', 'asset management', 'wealth management', 'capital markets', 'trading', 'broker'],
+      'energy': ['energy', 'oil', 'gas', 'renewable', 'solar', 'wind', 'power', 'utility'],
+      'real estate': ['real estate', 'property', 'REIT', 'commercial', 'residential', 'leasing', 'development'],
+      'retail': ['retail', 'consumer', 'e-commerce', 'store', 'merchandise', 'inventory'],
+      'manufacturing': ['manufacturing', 'industrial', 'equipment', 'machinery', 'production'],
+      'private equity': ['private equity', 'LBO', 'leveraged buyout', 'portfolio company', 'fund', 'limited partner'],
+      'venture capital': ['venture capital', 'startup', 'early stage', 'growth stage', 'funding round', 'series']
+    };
+    
+    // Combine question and answer text for analysis
+    const combinedText = (questionText + ' ' + correctAnswer).toLowerCase();
+    
+    // Identify industries mentioned
+    const detectedIndustries: string[] = [];
+    for (const [industry, keywords] of Object.entries(industryKeywords)) {
+      if (keywords.some(keyword => combinedText.includes(keyword.toLowerCase()))) {
+        detectedIndustries.push(industry);
+      }
+    }
+    
+    // Generate context based on detected industries
+    if (detectedIndustries.length > 0) {
+      return `This question relates to the ${detectedIndustries.join(', ')} industry/industries. 
+      When evaluating answers in this context, consider industry-specific metrics, terminology, and analytical approaches.`;
+    }
+    
+    return "No specific industry context detected. Evaluate using general investment banking standards.";
+  }
+
+  /**
    * Get a holistic grade from ChatGPT
    */
   private async getHolisticGradeFromChatGPT(
@@ -110,18 +155,30 @@ export class GradingService {
         return { score: 0, feedback: "AI grading unavailable" };
       }
 
+      // Extract industry context from the question and answer
+      const industryContext = this.extractIndustryContext(questionText, correctAnswer);
+
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
-            content: `You are an expert grader for investment banking technical questions. Your task is to holistically evaluate a student's answer to a technical question.
+            content: `You are an expert grader for investment banking technical questions with deep knowledge of industry-specific standards and metrics. Your task is to holistically evaluate a student's answer to a technical question.
 
 Provide a comprehensive assessment that considers:
 1. Technical accuracy and understanding of concepts
 2. Completeness of the answer
 3. Quality of analysis and reasoning
 4. Practical application of concepts
+5. Industry-specific knowledge and terminology
+6. Appropriate use of metrics and analytical frameworks for the specific industry context
+
+Important grading guidelines:
+- Value industry-specific metrics and approaches over generic ones
+- Recognize that there are multiple valid approaches to financial analysis depending on the industry context
+- Credit answers that demonstrate nuanced understanding of industry dynamics, even if they differ from the model answer
+- Consider implied concepts and knowledge, not just explicit statements
+- Evaluate the sophistication of the analysis rather than just matching keywords
 
 Return your evaluation as a JSON object with:
 1. A numeric score (0-100)
@@ -135,7 +192,7 @@ Format:
           },
           {
             role: "user",
-            content: `What grade would you give this answer, considering the following provided question, correct answer, and explanation?
+            content: `What grade would you give this answer, considering the following provided question, correct answer, explanation, and industry context?
 
 Question: ${questionText}
 
@@ -143,9 +200,11 @@ Correct Answer: ${correctAnswer}
 
 Explanation: ${explanation}
 
+Industry Context: ${industryContext}
+
 Student's Answer: ${userAnswer}
 
-Provide a holistic grade (0-100) and detailed feedback.`
+Provide a holistic grade (0-100) and detailed feedback. Be sure to consider industry-specific approaches and metrics in your evaluation.`
           }
         ],
         temperature: 0.7,
@@ -201,6 +260,7 @@ Provide a holistic grade (0-100) and detailed feedback.`
   private generateDescriptionForConcept(concept: string): string {
     // Map of common concepts to descriptions
     const conceptDescriptions: Record<string, string> = {
+      // General financial concepts
       "Operational Synergies": "Identifies specific operational benefits like cost savings, cross-selling opportunities, shared services, or technology integration",
       "Financial Synergies": "Discusses financial benefits such as improved multiples, cash flow stability, capital structure optimization, or tax advantages",
       "Integration Challenges": "Addresses potential difficulties in merging different company cultures, systems, or operational models",
@@ -213,12 +273,113 @@ Provide a holistic grade (0-100) and detailed feedback.`
       "Cost synergies": "Discusses cost reductions and operational efficiencies gained post-acquisition",
       "Integration costs": "Analyzes the costs involved in achieving synergies and potential risks",
       "Strategic alignment": "Evaluates how the acquisition fits within the strategic objectives of the parent company",
-      "Sensitivity analysis": "Includes the approach to test various scenarios and their impacts on synergies"
+      "Sensitivity analysis": "Includes the approach to test various scenarios and their impacts on synergies",
+      
+      // LBO-specific concepts
+      "Debt Servicing Analysis": "Evaluates the target's ability to service debt under various interest rate scenarios, including analysis of interest coverage ratios and cash flow stability",
+      "Exit Multiples": "Analyzes how exit valuations might be affected by market conditions and interest rate environments",
+      "Market Conditions": "Considers broader economic factors and their impact on the LBO's feasibility and returns",
+      "Operational Considerations": "Addresses how operational improvements can offset the impact of higher interest costs",
+      "Risk Assessment": "Includes stress-testing of the financial model under various interest rate scenarios",
+      
+      // Biotech/Healthcare-specific concepts
+      "Pipeline Valuation": "Evaluates the value of drug candidates at different stages of development, considering probability of success and market potential",
+      "Clinical Trial Analysis": "Assesses the design, results, and implications of clinical trials for valuation",
+      "Regulatory Considerations": "Addresses the impact of regulatory approvals, timelines, and risks on company valuation",
+      "R&D Efficiency": "Analyzes the company's research productivity relative to spending",
+      "Cash Burn Rate": "Evaluates the sustainability of the company's spending relative to its cash reserves",
+      "Market Exclusivity": "Considers patent protection, orphan drug status, and other factors affecting market exclusivity periods"
     };
 
     // Return the mapped description or a generic one based on the concept name
     return conceptDescriptions[concept] || 
       `Demonstrates understanding and application of ${concept.toLowerCase()} in the context of the question`;
+  }
+
+  /**
+   * Adjust concept weights based on industry context
+   */
+  private adjustConceptWeightsByIndustry(
+    rubric: { criteria: Array<{ concept: string; description: string; weight: number; }> },
+    questionText: string,
+    correctAnswer: string
+  ): { criteria: Array<{ concept: string; description: string; weight: number; }> } {
+    // Extract industry context
+    const combinedText = (questionText + ' ' + correctAnswer).toLowerCase();
+    
+    // Define industry-specific concept importance
+    const biotechImportance: Record<string, number> = {
+      'Pipeline Valuation': 1.3,
+      'Clinical Trial Analysis': 1.3,
+      'Regulatory Considerations': 1.2,
+      'R&D Efficiency': 1.2,
+      'Cash Burn Rate': 1.2,
+      'Market Exclusivity': 1.2,
+      'PEG Ratio': 0.8,
+      'P/E Ratio': 0.7,
+      'Debt Servicing': 0.8
+    };
+    
+    const privateEquityImportance: Record<string, number> = {
+      'Debt Servicing Analysis': 1.3,
+      'Operational Improvements': 1.3,
+      'Exit Multiples': 1.2,
+      'Market Conditions': 1.2,
+      'Risk Assessment': 1.2,
+      'Leverage Ratios': 1.2,
+      'Cash Flow Analysis': 1.2
+    };
+    
+    // Check if any industry keywords are present
+    let importanceMap: Record<string, number> | null = null;
+    
+    if (combinedText.includes('biotech')) {
+      importanceMap = biotechImportance;
+    } else if (combinedText.includes('private equity') || combinedText.includes('lbo') || combinedText.includes('leveraged buyout')) {
+      importanceMap = privateEquityImportance;
+    }
+    
+    // If no specific industry detected, return original rubric
+    if (!importanceMap) {
+      return rubric;
+    }
+    
+    // Adjust weights based on industry
+    const adjustedCriteria = rubric.criteria.map(criterion => {
+      const conceptLower = criterion.concept.toLowerCase();
+      let adjustmentFactor = 1.0;
+      
+      // Check for concept matches in the industry importance map
+      for (const [conceptKey, factor] of Object.entries(importanceMap)) {
+        if (conceptLower.includes(conceptKey.toLowerCase())) {
+          adjustmentFactor = factor;
+          break;
+        }
+      }
+      
+      // Apply adjustment factor to weight
+      const adjustedWeight = Math.round(criterion.weight * adjustmentFactor);
+      
+      return {
+        ...criterion,
+        weight: adjustedWeight
+      };
+    });
+    
+    // Normalize weights to ensure they sum to 100
+    const totalWeight = adjustedCriteria.reduce((sum, criterion) => sum + criterion.weight, 0);
+    const normalizedCriteria = adjustedCriteria.map(criterion => ({
+      ...criterion,
+      weight: Math.round((criterion.weight / totalWeight) * 100)
+    }));
+    
+    // Ensure weights sum to exactly 100 by adjusting the first criterion if needed
+    const finalSum = normalizedCriteria.reduce((sum, criterion) => sum + criterion.weight, 0);
+    if (finalSum !== 100 && normalizedCriteria.length > 0) {
+      normalizedCriteria[0].weight += (100 - finalSum);
+    }
+    
+    return { criteria: normalizedCriteria };
   }
 
   /**
@@ -234,15 +395,24 @@ Provide a holistic grade (0-100) and detailed feedback.`
         return {};
       }
 
+      // Extract industry context
+      const industryContext = this.extractIndustryContext(userAnswer, correctAnswer);
+
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
-            content: `You are an expert in financial analysis and investment banking. Your task is to extract key concepts from a student's answer to a technical question.
+            content: `You are an expert in financial analysis and investment banking with deep knowledge of industry-specific metrics and approaches. Your task is to extract key concepts from a student's answer to a technical question.
             
             For each concept in the provided rubric, identify specific phrases or sentences from the student's answer that relate to that concept.
-            Be generous in your interpretation - look for conceptual matches rather than exact terminology.
+            
+            Important guidelines:
+            - Be generous in your interpretation - look for conceptual matches rather than exact terminology
+            - Recognize implied concepts even when they're not explicitly stated
+            - Consider industry-specific terminology and approaches that may be equivalent to the concepts
+            - Look for sophisticated analysis that demonstrates understanding, not just keyword matching
+            - Identify both direct mentions and indirect demonstrations of concept understanding
             
             Return your analysis as a JSON object where:
             - Each key is a concept name from the rubric
@@ -259,12 +429,14 @@ Provide a holistic grade (0-100) and detailed feedback.`
             content: `
             Question Context: ${correctAnswer}
             
+            Industry Context: ${industryContext}
+            
             Student's Answer: ${userAnswer}
             
             Rubric Concepts to Extract:
             ${rubric.criteria.map(c => `- ${c.concept}: ${c.description}`).join('\n')}
             
-            Extract relevant phrases for each concept.`
+            Extract relevant phrases for each concept, being generous in identifying both explicit and implicit demonstrations of understanding.`
           }
         ],
         temperature: 0.7,
@@ -306,12 +478,15 @@ Provide a holistic grade (0-100) and detailed feedback.`
         return { score: 0, conceptsFeedback };
       }
 
+      // Extract industry context
+      const industryContext = this.extractIndustryContext(userAnswer, correctAnswer);
+
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
-            content: `You are an expert grader for investment banking technical questions. You will evaluate how well a student's answer addresses key concepts from a grading rubric.
+            content: `You are an expert grader for investment banking technical questions with deep knowledge of industry-specific standards and metrics. You will evaluate how well a student's answer addresses key concepts from a grading rubric.
 
 For each concept in the rubric:
 1. Determine if the concept is addressed at all (Yes/No)
@@ -323,11 +498,17 @@ For each concept in the rubric:
    - 0%: Not addressed at all
 
 3. Provide specific feedback explaining your evaluation, including:
-   - What the student did well regarding this concept
-   - What was missing or could be improved
-   - References to specific content from the student's answer
+   - What the student did well regarding this concept (with direct quotes)
+   - What was missing or could be improved (with specific suggestions)
+   - How the student's approach compares to industry standards
 
-Be fair but rigorous in your evaluation. A concept is only fully addressed (90-100%) if it demonstrates comprehensive understanding and sophisticated analysis.
+Important grading guidelines:
+- Value sophisticated analysis over simple keyword matching
+- Recognize implied concepts even when they're not explicitly stated
+- Consider industry-specific terminology and approaches
+- Evaluate the depth of understanding rather than just the presence of terms
+- Be consistent in your scoring across different concepts
+- Provide actionable, specific feedback that references the student's exact phrasing
 
 Return your evaluation as a JSON array of objects with the format:
 [
@@ -346,13 +527,15 @@ Student's Answer: ${userAnswer}
 
 Correct Answer Context: ${correctAnswer}
 
+Industry Context: ${industryContext}
+
 Rubric Criteria:
 ${JSON.stringify(rubric.criteria)}
 
 Extracted Concepts from Student's Answer:
 ${JSON.stringify(extractedConcepts)}
 
-Evaluate each concept in the rubric, determining whether it's adequately addressed and providing specific feedback.`
+Evaluate each concept in the rubric, determining whether it's adequately addressed and providing specific feedback. Be sure to consider industry-specific approaches and metrics in your evaluation.`
           }
         ],
         temperature: 0.7,
@@ -361,21 +544,18 @@ Evaluate each concept in the rubric, determining whether it's adequately address
 
       // Parse the response
       const content = response.choices[0].message.content?.trim() || "{}";
-      let evaluation;
+      let evaluation: any[] = [];
       try {
-        evaluation = JSON.parse(content);
-        // Ensure evaluation is an array
-        if (!Array.isArray(evaluation)) {
-          if (evaluation.evaluations && Array.isArray(evaluation.evaluations)) {
-            evaluation = evaluation.evaluations;
-          } else {
-            console.warn('Unexpected evaluation format:', evaluation);
-            evaluation = [];
-          }
+        const parsedContent = JSON.parse(content);
+        if (Array.isArray(parsedContent)) {
+          evaluation = parsedContent;
+        } else if (parsedContent.evaluations && Array.isArray(parsedContent.evaluations)) {
+          evaluation = parsedContent.evaluations;
+        } else {
+          console.warn('Unexpected evaluation format:', parsedContent);
         }
       } catch (error) {
         console.error('Error parsing evaluation JSON:', error, content);
-        evaluation = [];
       }
       
       // Calculate score based on quality percentage of each concept
@@ -386,16 +566,17 @@ Evaluate each concept in the rubric, determining whether it's adequately address
         const criterion = rubric.criteria.find(c => c.concept === item.concept);
         if (criterion) {
           const weight = criterion.weight;
-          const qualityPercentage = item.qualityPercentage || (item.addressed ? 100 : 0);
+          const qualityPercentage = typeof item.qualityPercentage === 'number' ? 
+            item.qualityPercentage : (item.addressed ? 100 : 0);
           
           // Calculate weighted score based on quality percentage
           score += (qualityPercentage / 100) * weight;
           
           conceptsFeedback.push({
             concept: item.concept,
-            addressed: item.addressed,
+            addressed: !!item.addressed,
             qualityPercentage: qualityPercentage,
-            feedback: item.feedback,
+            feedback: item.feedback || '',
             weight: weight,
             description: criterion.description
           });
@@ -519,8 +700,8 @@ Evaluate each concept in the rubric, determining whether it's adequately address
             if (relevantSentences.length > 0) {
               feedback += `Overall assessment: ${relevantSentences.join('. ')}.`;
             } else {
-              // If no specific sentences match, add a generic assessment
-              feedback += `This concept is partially addressed in the overall response.`;
+              // If no specific sentences match, add a more specific assessment
+              feedback += `To strengthen this aspect, consider providing more detailed analysis of how this specifically impacts the financial outcomes.`;
             }
           }
         } else {
@@ -617,8 +798,8 @@ Evaluate each concept in the rubric, determining whether it's adequately address
         const phrases = extractedConcepts[criterion.concept];
         feedback = `The answer addresses this concept with phrases like: "${phrases.join('", "')}". `;
         
-        // Add suggestions for improvement
-        feedback += `For a more comprehensive response, consider elaborating on how these elements specifically impact the acquisition scenario.`;
+        // Add more specific suggestions for improvement
+        feedback += `To strengthen this analysis, consider explaining how these elements specifically impact the financial outcomes and providing quantitative support where possible.`;
       } else {
         feedback = `The answer does not clearly address this concept. `;
         
@@ -717,7 +898,8 @@ Consider all evaluation criteria and provide only the final numeric score (0-100
         max_tokens: 5
       });
 
-      const score = parseInt(response.choices[0].message.content?.trim() || "0");
+      const content = response.choices[0].message.content?.trim() || "0";
+      const score = parseInt(content);
       return isNaN(score) ? 0 : Math.min(100, Math.max(0, score));
     } catch (error) {
       console.error('Error grading written answer:', error);
