@@ -6,6 +6,72 @@ dotenv.config();
 
 const sampleQuestions = [
   {
+    text: "Which accounting method is typically used to record revenue from long-term healthcare service contracts?",
+    answer: "Percentage of completion method",
+    explanation: "The percentage of completion method is most appropriate for long-term healthcare service contracts as it better reflects the economic reality of service delivery over time. This method recognizes revenue and profit as service milestones are achieved, providing a more accurate picture of the company's financial performance.",
+    type: "multiple_choice",
+    options: [
+      "Cash basis",
+      "Completed contract method",
+      "Percentage of completion method",
+      "Installment method"
+    ],
+    correctOption: "Percentage of completion method",
+    difficulty: 4,
+    industryVerticals: ["Healthcare"],
+    roles: ["Investment Banking"],
+    topics: ["Accounting"],
+    source: {
+      type: "base",
+      timestamp: new Date(),
+      cached: false
+    }
+  },
+  {
+    text: "In healthcare M&A valuation, which accounting adjustment is most critical when normalizing EBITDA?",
+    answer: "Provider compensation adjustments",
+    explanation: "Provider compensation adjustments are crucial in healthcare valuations as physician/provider compensation can vary significantly from market rates. This adjustment ensures comparable analysis across different healthcare organizations and reflects true operational performance.",
+    type: "multiple_choice",
+    options: [
+      "Depreciation methods",
+      "Provider compensation adjustments",
+      "Inventory valuation",
+      "Research and development costs"
+    ],
+    correctOption: "Provider compensation adjustments",
+    difficulty: 5,
+    industryVerticals: ["Healthcare"],
+    roles: ["Investment Banking"],
+    topics: ["Accounting"],
+    source: {
+      type: "base",
+      timestamp: new Date(),
+      cached: false
+    }
+  },
+  {
+    text: "How should a healthcare company account for medical malpractice insurance in its financial statements?",
+    answer: "As a contingent liability with regular premium expenses",
+    explanation: "Medical malpractice insurance should be recorded as a contingent liability with regular premium expenses. This approach properly reflects both the ongoing cost of coverage and potential future claims, following accounting principles for risk management in healthcare organizations.",
+    type: "multiple_choice",
+    options: [
+      "As a prepaid asset",
+      "As an operating expense only",
+      "As a contingent liability with regular premium expenses",
+      "As a capital expenditure"
+    ],
+    correctOption: "As a contingent liability with regular premium expenses",
+    difficulty: 3,
+    industryVerticals: ["Healthcare"],
+    roles: ["Investment Banking"],
+    topics: ["Accounting"],
+    source: {
+      type: "base",
+      timestamp: new Date(),
+      cached: false
+    }
+  },
+  {
     text: "In a DCF analysis for a healthcare company, how would you adjust the WACC to account for regulatory risks specific to the healthcare sector?",
     answer: "To adjust WACC for healthcare regulatory risks, you would: 1) Increase the beta component to reflect higher systematic risk from regulatory changes, 2) Add a company-specific risk premium to the cost of equity, 3) Consider the impact of regulations on the optimal capital structure, and 4) Potentially add a regulatory risk premium based on historical regulatory events in the sector.",
     explanation: "Healthcare companies face unique regulatory risks that affect their cost of capital. The adjustment process involves both quantitative and qualitative factors, ensuring the valuation reflects the higher uncertainty and compliance costs in the healthcare sector.",

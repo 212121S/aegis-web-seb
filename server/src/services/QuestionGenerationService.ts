@@ -143,49 +143,83 @@ export class QuestionGenerationService {
 
       console.log('Exact match query result count:', questions.length);
 
-      // If no questions found, try with more relaxed criteria
+      // If no questions found, try matching any two criteria
       if (questions.length === 0) {
-        console.log('No exact matches, trying relaxed criteria...');
-        questions = await Question.find({
-          $or: [
-            { industryVerticals: { $in: verticals } },
-            { roles: { $in: roles } },
-            { topics: { $in: topics } }
-          ],
-          difficulty: { $in: difficulty },
-          'source.type': 'base',
-          type
-        }).limit(count);
+        console.log('No exact matches, trying two-criteria matches...');
+        const twoFieldQueries = [
+          // Vertical + Role
+          {
+            industryVerticals: { $in: verticals },
+            roles: { $in: roles },
+            'source.type': 'base',
+            type
+          },
+          // Vertical + Topic
+          {
+            industryVerticals: { $in: verticals },
+            topics: { $in: topics },
+            'source.type': 'base',
+            type
+          },
+          // Role + Topic
+          {
+            roles: { $in: roles },
+            topics: { $in: topics },
+            'source.type': 'base',
+            type
+          }
+        ];
 
-        console.log('Relaxed criteria query result count:', questions.length);
+        for (const query of twoFieldQueries) {
+          if (questions.length < count) {
+            const newQuestions = await Question.find(query)
+              .limit(count - questions.length);
+            questions = [...questions, ...newQuestions];
+          }
+        }
+
+        console.log('Two-criteria match query result count:', questions.length);
       }
 
-      // If still no questions, try without difficulty constraint
-      if (questions.length === 0) {
-        console.log('No matches with relaxed criteria, trying without difficulty constraint...');
-        questions = await Question.find({
-          $or: [
-            { industryVerticals: { $in: verticals } },
-            { roles: { $in: roles } },
-            { topics: { $in: topics } }
-          ],
-          'source.type': 'base',
-          type
-        }).limit(count);
+      // If still not enough questions, try matching any single criteria
+      if (questions.length < count) {
+        console.log('Trying single-criterion matches...');
+        const singleFieldQueries = [
+          // By Vertical
+          {
+            industryVerticals: { $in: verticals },
+            'source.type': 'base',
+            type
+          },
+          // By Role
+          {
+            roles: { $in: roles },
+            'source.type': 'base',
+            type
+          },
+          // By Topic
+          {
+            topics: { $in: topics },
+            'source.type': 'base',
+            type
+          }
+        ];
 
-        console.log('Query without difficulty constraint result count:', questions.length);
+        for (const query of singleFieldQueries) {
+          if (questions.length < count) {
+            const newQuestions = await Question.find(query)
+              .limit(count - questions.length);
+            questions = [...questions, ...newQuestions];
+          }
+        }
+
+        console.log('Single-criterion match query result count:', questions.length);
       }
 
-      // If still no questions, try with just the type
-      if (questions.length === 0) {
-        console.log('No matches found, trying with just type constraint...');
-        questions = await Question.find({
-          'source.type': 'base',
-          type
-        }).limit(count);
-
-        console.log('Basic type-only query result count:', questions.length);
-      }
+      // Deduplicate questions based on _id
+      questions = questions.filter((question, index, self) =>
+        index === self.findIndex((q) => q._id.toString() === question._id.toString())
+      );
 
       if (questions.length === 0) {
         console.log('No questions found with any criteria');
