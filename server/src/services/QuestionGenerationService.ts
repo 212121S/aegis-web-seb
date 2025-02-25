@@ -96,6 +96,26 @@ export class QuestionGenerationService {
     }
   }
 
+  private async waitForConnection(maxWaitMs: number = 5000): Promise<void> {
+    const startTime = Date.now();
+    let connected = false;
+    
+    while (!connected && Date.now() - startTime < maxWaitMs) {
+      try {
+        await Question.findOne().select('_id').lean();
+        connected = true;
+        console.log('Database connection verified');
+      } catch (error) {
+        console.warn('Database connection not ready, retrying...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+    
+    if (!connected) {
+      throw new Error('Failed to establish database connection');
+    }
+  }
+
   private async retryOperation<T>(
     operation: () => Promise<T>,
     maxAttempts: number = 3,
@@ -103,28 +123,13 @@ export class QuestionGenerationService {
   ): Promise<T> {
     let lastError: Error = new Error('Operation failed');
     
+    // First ensure we have a database connection
+    await this.waitForConnection();
+    
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        // Add a longer initial delay and ensure database connection is ready
-        if (attempt === 1) {
-          console.log('Ensuring database connection is ready...');
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Check if we can perform a simple query to verify connection
-          try {
-            await Question.findOne().select('_id').lean();
-            console.log('Database connection verified');
-          } catch (connError) {
-            console.warn('Database connection not ready, waiting additional time...');
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-        }
-        
         const result = await operation();
-        
-        // Log success for debugging
         console.log(`Operation succeeded on attempt ${attempt}`);
-        
         return result;
       } catch (error) {
         lastError = error as Error;
@@ -138,6 +143,9 @@ export class QuestionGenerationService {
           );
           console.log(`Retrying after ${delayMs}ms (Attempt ${attempt}/${maxAttempts})...`);
           await new Promise(resolve => setTimeout(resolve, delayMs));
+          
+          // Verify connection before next attempt
+          await this.waitForConnection(2000);
         }
       }
     }
@@ -163,14 +171,21 @@ export class QuestionGenerationService {
       // Try to find questions with relaxed matching criteria
       const baseQuery = { 'source.type': 'base', type };
       
-      // First try exact matches
+      // First try exact matches with relaxed difficulty
+      const difficultyRange = {
+        $gte: Math.min(...difficulty),
+        $lte: Math.max(...difficulty)
+      };
+
       questions = await Question.find({
         ...baseQuery,
         industryVerticals: { $in: verticals },
         roles: { $in: roles },
         topics: { $in: topics },
-        difficulty: { $in: difficulty }
+        difficulty: difficultyRange
       }).limit(count);
+
+      console.log(`Found ${questions.length} questions with exact match and difficulty range ${JSON.stringify(difficultyRange)}`);
 
       if (questions.length === 0) {
         // If no exact matches, use a more flexible approach
@@ -202,7 +217,16 @@ export class QuestionGenerationService {
                     ]
                   },
                   {
-                    $cond: [{ $in: ["$difficulty", difficulty] }, 1, 0]
+                    $cond: [
+                      {
+                        $and: [
+                          { $gte: ["$difficulty", Math.min(...difficulty)] },
+                          { $lte: ["$difficulty", Math.max(...difficulty)] }
+                        ]
+                      },
+                      1,
+                      0
+                    ]
                   }
                 ]
               }
@@ -276,14 +300,24 @@ export class QuestionGenerationService {
   private async findCachedQuestions(params: GenerationParams): Promise<IQuestion[]> {
     const { verticals, roles, topics, difficulty, type = 'multiple_choice' } = params;
 
+    const difficultyRange = {
+      $gte: Math.min(...difficulty),
+      $lte: Math.max(...difficulty)
+    };
+
     const cache = await QuestionCache.findOne({
       'metadata.verticals': { $all: verticals },
       'metadata.roles': { $all: roles },
       'metadata.topics': { $all: topics },
-      'metadata.difficulty': { $all: difficulty },
       'metadata.type': type,
-      expiresAt: { $gt: new Date() }
-    }).populate('questions');
+      expiresAt: { $gt: new Date() },
+      'questions.difficulty': difficultyRange
+    }).populate({
+      path: 'questions',
+      match: { difficulty: difficultyRange }
+    });
+
+    console.log(`Cache lookup with difficulty range ${JSON.stringify(difficultyRange)}`);
 
     return cache ? (cache.questions as unknown as IQuestion[]) : [];
   }
@@ -291,11 +325,16 @@ export class QuestionGenerationService {
   private async getSampleQuestions(params: GenerationParams): Promise<IQuestion[]> {
     const { verticals, roles, topics, difficulty, type = 'multiple_choice' } = params;
 
+    const difficultyRange = {
+      $gte: Math.min(...difficulty),
+      $lte: Math.max(...difficulty)
+    };
+
     return Question.find({
       industryVerticals: { $in: verticals },
       roles: { $in: roles },
       topics: { $in: topics },
-      difficulty: { $in: difficulty },
+      difficulty: difficultyRange,
       'source.type': 'base',
       type
     }).limit(2);
