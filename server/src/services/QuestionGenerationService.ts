@@ -2,6 +2,7 @@ import { openai, SYSTEM_MESSAGE, generateUserMessage, CACHE_DURATION_HOURS, isOp
 import type OpenAI from 'openai';
 import { Question, IQuestion, QuestionConstants } from '../models/Question';
 import { QuestionCache, IQuestionCache } from '../models/QuestionCache';
+import type { PipelineStage } from 'mongoose';
 
 interface GenerationParams {
   verticals: string[];
@@ -159,100 +160,85 @@ export class QuestionGenerationService {
         count
       });
 
-      // Try to find questions with exact match first
+      // Try to find questions with relaxed matching criteria
+      const baseQuery = { 'source.type': 'base', type };
+      
+      // First try exact matches
       questions = await Question.find({
+        ...baseQuery,
         industryVerticals: { $in: verticals },
         roles: { $in: roles },
         topics: { $in: topics },
-        difficulty: { $in: difficulty },
-        'source.type': 'base',
-        type
+        difficulty: { $in: difficulty }
       }).limit(count);
 
-      console.log('Exact match query result count:', questions.length);
-
-      // If no questions found, try matching any two criteria
       if (questions.length === 0) {
-        console.log('No exact matches, trying two-criteria matches...');
-        const twoFieldQueries = [
-          // Vertical + Role
+        // If no exact matches, use a more flexible approach
+        // Define pipeline stages for flexible matching
+        const pipeline: PipelineStage[] = [
           {
-            industryVerticals: { $in: verticals },
-            roles: { $in: roles },
-            'source.type': 'base',
-            type
+            $match: baseQuery
           },
-          // Vertical + Topic
           {
-            industryVerticals: { $in: verticals },
-            topics: { $in: topics },
-            'source.type': 'base',
-            type
+            $addFields: {
+              matchScore: {
+                $add: [
+                  {
+                    $multiply: [
+                      { $size: { $setIntersection: ["$industryVerticals", verticals] } },
+                      3
+                    ]
+                  },
+                  {
+                    $multiply: [
+                      { $size: { $setIntersection: ["$roles", roles] } },
+                      2
+                    ]
+                  },
+                  {
+                    $multiply: [
+                      { $size: { $setIntersection: ["$topics", topics] } },
+                      2
+                    ]
+                  },
+                  {
+                    $cond: [{ $in: ["$difficulty", difficulty] }, 1, 0]
+                  }
+                ]
+              }
+            }
           },
-          // Role + Topic
           {
-            roles: { $in: roles },
-            topics: { $in: topics },
-            'source.type': 'base',
-            type
+            $match: {
+              matchScore: { $gt: 0 }
+            }
+          },
+          {
+            $sort: {
+              matchScore: -1
+            }
+          } as PipelineStage.Sort,
+          {
+            $limit: count
           }
         ];
 
-        for (const query of twoFieldQueries) {
-          if (questions.length < count) {
-            const newQuestions = await Question.find(query)
-              .limit(count - questions.length);
-            questions = [...questions, ...newQuestions];
-          }
+        const flexibleMatches = await Question.aggregate(pipeline);
+        
+        if (flexibleMatches.length > 0) {
+          // Convert aggregation results back to Question documents
+          questions = await Question.find({
+            _id: { $in: flexibleMatches.map(q => q._id) }
+          });
         }
-
-        console.log('Two-criteria match query result count:', questions.length);
       }
-
-      // If still not enough questions, try matching any single criteria
-      if (questions.length < count) {
-        console.log('Trying single-criterion matches...');
-        const singleFieldQueries = [
-          // By Vertical
-          {
-            industryVerticals: { $in: verticals },
-            'source.type': 'base',
-            type
-          },
-          // By Role
-          {
-            roles: { $in: roles },
-            'source.type': 'base',
-            type
-          },
-          // By Topic
-          {
-            topics: { $in: topics },
-            'source.type': 'base',
-            type
-          }
-        ];
-
-        for (const query of singleFieldQueries) {
-          if (questions.length < count) {
-            const newQuestions = await Question.find(query)
-              .limit(count - questions.length);
-            questions = [...questions, ...newQuestions];
-          }
-        }
-
-        console.log('Single-criterion match query result count:', questions.length);
-      }
-
-      // Deduplicate questions based on _id
-      questions = questions.filter((question, index, self) =>
-        index === self.findIndex((q) => q._id.toString() === question._id.toString())
-      );
 
       if (questions.length === 0) {
         console.log('No questions found with any criteria');
         throw new Error('No questions available in the database. Please try different criteria or contact support.');
       }
+
+      console.log(`Found ${questions.length} questions`);
 
       return questions;
     });
