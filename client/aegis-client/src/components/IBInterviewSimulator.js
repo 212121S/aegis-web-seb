@@ -44,11 +44,14 @@ const IBInterviewSimulator = () => {
 
   useEffect(() => {
     // When bank selection changes, update available groups
-    if (selectedBank) {
-      const bank = banks.find(b => b._id === selectedBank);
-      if (bank) {
+    if (selectedBank && Array.isArray(banks) && banks.length > 0) {
+      const bank = banks.find(b => b && b._id === selectedBank);
+      if (bank && Array.isArray(bank.groups)) {
         setAvailableGroups(bank.groups);
         setSelectedGroup(''); // Reset group selection
+      } else {
+        setAvailableGroups([]);
+        setSelectedGroup('');
       }
     } else {
       setAvailableGroups([]);
@@ -60,9 +63,16 @@ const IBInterviewSimulator = () => {
     try {
       setLoading(true);
       const response = await examAPI.get('/ib-interview/banks');
-      setBanks(response.data);
+      if (response && response.data && Array.isArray(response.data)) {
+        setBanks(response.data);
+      } else {
+        console.error('Invalid banks data format:', response);
+        setBanks([]);
+        setError('Failed to load investment banks. Invalid data format received.');
+      }
     } catch (error) {
       console.error('Failed to fetch banks:', error);
+      setBanks([]);
       setError('Failed to load investment banks. Please try again.');
     } finally {
       setLoading(false);
@@ -159,9 +169,11 @@ const IBInterviewSimulator = () => {
     );
   }
 
-  // Get the selected bank and group details for display
-  const selectedBankData = banks.find(b => b._id === selectedBank);
-  const selectedGroupData = selectedBankData?.groups.find(g => g._id === selectedGroup);
+  // Get the selected bank and group details for display with defensive checks
+  const selectedBankData = Array.isArray(banks) ? banks.find(b => b && b._id === selectedBank) : null;
+  const selectedGroupData = selectedBankData && Array.isArray(selectedBankData.groups) 
+    ? selectedBankData.groups.find(g => g && g._id === selectedGroup) 
+    : null;
 
   return (
     <Container maxWidth="md">
@@ -190,10 +202,12 @@ const IBInterviewSimulator = () => {
                   onChange={(e) => setSelectedBank(e.target.value)}
                   disabled={generating}
                 >
-                  {banks.map((bank) => (
-                    <MenuItem key={bank._id} value={bank._id}>
-                      {bank.name}
-                    </MenuItem>
+                  {Array.isArray(banks) && banks.map((bank) => (
+                    bank && bank._id && bank.name ? (
+                      <MenuItem key={bank._id} value={bank._id}>
+                        {bank.name}
+                      </MenuItem>
+                    ) : null
                   ))}
                 </Select>
               </FormControl>
@@ -206,10 +220,12 @@ const IBInterviewSimulator = () => {
                   onChange={(e) => setSelectedGroup(e.target.value)}
                   disabled={!selectedBank || generating}
                 >
-                  {availableGroups.map((group) => (
-                    <MenuItem key={group._id} value={group._id}>
-                      {group.name} ({group.fullName})
-                    </MenuItem>
+                  {Array.isArray(availableGroups) && availableGroups.map((group) => (
+                    group && group._id && group.name ? (
+                      <MenuItem key={group._id} value={group._id}>
+                        {group.name} {group.fullName ? `(${group.fullName})` : ''}
+                      </MenuItem>
+                    ) : null
                   ))}
                 </Select>
               </FormControl>
@@ -250,19 +266,19 @@ const IBInterviewSimulator = () => {
               {selectedBankData && selectedGroupData && (
                 <Box sx={{ mb: 3, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
                   <Typography variant="h6" gutterBottom>
-                    {selectedBankData.name} - {selectedGroupData.fullName}
+                    {selectedBankData.name || 'Unknown Bank'} - {selectedGroupData.fullName || 'Unknown Group'}
                   </Typography>
                   <Typography variant="body2" paragraph>
-                    {selectedGroupData.description}
+                    {selectedGroupData.description || 'No description available.'}
                   </Typography>
                   <Typography variant="subtitle2" gutterBottom>
-                    Difficulty Level: {selectedGroupData.difficulty}/10
+                    Difficulty Level: {selectedGroupData.difficulty || '?'}/10
                   </Typography>
                   <Typography variant="subtitle2" gutterBottom>
                     Focus Areas:
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
-                    {selectedGroupData.topics.map((topic) => (
+                    {Array.isArray(selectedGroupData.topics) ? selectedGroupData.topics.map((topic) => (
                       <Typography key={topic} variant="body2" component="span" sx={{ 
                         bgcolor: 'primary.light', 
                         color: 'primary.contrastText',
@@ -273,7 +289,9 @@ const IBInterviewSimulator = () => {
                       }}>
                         {topic}
                       </Typography>
-                    ))}
+                    )) : (
+                      <Typography variant="body2">No focus areas specified</Typography>
+                    )}
                   </Box>
                 </Box>
               )}

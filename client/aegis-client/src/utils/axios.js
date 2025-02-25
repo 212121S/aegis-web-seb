@@ -470,6 +470,20 @@ export const examAPI = {
     }
   },
   
+  post: async (url, data) => {
+    try {
+      const response = await instance.post(url, data);
+      return response;
+    } catch (error) {
+      console.error(`Failed to POST to ${url}:`, {
+        error,
+        data,
+        timestamp: new Date().toISOString()
+      });
+      throw error;
+    }
+  },
+  
   // Practice Test Builder endpoints
   getPracticeConfig: async () => {
     try {
