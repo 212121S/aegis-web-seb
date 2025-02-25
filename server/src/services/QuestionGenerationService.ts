@@ -346,8 +346,34 @@ export class QuestionGenerationService {
       return [];
     }
 
+    // Enhanced system message for level 8 questions
+    const enhancedSystemMessage = params.difficulty.includes(8) 
+      ? `${SYSTEM_MESSAGE}\n\nFor difficulty level 8 questions, ensure they:
+1. Integrate Multiple Domains:
+- Combine knowledge across different areas (e.g., M&A, credit analysis, regulatory frameworks)
+- Require synthesis of technical and strategic considerations
+
+2. Include Market Context Dependencies:
+- Make the correct approach dependent on market conditions
+- Require analysis of different market scenarios
+
+3. Demand Risk-Return Analysis:
+- Test ability to identify and evaluate interconnected risks
+- Require assessment of second and third-order effects
+
+4. Present Complex Decision Trees:
+- Include multiple valid approaches with different risk-reward profiles
+- Require justification of chosen strategies
+
+5. Address Implementation Challenges:
+- Include practical constraints and real-world complications
+- Test ability to adapt theoretical frameworks to practical situations
+
+Questions should truly differentiate top-percentile candidates by testing both technical mastery and strategic thinking.`
+      : SYSTEM_MESSAGE;
+
     const messages = [
-      { role: 'system' as const, content: SYSTEM_MESSAGE },
+      { role: 'system' as const, content: enhancedSystemMessage },
       { 
         role: 'user' as const, 
         content: generateUserMessage({
@@ -361,7 +387,8 @@ export class QuestionGenerationService {
       console.log('OpenAI Configuration:', {
         isConfigured: isOpenAIConfigured(),
         apiKeyLength: process.env.OPENAI_API_KEY?.length,
-        model: 'gpt-4o-mini'
+        model: 'gpt-4o-mini',
+        isLevel8: params.difficulty.includes(8)
       });
 
       const completion = await openai.chat.completions.create(

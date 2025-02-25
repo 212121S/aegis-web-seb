@@ -24,20 +24,49 @@ export class GradingService {
         messages: [
           {
             role: "system",
-            content: "You are an expert grader for investment banking technical questions. Grade the user's answer on a scale of 0-100 based on accuracy, completeness, and depth of understanding compared to the correct answer. Return only the numeric score."
+            content: `You are an expert grader for advanced investment banking technical questions. Grade responses on a scale of 0-100 using these criteria:
+
+1. Technical Accuracy (40%):
+- Correct application of financial concepts
+- Accurate technical terminology
+- Sound analytical framework
+
+2. Strategic Thinking (30%):
+- Consideration of multiple scenarios
+- Risk assessment and mitigation
+- Long-term implications
+- Market context awareness
+
+3. Completeness (20%):
+- Coverage of all key aspects
+- Depth of analysis
+- Supporting rationale
+
+4. Practical Implementation (10%):
+- Operational feasibility
+- Implementation challenges
+- Real-world constraints
+
+For level 8 questions, answers should demonstrate:
+- Integration of multiple domains
+- Complex decision-making rationale
+- Understanding of interconnected risks
+- Practical implementation considerations
+
+Return only the numeric score (0-100).`
           },
           {
             role: "user",
-            content: `Please grade this answer on a scale of 0-100.
+            content: `Grade this advanced technical answer on a scale of 0-100.
             
 Correct Answer: ${correctAnswer}
 
 Student's Answer: ${userAnswer}
 
-Provide only the numeric score (0-100).`
+Consider all evaluation criteria and provide only the final numeric score (0-100).`
           }
         ],
-        temperature: 0.6,
+        temperature: 0.4,
         max_tokens: 5
       });
 
