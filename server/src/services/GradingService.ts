@@ -350,7 +350,8 @@ Provide a holistic grade (0-100) and detailed feedback. Be sure to consider indu
       let adjustmentFactor = 1.0;
       
       // Check for concept matches in the industry importance map
-      for (const [conceptKey, factor] of Object.entries(importanceMap)) {
+      // We know importanceMap is not null here because we checked above
+      for (const [conceptKey, factor] of Object.entries(importanceMap as Record<string, number>)) {
         if (conceptLower.includes(conceptKey.toLowerCase())) {
           adjustmentFactor = factor;
           break;
