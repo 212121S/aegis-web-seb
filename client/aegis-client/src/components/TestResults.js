@@ -17,6 +17,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Chip,
   useTheme
 } from '@mui/material';
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
@@ -291,15 +292,28 @@ const TestResults = () => {
                       </Typography>
                       {question.conceptsFeedback.map((concept, idx) => (
                         <Paper key={idx} variant="outlined" sx={{ p: 2, mb: 1, borderLeft: concept.addressed ? '4px solid #4caf50' : '4px solid #f44336' }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                            {concept.concept} ({concept.weight}%)
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: concept.addressed ? 'success.main' : 'error.main', fontWeight: 'bold', mb: 1 }}>
-                            {concept.addressed ? 'Addressed' : 'Not Addressed'}
-                          </Typography>
-                          <Typography variant="body2">
-                            {concept.feedback || 'No specific feedback provided.'}
-                          </Typography>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                              {concept.concept} ({concept.weight}%)
+                            </Typography>
+                            <Chip 
+                              label={concept.addressed ? 'Addressed' : 'Not Addressed'} 
+                              color={concept.addressed ? 'success' : 'error'}
+                              size="small"
+                            />
+                          </Box>
+                          
+                          {/* Only show if feedback isn't the default "not evaluated" message */}
+                          {concept.feedback && !concept.feedback.includes("not evaluated") && (
+                            <>
+                              <Typography variant="body2" sx={{ fontWeight: 'bold', mt: 1 }}>
+                                Feedback:
+                              </Typography>
+                              <Typography variant="body2" paragraph>
+                                {concept.feedback}
+                              </Typography>
+                            </>
+                          )}
                         </Paper>
                       ))}
                     </>
