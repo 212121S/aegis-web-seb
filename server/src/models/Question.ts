@@ -22,6 +22,13 @@ export interface IQuestion extends Document {
     systemRated: number;
     totalAttempts: number;
   };
+  rubric?: {
+    criteria: Array<{
+      concept: string;
+      description: string;
+      weight: number;
+    }>;
+  };
   _id: mongoose.Types.ObjectId;
 }
 
@@ -144,6 +151,24 @@ const questionSchema = new Schema<IQuestion>({
       type: Number,
       default: 0
     }
+  },
+  rubric: {
+    criteria: [{
+      concept: {
+        type: String,
+        required: true
+      },
+      description: {
+        type: String,
+        required: true
+      },
+      weight: {
+        type: Number,
+        required: true,
+        min: 1,
+        max: 100
+      }
+    }]
   }
 }, {
   timestamps: true

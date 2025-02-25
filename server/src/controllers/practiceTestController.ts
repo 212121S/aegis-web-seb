@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { QuestionGenerationService } from '../services/QuestionGenerationService';
-import { GradingService } from '../services/GradingService';
+import { GradingService, ConceptFeedback } from '../services/GradingService';
 import { Question, QuestionConstants, IQuestion } from '../models/Question';
 import { User } from '../models/User';
 import { Types } from 'mongoose';
@@ -13,6 +13,7 @@ interface QuestionResult {
   userAnswer: string;
   correctAnswer: string;
   explanation: string;
+  conceptsFeedback?: ConceptFeedback[];
 }
 
 interface UserDocument {
@@ -189,12 +190,16 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
         if (!question) continue;
 
         let score = 0;
+        let conceptsFeedback: ConceptFeedback[] = [];
+        
         if (question.type === 'multiple_choice') {
           score = answer.answer === question.correctOption ? 100 : 0;
         } else {
           try {
             const gradingService = GradingService.getInstance();
-            score = await gradingService.gradeWrittenAnswer(answer.answer, question.answer);
+            const gradingResult = await gradingService.gradeWrittenAnswer(answer.answer, question);
+            score = gradingResult.score;
+            conceptsFeedback = gradingResult.conceptsFeedback;
           } catch (error) {
             console.error('Error grading written answer:', error);
             score = 0; // Default to 0 if grading fails
@@ -211,7 +216,8 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
           score: score,
           userAnswer: answer.answer,
           correctAnswer: question.type === 'multiple_choice' ? question.correctOption! : question.answer,
-          explanation: question.explanation
+          explanation: question.explanation,
+          conceptsFeedback: question.type === 'open_ended' ? conceptsFeedback : undefined
         });
 
         // Update topic scores

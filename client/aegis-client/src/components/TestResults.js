@@ -243,9 +243,67 @@ const TestResults = () => {
                   <Typography variant="subtitle2" color="textSecondary" gutterBottom>
                     Explanation:
                   </Typography>
-                  <Typography>
+                  <Typography paragraph>
                     {question.explanation}
                   </Typography>
+                  
+                  {/* Concept Feedback for Written Answers */}
+                  {question.conceptsFeedback && question.conceptsFeedback.length > 0 && (
+                    <>
+                      <Typography variant="subtitle2" color="textSecondary" gutterBottom sx={{ mt: 2 }}>
+                        Grading Breakdown:
+                      </Typography>
+                      <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Concept</TableCell>
+                              <TableCell>Description</TableCell>
+                              <TableCell align="center">Weight</TableCell>
+                              <TableCell align="center">Status</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {question.conceptsFeedback.map((concept, idx) => (
+                              <TableRow key={idx} sx={{ 
+                                backgroundColor: concept.addressed 
+                                  ? 'rgba(76, 175, 80, 0.1)' 
+                                  : 'rgba(244, 67, 54, 0.1)'
+                              }}>
+                                <TableCell>{concept.concept}</TableCell>
+                                <TableCell>{concept.description || 'N/A'}</TableCell>
+                                <TableCell align="center">{concept.weight}%</TableCell>
+                                <TableCell align="center" sx={{ 
+                                  color: concept.addressed ? 'success.main' : 'error.main',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {concept.addressed ? 'Addressed' : 'Not Addressed'}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                      
+                      {/* Detailed Feedback */}
+                      <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                        Detailed Feedback:
+                      </Typography>
+                      {question.conceptsFeedback.map((concept, idx) => (
+                        <Paper key={idx} variant="outlined" sx={{ p: 2, mb: 1, borderLeft: concept.addressed ? '4px solid #4caf50' : '4px solid #f44336' }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                            {concept.concept} ({concept.weight}%)
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: concept.addressed ? 'success.main' : 'error.main', fontWeight: 'bold', mb: 1 }}>
+                            {concept.addressed ? 'Addressed' : 'Not Addressed'}
+                          </Typography>
+                          <Typography variant="body2">
+                            {concept.feedback || 'No specific feedback provided.'}
+                          </Typography>
+                        </Paper>
+                      ))}
+                    </>
+                  )}
                 </Box>
               </AccordionDetails>
             </Accordion>

@@ -44,6 +44,7 @@ Follow these guidelines:
 4. Match the difficulty level requested (1-8 scale)
 5. Ensure questions are relevant to the specified industry verticals, roles, and topics
 6. Include practical, real-world scenarios when appropriate
+7. For open-ended questions, include a grading rubric with key concepts that should be mentioned
 
 Format each question as a JSON object with the following structure:
 {
@@ -52,8 +53,24 @@ Format each question as a JSON object with the following structure:
   "explanation": "Detailed explanation of the concepts and solution approach",
   "type": "multiple_choice" or "open_ended",
   "options": ["Option A", "Option B", "Option C", "Option D"] (for multiple_choice only),
-  "correctOption": "The correct option" (for multiple_choice only)
-}`;
+  "correctOption": "The correct option" (for multiple_choice only),
+  "rubric": {
+    "criteria": [
+      {
+        "concept": "Key concept name",
+        "description": "Brief description of what should be mentioned",
+        "weight": 25 // Numeric weight (all weights should sum to 100)
+      },
+      // Additional criteria...
+    ]
+  } (for open_ended questions)
+}
+
+For open-ended questions, the rubric should:
+1. Identify 3-5 key concepts that a complete answer should address
+2. Provide a clear description of what constitutes addressing each concept
+3. Assign weights to each concept based on importance (weights should sum to 100)
+4. Cover different aspects of a complete answer (e.g., theory, application, analysis)`;
 
 // Helper function to generate the user message for the API
 export const generateUserMessage = (params: {

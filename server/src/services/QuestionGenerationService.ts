@@ -22,6 +22,13 @@ interface GeneratedQuestion {
   type: 'multiple_choice' | 'open_ended';
   options?: string[];
   correctOption?: string;
+  rubric?: {
+    criteria: Array<{
+      concept: string;
+      description: string;
+      weight: number;
+    }>;
+  };
 }
 
 export class QuestionGenerationService {
@@ -536,6 +543,33 @@ Questions should be designed to truly differentiate the top 1% of candidates by 
             if (!Array.isArray(q.options) || q.options.length < 2) return false;
             if (!q.correctOption || !q.options.includes(q.correctOption)) return false;
           }
+          
+          // Validate rubric for open-ended questions
+          if (q.type === 'open_ended' && q.rubric) {
+            // Ensure rubric has criteria array
+            if (!q.rubric.criteria || !Array.isArray(q.rubric.criteria)) {
+              console.warn('Open-ended question missing valid rubric criteria array, generating default rubric');
+              q.rubric = this.generateDefaultRubric(q);
+            } else {
+              // Validate each criterion
+              let totalWeight = 0;
+              const validCriteria = q.rubric.criteria.every(c => {
+                if (!c.concept || !c.description || typeof c.weight !== 'number') return false;
+                totalWeight += c.weight;
+                return true;
+              });
+              
+              // Check if weights sum to approximately 100
+              if (!validCriteria || Math.abs(totalWeight - 100) > 5) {
+                console.warn('Invalid rubric criteria or weights don\'t sum to 100, generating default rubric');
+                q.rubric = this.generateDefaultRubric(q);
+              }
+            }
+          } else if (q.type === 'open_ended' && !q.rubric) {
+            // Generate default rubric for open-ended questions without one
+            console.warn('Open-ended question missing rubric, generating default');
+            q.rubric = this.generateDefaultRubric(q);
+          }
 
           return true;
         } catch (error) {
@@ -547,6 +581,49 @@ Questions should be designed to truly differentiate the top 1% of candidates by 
       console.error('Failed to parse OpenAI response:', error);
       return [];
     }
+  }
+  
+  /**
+   * Generate a default rubric for open-ended questions that don't have one
+   */
+  private generateDefaultRubric(question: GeneratedQuestion): {
+    criteria: Array<{
+      concept: string;
+      description: string;
+      weight: number;
+    }>;
+  } {
+    // Extract key phrases from the answer to create a simple rubric
+    const answer = question.answer;
+    const explanation = question.explanation;
+    
+    // Default criteria if we can't extract meaningful ones
+    const defaultCriteria = [
+      {
+        concept: "Technical Accuracy",
+        description: "Correct application of financial concepts and terminology",
+        weight: 40
+      },
+      {
+        concept: "Completeness",
+        description: "Coverage of all key aspects of the question",
+        weight: 30
+      },
+      {
+        concept: "Strategic Thinking",
+        description: "Consideration of implications and multiple scenarios",
+        weight: 20
+      },
+      {
+        concept: "Practical Implementation",
+        description: "Addressing real-world constraints and challenges",
+        weight: 10
+      }
+    ];
+    
+    return {
+      criteria: defaultCriteria
+    };
   }
 
   private async saveQuestions(
