@@ -97,17 +97,24 @@ export class QuestionGenerationService {
 
   private async retryOperation<T>(
     operation: () => Promise<T>,
-    maxAttempts: number = 2,
-    delayMs: number = 1000
+    maxAttempts: number = 3,
+    initialDelayMs: number = 2000
   ): Promise<T> {
     let lastError: Error = new Error('Operation failed');
     
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
+        // Add a small initial delay even on first attempt to ensure connection is ready
+        if (attempt === 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
         return await operation();
       } catch (error) {
         lastError = error as Error;
         if (attempt < maxAttempts) {
+          // Use exponential backoff: delay increases with each attempt
+          const delayMs = initialDelayMs * Math.pow(2, attempt - 1);
           console.log(`Attempt ${attempt} failed, retrying after ${delayMs}ms...`);
           await new Promise(resolve => setTimeout(resolve, delayMs));
         }
