@@ -14,6 +14,10 @@ interface QuestionResult {
   correctAnswer: string;
   explanation: string;
   conceptsFeedback?: ConceptFeedback[];
+  holisticFeedback?: {
+    score: number;
+    feedback: string;
+  };
 }
 
 interface UserDocument {
@@ -192,6 +196,8 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
         let score = 0;
         let conceptsFeedback: ConceptFeedback[] = [];
         
+        let holisticFeedback;
+        
         if (question.type === 'multiple_choice') {
           score = answer.answer === question.correctOption ? 100 : 0;
         } else {
@@ -200,6 +206,7 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
             const gradingResult = await gradingService.gradeWrittenAnswer(answer.answer, question);
             score = gradingResult.score;
             conceptsFeedback = gradingResult.conceptsFeedback;
+            holisticFeedback = gradingResult.holisticFeedback;
           } catch (error) {
             console.error('Error grading written answer:', error);
             score = 0; // Default to 0 if grading fails
@@ -217,7 +224,8 @@ export const submitPracticeTest = async (req: Request, res: Response): Promise<v
           userAnswer: answer.answer,
           correctAnswer: question.type === 'multiple_choice' ? question.correctOption! : question.answer,
           explanation: question.explanation,
-          conceptsFeedback: question.type === 'open_ended' ? conceptsFeedback : undefined
+          conceptsFeedback: question.type === 'open_ended' ? conceptsFeedback : undefined,
+          holisticFeedback: holisticFeedback
         });
 
         // Update topic scores

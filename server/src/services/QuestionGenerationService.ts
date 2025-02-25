@@ -13,6 +13,12 @@ interface GenerationParams {
   useCache?: boolean;
   useAI?: boolean;
   type?: 'multiple_choice' | 'open_ended';
+  bankContext?: {
+    bankName: string;
+    groupName: string;
+    groupFullName: string;
+    groupDescription: string;
+  };
 }
 
 interface GeneratedQuestion {

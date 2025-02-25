@@ -20,6 +20,7 @@ import paymentRoutes from "./routes/payment";
 import webhookRoutes from "./routes/webhook";
 import verificationRoutes from "./routes/verification";
 import practiceTestRoutes from "./routes/practiceTest";
+import ibInterviewRoutes from "./routes/ibInterview";
 
 dotenv.config();
 
@@ -105,7 +106,8 @@ console.log('Mounting API routes:', {
   exam: '/api/exam',
   payment: '/api/payment',
   verification: '/api/verification',
-  practice: '/api/practice'
+  practice: '/api/practice',
+  ibInterview: '/api/ib-interview'
 });
 
 // Mount API routes
@@ -113,6 +115,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/exam", examRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/practice", practiceTestRoutes);
+app.use("/api/ib-interview", ibInterviewRoutes);
 
 // Mount verification routes with logging
 app.use("/api/verification", (req: Request, res: Response, next: NextFunction) => {

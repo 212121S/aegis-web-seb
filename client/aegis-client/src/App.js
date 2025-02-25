@@ -28,6 +28,7 @@ import PaymentPage from './components/PaymentPage';
 import PaymentSuccess from './components/PaymentSuccess';
 import AccountSettings from './components/AccountSettings';
 import Register from './components/Register';
+import IBInterviewSimulator from './components/IBInterviewSimulator';
 
 // Loading Component
 const LoadingScreen = () => (
@@ -58,6 +59,9 @@ const NavigationBar = () => {
             </Button>
             <Button color="inherit" component={Link} to="/practice-builder">
               Practice Test Builder
+            </Button>
+            <Button color="inherit" component={Link} to="/ib-interview">
+              IB Interview Simulator
             </Button>
             {!user.subscription?.active && (
               <Button color="inherit" component={Link} to="/plans">
@@ -198,6 +202,14 @@ const AppRoutes = () => {
               element={
                 <ProtectedRoute>
                   <AccountSettings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ib-interview"
+              element={
+                <ProtectedRoute>
+                  <IBInterviewSimulator />
                 </ProtectedRoute>
               }
             />

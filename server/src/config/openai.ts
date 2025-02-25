@@ -81,6 +81,12 @@ export const generateUserMessage = (params: {
   count: number;
   type?: 'multiple_choice' | 'open_ended';
   sampleQuestions?: any[];
+  bankContext?: {
+    bankName: string;
+    groupName: string;
+    groupFullName: string;
+    groupDescription: string;
+  };
 }) => {
   const {
     verticals,
@@ -89,7 +95,8 @@ export const generateUserMessage = (params: {
     difficulty,
     count,
     type = 'multiple_choice',
-    sampleQuestions
+    sampleQuestions,
+    bankContext
   } = params;
 
   let message = `Generate ${count} unique technical interview questions with the following parameters:
@@ -98,7 +105,21 @@ Industry Verticals: ${verticals.join(', ')}
 Roles: ${roles.join(', ')}
 Topics: ${topics.join(', ')}
 Difficulty Level(s): ${difficulty.join(', ')} (on a scale of 1-8)
+`;
 
+  // Add bank-specific context if provided
+  if (bankContext) {
+    message += `
+Investment Bank: ${bankContext.bankName}
+Group: ${bankContext.groupName} (${bankContext.groupFullName})
+Group Description: ${bankContext.groupDescription}
+
+IMPORTANT: These questions should specifically simulate a technical interview at ${bankContext.bankName} for their ${bankContext.groupFullName}. 
+The questions should reflect the actual interview style, difficulty, and focus areas that this specific group is known for.
+`;
+  }
+
+  message += `
 Requirements:
 1. Questions should be specifically tailored to the intersection of the given verticals, roles, and topics
 2. Maintain the specified difficulty level(s)

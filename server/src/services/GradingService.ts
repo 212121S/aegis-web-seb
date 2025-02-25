@@ -11,10 +11,17 @@ export interface ConceptFeedback {
   description?: string;
 }
 
+// Interface for holistic feedback
+export interface HolisticFeedback {
+  score: number;
+  feedback: string;
+}
+
 // Interface for grading result
 export interface GradingResult {
   score: number;
   conceptsFeedback: ConceptFeedback[];
+  holisticFeedback?: HolisticFeedback;
 }
 
 export class GradingService {
@@ -30,29 +37,138 @@ export class GradingService {
   }
 
   /**
-   * Grade a written answer using a rubric if available, or fall back to legacy grading
+   * Grade a written answer using ChatGPT for holistic assessment and rubric for detailed feedback
    */
   public async gradeWrittenAnswer(userAnswer: string, question: IQuestion): Promise<GradingResult> {
     try {
-      // If OpenAI is not configured or no rubric exists, fall back to legacy grading
-      if (!openai || !question.rubric || !question.rubric.criteria || question.rubric.criteria.length === 0) {
-        const score = await this.legacyGradeWrittenAnswer(userAnswer, question.answer);
+      // If OpenAI is not configured, fall back to exact matching
+      if (!openai) {
+        const score = userAnswer.toLowerCase().trim() === question.answer.toLowerCase().trim() ? 100 : 0;
         return { score, conceptsFeedback: [] };
+      }
+
+      // Get holistic feedback from ChatGPT
+      const holisticFeedback = await this.getHolisticGradeFromChatGPT(
+        userAnswer, 
+        question.text, 
+        question.answer, 
+        question.explanation
+      );
+
+      // If no rubric exists, return just the holistic feedback
+      if (!question.rubric || !question.rubric.criteria || question.rubric.criteria.length === 0) {
+        return { 
+          score: holisticFeedback.score, 
+          conceptsFeedback: [],
+          holisticFeedback 
+        };
       }
 
       // Ensure all rubric criteria have proper descriptions
       const enhancedRubric = this.ensureRubricDescriptions(question.rubric);
       
-      // First extract key concepts from the student's answer
+      // Extract key concepts from the student's answer
       const extractedConcepts = await this.extractConceptsFromAnswer(userAnswer, question.answer, enhancedRubric);
       
-      // Then evaluate those concepts against the rubric
-      return await this.evaluateAgainstRubric(userAnswer, question.answer, enhancedRubric, extractedConcepts);
+      // Evaluate those concepts against the rubric
+      const rubricResult = await this.evaluateAgainstRubric(userAnswer, question.answer, enhancedRubric, extractedConcepts);
+      
+      // Return combined result with holistic feedback as the primary score
+      return {
+        score: holisticFeedback.score,
+        conceptsFeedback: rubricResult.conceptsFeedback,
+        holisticFeedback
+      };
     } catch (error) {
-      console.error('Error in rubric-based grading:', error);
-      // Fall back to legacy grading if rubric-based grading fails
-      const score = await this.legacyGradeWrittenAnswer(userAnswer, question.answer);
-      return { score, conceptsFeedback: [] };
+      console.error('Error in grading:', error);
+      
+      // Fall back to legacy grading if both approaches fail
+      try {
+        const score = await this.legacyGradeWrittenAnswer(userAnswer, question.answer);
+        return { score, conceptsFeedback: [] };
+      } catch (fallbackError) {
+        console.error('Error in fallback grading:', fallbackError);
+        return { score: 0, conceptsFeedback: [] };
+      }
+    }
+  }
+
+  /**
+   * Get a holistic grade from ChatGPT
+   */
+  private async getHolisticGradeFromChatGPT(
+    userAnswer: string,
+    questionText: string,
+    correctAnswer: string,
+    explanation: string
+  ): Promise<HolisticFeedback> {
+    try {
+      if (!openai) {
+        return { score: 0, feedback: "AI grading unavailable" };
+      }
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert grader for investment banking technical questions. Your task is to holistically evaluate a student's answer to a technical question.
+
+Provide a comprehensive assessment that considers:
+1. Technical accuracy and understanding of concepts
+2. Completeness of the answer
+3. Quality of analysis and reasoning
+4. Practical application of concepts
+
+Return your evaluation as a JSON object with:
+1. A numeric score (0-100)
+2. Detailed feedback explaining the score and highlighting strengths and areas for improvement
+
+Format:
+{
+  "score": number,
+  "feedback": "detailed explanation"
+}`
+          },
+          {
+            role: "user",
+            content: `What grade would you give this answer, considering the following provided question, correct answer, and explanation?
+
+Question: ${questionText}
+
+Correct Answer: ${correctAnswer}
+
+Explanation: ${explanation}
+
+Student's Answer: ${userAnswer}
+
+Provide a holistic grade (0-100) and detailed feedback.`
+          }
+        ],
+        temperature: 0.7,
+        response_format: { type: "json_object" }
+      });
+
+      const content = response.choices[0].message.content?.trim() || "{}";
+      try {
+        const result = JSON.parse(content);
+        return {
+          score: typeof result.score === 'number' ? Math.min(100, Math.max(0, result.score)) : 0,
+          feedback: result.feedback || "No feedback provided"
+        };
+      } catch (error) {
+        console.error('Error parsing holistic grading JSON:', error, content);
+        // Try to extract a score from the raw content if JSON parsing fails
+        const scoreMatch = content.match(/score["\s:]+(\d+)/i);
+        const score = scoreMatch ? parseInt(scoreMatch[1]) : 0;
+        return {
+          score: Math.min(100, Math.max(0, score)),
+          feedback: "Error parsing AI feedback. Please try again."
+        };
+      }
+    } catch (error) {
+      console.error('Error getting holistic grade:', error);
+      return { score: 0, feedback: "Failed to get AI feedback" };
     }
   }
 

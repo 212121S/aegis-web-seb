@@ -248,6 +248,40 @@ const TestResults = () => {
                     {question.explanation}
                   </Typography>
                   
+                  {/* Holistic Feedback from ChatGPT */}
+                  {question.holisticFeedback && (
+                    <>
+                      <Typography variant="subtitle2" color="textSecondary" gutterBottom sx={{ mt: 2 }}>
+                        AI Grading Assessment:
+                      </Typography>
+                      <Paper 
+                        variant="outlined" 
+                        sx={{ 
+                          p: 2, 
+                          mb: 2, 
+                          borderLeft: '4px solid #3f51b5',
+                          backgroundColor: 'rgba(63, 81, 181, 0.05)'
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                            Overall Assessment
+                          </Typography>
+                          <Chip 
+                            label={`${question.holisticFeedback.score}%`}
+                            color={
+                              question.holisticFeedback.score >= 70 ? 'success' :
+                              question.holisticFeedback.score >= 50 ? 'warning' : 'error'
+                            }
+                          />
+                        </Box>
+                        <Typography variant="body1">
+                          {question.holisticFeedback.feedback}
+                        </Typography>
+                      </Paper>
+                    </>
+                  )}
+                  
                   {/* Concept Feedback for Written Answers */}
                   {question.conceptsFeedback && question.conceptsFeedback.length > 0 && (
                     <>

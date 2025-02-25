@@ -34,22 +34,44 @@ export interface IQuestion extends Document {
 
 // Constants for validation
 const VALID_VERTICALS = [
+  // Original verticals
   'Healthcare', 'FIG', 'TMT', 'Energy', 'Retail & Consumer',
   'Industrials', 'Real Estate', 'Gaming, Lodging & Leisure',
-  'Natural Resources & Metals/Mining', 'Transportation & Infrastructure'
+  'Natural Resources & Metals/Mining', 'Transportation & Infrastructure',
+  // Added verticals
+  'Cross-Industry', 'Agriculture & Food', 'Aerospace & Defense',
+  'Chemicals', 'Fintech', 'Pharmaceuticals', 'Renewable Energy',
+  // Additional verticals found in sample questions
+  'Oil & Gas'
 ];
 
 const VALID_ROLES = [
+  // Original roles
   'Investment Banking', 'Equity Research', 'Leveraged Finance',
   'Restructuring', 'Wealth Management', 'DCM', 'ECM',
-  'Private Credit', 'M&A'
+  'Private Credit', 'M&A',
+  // Added roles
+  'Private Equity', 'Risk Management', 'Sales & Trading',
+  'Quantitative Analysis', 'ESG Advisory', 'Corporate Development',
+  'Venture Capital', 'Asset Management',
+  // Additional roles found in sample questions
+  'Treasury', 'Project Finance', 'Fixed Income Research', 'Hedge Fund'
 ];
 
 const VALID_TOPICS = [
+  // Original topics
   'Accounting', 'DCF', 'Comparable Company Analysis',
   'Precedent Transactions', 'M&A / Synergy Modeling',
   'LBO Modeling', 'Restructuring / Distressed Analysis',
-  'Capital Markets', 'Credit Analysis', 'Portfolio Theory'
+  'Capital Markets', 'Credit Analysis', 'Portfolio Theory',
+  // Added topics
+  'Valuation', 'Risk Management', 'Transaction Structuring',
+  'IP Valuation', 'Regulatory Compliance', 'Private Equity',
+  'ESG Analysis', 'Derivatives & Structured Products', 'Foreign Exchange',
+  'Commodities', 'Fixed Income Analysis', 'Equity Analysis',
+  'Merger Arbitrage', 'Distressed Debt', 'Venture Capital Valuation',
+  // Additional topics found in sample questions
+  'Industry-Specific Metrics', 'Quantitative Methods', 'Project Finance'
 ];
 
 const questionSchema = new Schema<IQuestion>({
