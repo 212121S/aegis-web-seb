@@ -322,7 +322,7 @@ export class QuestionGenerationService {
         {
           model: 'gpt-4o-mini',
           messages,
-          temperature: 0.7,
+          temperature: 0.95,
           max_tokens: 2000,
           n: 1
         },

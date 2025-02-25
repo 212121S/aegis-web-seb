@@ -37,7 +37,7 @@ Student's Answer: ${userAnswer}
 Provide only the numeric score (0-100).`
           }
         ],
-        temperature: 0.3,
+        temperature: 0.6,
         max_tokens: 5
       });
 
