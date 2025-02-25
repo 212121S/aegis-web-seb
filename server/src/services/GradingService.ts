@@ -66,7 +66,7 @@ Student's Answer: ${userAnswer}
 Consider all evaluation criteria and provide only the final numeric score (0-100).`
           }
         ],
-        temperature: 0.4,
+        temperature: 1.0,
         max_tokens: 5
       });
 

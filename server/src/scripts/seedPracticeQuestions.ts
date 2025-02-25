@@ -7,6 +7,21 @@ dotenv.config();
 // Enhanced level 8 questions for top percentile differentiation
 const enhancedLevel8Questions = [
   {
+    text: "You're advising a global investment bank facing a liquidity crisis during a period of extreme market volatility. The bank has significant exposure to emerging markets with capital controls, holds complex structured products with uncertain valuations, and is subject to regulatory scrutiny in multiple jurisdictions. The market is experiencing unprecedented correlation across asset classes, and there are rumors of potential cyber attacks on financial infrastructure. Design a comprehensive crisis response strategy that addresses immediate liquidity needs, regulatory compliance, stakeholder management, and long-term strategic positioning.",
+    answer: "A comprehensive crisis response strategy should include:\n\n1. Immediate Liquidity Management:\n- Establish a crisis liquidity committee with hourly monitoring\n- Implement tiered liquidity preservation measures:\n  * Reduce non-essential trading book positions with minimal market impact\n  * Access central bank liquidity facilities across jurisdictions\n  * Activate contingent funding arrangements with pre-established counterparties\n- Develop scenario-based cash flow projections under extreme stress conditions\n- Implement collateral optimization strategies to maximize eligible assets\n\n2. Regulatory Response Framework:\n- Activate cross-jurisdictional regulatory communication protocol\n- Prepare jurisdiction-specific compliance documentation addressing:\n  * Capital adequacy maintenance\n  * Liquidity coverage ratio (LCR) and net stable funding ratio (NSFR) compliance\n  * Recovery and resolution planning updates\n- Establish real-time reporting mechanisms for regulatory thresholds\n- Develop regulatory arbitrage analysis to identify conflicting requirements\n\n3. Structured Products Risk Mitigation:\n- Implement enhanced valuation governance with third-party verification\n- Develop contingency hedging strategies for illiquid positions\n- Create scenario-based waterfall analysis for structured product cash flows\n- Establish special situations team for potential restructuring\n\n4. Emerging Markets Exposure Management:\n- Implement jurisdiction-specific capital repatriation strategies\n- Develop local currency hedging program accounting for capital controls\n- Create diplomatic engagement strategy for emergency regulatory relief\n- Establish alternative legal structures for maintaining market access\n\n5. Cyber Resilience Measures:\n- Activate enhanced security protocols for critical infrastructure\n- Implement air-gapped backup systems for core functions\n- Establish manual processing capabilities for essential operations\n- Develop communication strategy for potential data integrity issues\n\n6. Stakeholder Management:\n- Design tiered communication strategy for:\n  * Regulators (proactive disclosure with solution orientation)\n  * Counterparties (focused on continuity and stability)\n  * Clients (emphasizing protection and service maintenance)\n  * Shareholders (addressing long-term value preservation)\n  * Employees (ensuring clarity on critical functions)\n- Establish crisis communication command center with pre-approved messaging\n\n7. Strategic Positioning:\n- Develop scenario-based strategic options:\n  * Standalone recovery with core business preservation\n  * Strategic partnership with complementary institution\n  * Orderly wind-down of vulnerable business lines\n- Prepare contingent M&A defense strategies\n- Identify strategic assets for potential divestiture with minimal franchise impact\n\n8. Ethical Decision Framework:\n- Establish crisis ethics committee with independent oversight\n- Develop decision matrix balancing stakeholder interests\n- Create documentation protocol for crisis-period decisions\n- Implement whistleblower protection enhancements\n\nThe strategy must be implemented with a clear governance structure, defined escalation paths, and regular stress testing of response mechanisms. Success requires balancing short-term survival with long-term franchise preservation while maintaining ethical standards under extreme pressure.",
+    explanation: "This question tests multiple crisis management dimensions simultaneously: liquidity management, regulatory complexity, market risk, operational resilience, and strategic thinking. It requires candidates to demonstrate understanding of financial market interconnections, regulatory frameworks across jurisdictions, and practical implementation challenges during extreme conditions. The question also tests ethical decision-making under pressure and the ability to balance competing stakeholder interests.",
+    type: "open_ended",
+    difficulty: 8,
+    industryVerticals: ["FIG", "Cross-Industry"],
+    roles: ["Investment Banking", "Risk Management", "Restructuring"],
+    topics: ["Risk Management", "Restructuring / Distressed Analysis", "Regulatory Compliance"],
+    source: {
+      type: "base",
+      timestamp: new Date(),
+      cached: false
+    }
+  },
+  {
     text: "A major pharmaceutical company is considering acquiring a digital health startup that has developed an AI-powered drug discovery platform. The startup has no revenue but has several pending patents and a significant R&D pipeline. How would you structure the valuation and deal terms to address the unique risks and opportunities?",
     answer: "A comprehensive valuation and deal structure should include:\n\n1. Technology Valuation:\n- Assess the AI platform's capabilities and competitive advantage\n- Value the proprietary algorithms and data assets\n- Benchmark against comparable AI/ML platforms\n\n2. IP Portfolio Analysis:\n- Value pending patents using probability-adjusted DCF\n- Assess patent strength and potential challenges\n- Model licensing potential and royalty streams\n\n3. R&D Pipeline Valuation:\n- Apply rNPV (risk-adjusted Net Present Value) methodology\n- Model phase-specific success probabilities\n- Include cost and timeline estimates for each candidate\n\n4. Deal Structure:\n- Upfront payment based on platform value and validated IP\n- Milestone payments tied to:\n  * Patent approvals\n  * Platform performance metrics\n  * Drug candidate progression\n- Royalty structure on successfully commercialized drugs\n\n5. Risk Mitigation:\n- Technology escrow arrangements\n- Key employee retention packages\n- Data rights and ownership provisions\n- Regulatory compliance requirements\n\n6. Strategic Considerations:\n- Integration planning for the AI platform\n- Data privacy and security measures\n- Talent retention strategy\n- Competition analysis",
     explanation: "This question tests multiple domains: tech valuation, biotech IP assessment, and M&A structuring. The candidate must demonstrate understanding of both traditional valuation methods and their adaptation for emerging technologies, while also considering practical implementation challenges.",
@@ -53,8 +68,55 @@ const enhancedLevel8Questions = [
   }
 ];
 
-// Original sample questions
+// Sample questions for each difficulty level
 const baseQuestions = [
+  // Level 1-2 (Basic) Questions
+  {
+    text: "What financial metric is calculated by dividing a company's market capitalization by its annual earnings?",
+    answer: "Price-to-Earnings (P/E) ratio",
+    explanation: "The Price-to-Earnings (P/E) ratio is a fundamental valuation metric that divides a company's share price by its earnings per share. It indicates how much investors are willing to pay for each dollar of earnings and is widely used for comparing valuations across companies.",
+    type: "multiple_choice",
+    options: [
+      "Price-to-Earnings (P/E) ratio",
+      "Enterprise Value-to-EBITDA ratio",
+      "Price-to-Book ratio",
+      "Debt-to-Equity ratio"
+    ],
+    correctOption: "Price-to-Earnings (P/E) ratio",
+    difficulty: 1,
+    industryVerticals: ["Cross-Industry"],
+    roles: ["Investment Banking", "Equity Research"],
+    topics: ["Valuation"],
+    source: {
+      type: "base",
+      timestamp: new Date(),
+      cached: false
+    }
+  },
+  {
+    text: "Which of the following is NOT a common exit strategy for private equity investments?",
+    answer: "Debt refinancing",
+    explanation: "Debt refinancing is not a primary exit strategy for private equity investments. Common exit strategies include IPO (taking the company public), strategic sale (selling to another company), secondary sale (selling to another PE firm), and recapitalization (distributing proceeds to investors while maintaining ownership).",
+    type: "multiple_choice",
+    options: [
+      "Initial Public Offering (IPO)",
+      "Strategic sale to a corporate buyer",
+      "Secondary sale to another private equity firm",
+      "Debt refinancing"
+    ],
+    correctOption: "Debt refinancing",
+    difficulty: 2,
+    industryVerticals: ["Cross-Industry"],
+    roles: ["Private Equity"],
+    topics: ["Private Equity"],
+    source: {
+      type: "base",
+      timestamp: new Date(),
+      cached: false
+    }
+  },
+  
+  // Level 3-4 (Intermediate) Questions
   {
     text: "Which accounting method is typically used to record revenue from long-term healthcare service contracts?",
     answer: "Percentage of completion method",

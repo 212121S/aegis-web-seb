@@ -340,37 +340,128 @@ export class QuestionGenerationService {
     }).limit(2);
   }
 
+  private getDifficultySpecificSystemMessage(difficulty: number[]): string {
+    // Get the highest difficulty level in the array
+    const maxDifficulty = Math.max(...difficulty);
+    
+    // Return appropriate system message based on difficulty level
+    switch(maxDifficulty) {
+      case 1:
+      case 2:
+        return `For difficulty levels 1-2, create BASIC questions that:
+1. Test fundamental knowledge and terminology
+2. Focus on single concepts without requiring synthesis
+3. Use straightforward scenarios with clear right/wrong answers
+4. Require minimal analysis or calculation
+5. Test recall of standard industry practices and definitions`;
+        
+      case 3:
+      case 4:
+        return `For difficulty levels 3-4, create INTERMEDIATE questions that:
+1. Test application of concepts in straightforward scenarios
+2. Require basic analysis of financial information
+3. May involve simple calculations or methodologies
+4. Test understanding of standard industry practices
+5. Focus on well-established frameworks with minimal ambiguity`;
+        
+      case 5:
+        return `For difficulty level 5, create CHALLENGING questions that:
+1. Test application of concepts in moderately complex scenarios
+2. Require multi-step analysis
+3. Involve consideration of multiple factors
+4. May have some contextual dependencies
+5. Test ability to identify appropriate methodologies
+6. Require understanding of industry-specific nuances`;
+        
+      case 6:
+        return `For difficulty level 6, create ADVANCED questions that:
+1. Test application of concepts in complex scenarios
+2. Require sophisticated analysis with multiple variables
+3. Involve interconnected factors and considerations
+4. Test ability to evaluate tradeoffs between approaches
+5. Require synthesis of multiple concepts
+6. Include some market context dependencies
+7. Test ability to identify and evaluate risks`;
+        
+      case 7:
+        return `For difficulty level 7, create VERY ADVANCED questions that:
+1. Test application of concepts in highly complex scenarios
+2. Require integration of multiple domains (e.g., M&A, valuation, capital markets)
+3. Involve significant market context dependencies
+4. Test ability to evaluate multiple valid approaches
+5. Require sophisticated risk-return analysis
+6. Include practical implementation considerations
+7. Test strategic thinking alongside technical knowledge
+8. Require justification of chosen methodologies`;
+        
+      case 8:
+        return `For difficulty level 8 questions, create EXTREMELY CHALLENGING scenarios that:
+
+1. Integrate Multiple Domains:
+- Combine knowledge across 3+ different areas (e.g., M&A, credit analysis, regulatory frameworks, ESG, geopolitics)
+- Require synthesis of technical, strategic, and operational considerations
+
+2. Include Market Context Dependencies:
+- Make the correct approach dependent on complex, interconnected market conditions
+- Require analysis of multiple conflicting market scenarios
+- Test ability to identify which market factors are most critical
+
+3. Demand Advanced Risk-Return Analysis:
+- Test ability to identify and evaluate deeply interconnected risks
+- Require assessment of third and fourth-order effects
+- Include tail risk considerations and black swan scenarios
+
+4. Present Complex Decision Trees:
+- Include multiple valid approaches with different risk-reward profiles
+- Require justification of chosen strategies under uncertainty
+- Test ability to prioritize competing objectives
+
+5. Address Implementation Challenges:
+- Include practical constraints and real-world complications
+- Test ability to adapt theoretical frameworks to practical situations
+- Require consideration of stakeholder management
+
+6. Asymmetric Information Scenarios:
+- Create situations with incomplete information
+- Test ability to identify what is unknown and how to mitigate information gaps
+- Require decision-making under uncertainty with proper risk management
+
+7. Regulatory Arbitrage Challenges:
+- Present complex cross-border scenarios with conflicting regulatory frameworks
+- Test understanding of global regulatory nuances and their strategic implications
+- Require navigation of compliance requirements across multiple jurisdictions
+
+8. Crisis Management Scenarios:
+- Create high-pressure situations requiring rapid decision-making with limited information
+- Test ability to prioritize actions and manage multiple stakeholders
+- Require balancing short-term crisis response with long-term strategic implications
+
+9. Ethical Dilemmas with Financial Implications:
+- Present scenarios where optimal financial outcomes conflict with ethical considerations
+- Test ability to navigate complex ethical terrain while maintaining fiduciary responsibility
+- Require balancing shareholder value with broader stakeholder interests
+
+10. Extreme Market Conditions:
+- Create scenarios involving market dislocations, liquidity crises, or unprecedented events
+- Test ability to adapt traditional frameworks to extreme conditions
+- Require innovative approaches to valuation and risk management
+
+Questions should be designed to truly differentiate the top 1% of candidates by testing both exceptional technical mastery and sophisticated strategic thinking. The ideal level 8 question should be answerable only by candidates with both deep expertise and the ability to synthesize complex, multi-faceted problems.`;
+        
+      default:
+        return ''; // Default to empty string for no specific guidance
+    }
+  }
+
   private async callOpenAI(params: GenerationParams & { sampleQuestions: IQuestion[] }): Promise<GeneratedQuestion[]> {
     if (!openai || !isOpenAIConfigured()) {
       console.warn('OpenAI is not configured');
       return [];
     }
 
-    // Enhanced system message for level 8 questions
-    const enhancedSystemMessage = params.difficulty.includes(8) 
-      ? `${SYSTEM_MESSAGE}\n\nFor difficulty level 8 questions, ensure they:
-1. Integrate Multiple Domains:
-- Combine knowledge across different areas (e.g., M&A, credit analysis, regulatory frameworks)
-- Require synthesis of technical and strategic considerations
-
-2. Include Market Context Dependencies:
-- Make the correct approach dependent on market conditions
-- Require analysis of different market scenarios
-
-3. Demand Risk-Return Analysis:
-- Test ability to identify and evaluate interconnected risks
-- Require assessment of second and third-order effects
-
-4. Present Complex Decision Trees:
-- Include multiple valid approaches with different risk-reward profiles
-- Require justification of chosen strategies
-
-5. Address Implementation Challenges:
-- Include practical constraints and real-world complications
-- Test ability to adapt theoretical frameworks to practical situations
-
-Questions should truly differentiate top-percentile candidates by testing both technical mastery and strategic thinking.`
-      : SYSTEM_MESSAGE;
+    // Get difficulty-specific system message
+    const difficultySystemMessage = this.getDifficultySpecificSystemMessage(params.difficulty);
+    const enhancedSystemMessage = `${SYSTEM_MESSAGE}\n\n${difficultySystemMessage}`;
 
     const messages = [
       { role: 'system' as const, content: enhancedSystemMessage },
@@ -388,14 +479,14 @@ Questions should truly differentiate top-percentile candidates by testing both t
         isConfigured: isOpenAIConfigured(),
         apiKeyLength: process.env.OPENAI_API_KEY?.length,
         model: 'gpt-4o-mini',
-        isLevel8: params.difficulty.includes(8)
+        difficultyLevel: Math.max(...params.difficulty)
       });
 
       const completion = await openai.chat.completions.create(
         {
           model: 'gpt-4o-mini',
           messages,
-          temperature: 0.95,
+          temperature: 1.0,
           max_tokens: 2000,
           n: 1
         },
